@@ -5414,17 +5414,17 @@ export async function startVisualizerServer(discordClient) {
         return res.status(403).json({ error: 'Solo el Owner del bot puede realizar esta acción.' });
     }
 
-    // --- MIDDLEWARE: Can Admin a specific League (owner, referee, or league creator) ---
+    // --- MIDDLEWARE: Can Admin a specific League (owner, referee, league creator, or helper) ---
     async function canAdminLeague(req, res, next) {
         if (!req.user) return res.status(401).json({ error: 'No autenticado' });
         const isAdmin = req.user.id === process.env.OWNER_DISCORD_ID;
         const isReferee = Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
         if (isAdmin || isReferee) return next();
-        // Check if user is the league creator
+        // Check if user is the league creator or co-admin (helper)
         try {
             const db = getDb();
             const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(req.params.id) });
-            if (league && league.createdBy === req.user.id) return next();
+            if (league && (league.createdBy === req.user.id || league.coAdmin === req.user.id)) return next();
         } catch (e) {
             console.error('[canAdminLeague] Error:', e);
         }
@@ -5877,6 +5877,15 @@ export async function startVisualizerServer(discordClient) {
         try {
             const db = getDb();
             const leagueId = req.params.id;
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+
+            const isAdmin = req.user.id === process.env.OWNER_DISCORD_ID;
+            const isReferee = Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
+            if (!isAdmin && !isReferee && league.createdBy !== req.user.id) {
+                return res.status(403).json({ error: 'No tienes permisos para eliminar esta liga (los ayudantes no pueden realizar esta acción).' });
+            }
+
             await db.collection('fantasy_teams').deleteMany({ leagueId });
             await db.collection('fantasy_leagues').deleteOne({ _id: new ObjectId(leagueId) });
             res.json({ success: true, message: 'Liga y todos sus equipos eliminados.' });
@@ -5898,6 +5907,80 @@ export async function startVisualizerServer(discordClient) {
         } catch (e) {
             console.error('[API Fantasy Toggle Market] Error:', e);
             res.status(500).json({ error: 'Error al cambiar estado del mercado.' });
+        }
+    });
+
+    // Toggle league status (admin only)
+    app.post('/api/fantasy/leagues/:id/toggle-status', isAuthenticated, canAdminLeague, async (req, res) => {
+        try {
+            const db = getDb();
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(req.params.id) });
+            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+            
+            const newStatus = league.status === 'closed' ? 'active' : 'closed';
+            await db.collection('fantasy_leagues').updateOne({ _id: new ObjectId(req.params.id) }, { $set: { status: newStatus } });
+            
+            res.json({ 
+                success: true, 
+                message: `La liga ha sido ${newStatus === 'closed' ? 'finalizada' : 'reactivada'}.`, 
+                status: newStatus 
+            });
+        } catch (e) {
+            console.error('[API Fantasy Toggle Status] Error:', e);
+            res.status(500).json({ error: 'Error al cambiar estado de la liga.' });
+        }
+    // Toggle/assign co-admin helper role (creator, admin, referee only)
+    app.post('/api/fantasy/leagues/:id/co-admin', isAuthenticated, canAdminLeague, async (req, res) => {
+        try {
+            const db = getDb();
+            const leagueId = req.params.id;
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+
+            // Ensure the user is creator, admin, or referee
+            const isAdmin = req.user.id === process.env.OWNER_DISCORD_ID;
+            const isReferee = Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
+            const isCreator = league.createdBy === req.user.id;
+
+            if (!isAdmin && !isReferee && !isCreator) {
+                return res.status(403).json({ error: 'Solo el creador de la liga, un administrador o un árbitro pueden gestionar el ayudante.' });
+            }
+
+            const { targetDiscordId } = req.body;
+            if (!targetDiscordId) {
+                return res.status(400).json({ error: 'Falta el ID del participante (targetDiscordId).' });
+            }
+
+            // Restrict setting creator as helper
+            if (targetDiscordId === league.createdBy) {
+                return res.status(400).json({ error: 'El creador de la liga no puede ser asignado como ayudante.' });
+            }
+
+            // Validate that the target is a participant of the league
+            const team = await db.collection('fantasy_teams').findOne({ discordId: targetDiscordId, leagueId });
+            if (!team) {
+                return res.status(404).json({ error: 'El participante especificado no está inscrito en esta liga.' });
+            }
+            if (!team.approved) {
+                return res.status(400).json({ error: 'El participante debe estar aprobado para ser asignado como ayudante.' });
+            }
+
+            const isRemoving = league.coAdmin === targetDiscordId;
+            const newCoAdmin = isRemoving ? null : targetDiscordId;
+
+            await db.collection('fantasy_leagues').updateOne(
+                { _id: league._id },
+                { $set: { coAdmin: newCoAdmin } }
+            );
+
+            res.json({
+                success: true,
+                message: isRemoving ? 'El participante ya no es ayudante.' : 'El participante ha sido asignado como ayudante.',
+                coAdmin: newCoAdmin
+            });
+        } catch (e) {
+            console.error('[API Fantasy Assign Co-Admin] Error:', e);
+            res.status(500).json({ error: 'Error al cambiar el rol de ayudante.' });
         }
     });
 
@@ -6066,7 +6149,7 @@ export async function startVisualizerServer(discordClient) {
 
             const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
             if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
-            if (league.status === 'closed') return res.status(400).json({ error: 'Esta liga está cerrada.' });
+            if (league.status !== 'open') return res.status(400).json({ error: 'Las inscripciones están cerradas para esta liga.' });
 
             // Check if already joined
             const existing = await db.collection('fantasy_teams').findOne({ discordId, leagueId });
@@ -6078,7 +6161,8 @@ export async function startVisualizerServer(discordClient) {
 
             const isAdminUser = discordId === process.env.OWNER_DISCORD_ID;
             const isRefereeUser = Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
-            const isAutoApproved = isAdminUser || isRefereeUser;
+            const isCreator = league.createdBy === discordId;
+            const isAutoApproved = isAdminUser || isRefereeUser || isCreator;
             const team = {
                 discordId,
                 discordUsername: req.user.global_name || req.user.username,
@@ -6258,9 +6342,9 @@ export async function startVisualizerServer(discordClient) {
             if (!userTeam) return res.status(404).json({ error: 'No estás inscrito en esta liga.' });
             if (!userTeam.approved) return res.status(403).json({ error: 'Tu equipo está pendiente de aprobación por el administrador.' });
 
-            // Check league exists and market is open
             const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
             if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+            if (league.status === 'closed') return res.status(400).json({ error: 'La liga está finalizada y no se permiten más fichajes.' });
             if (!league.marketOpen) return res.status(400).json({ error: 'El mercado está cerrado.' });
 
             if (userTeam.players.includes(eaPlayerName)) return res.status(400).json({ error: 'Ya tienes este jugador.' });
@@ -6390,6 +6474,10 @@ export async function startVisualizerServer(discordClient) {
             if (!userTeam) return res.status(404).json({ error: 'No estás inscrito en esta liga.' });
             if (!userTeam.approved) return res.status(403).json({ error: 'Tu equipo está pendiente de aprobación por el administrador.' });
 
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+            if (league.status === 'closed') return res.status(400).json({ error: 'La liga está finalizada y no se pueden cambiar las alineaciones.' });
+
             // Validate that all players in lineup are owned by user
             const owned = userTeam.players || [];
             
@@ -6448,9 +6536,10 @@ export async function startVisualizerServer(discordClient) {
             if (!userTeam.approved) return res.status(403).json({ error: 'Tu equipo está pendiente de aprobación por el administrador.' });
             if (!userTeam.players.includes(eaPlayerName)) return res.status(400).json({ error: 'No tienes este jugador.' });
 
-            // Check market open
             const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
-            if (league && !league.marketOpen) return res.status(400).json({ error: 'El mercado está cerrado.' });
+            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+            if (league.status === 'closed') return res.status(400).json({ error: 'La liga está finalizada y no se permiten ventas.' });
+            if (!league.marketOpen) return res.status(400).json({ error: 'El mercado está cerrado.' });
 
             const player = await db.collection('player_profiles').findOne({ eaPlayerName });
             if (!player) return res.status(404).json({ error: 'Jugador no encontrado.' });
@@ -6517,6 +6606,7 @@ export async function startVisualizerServer(discordClient) {
 
             const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
             if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+            if (league.status === 'closed') return res.status(400).json({ error: 'La liga está finalizada y no se pueden modificar las cláusulas.' });
 
             const { price } = calculatePlayerPointsAndPrice(player);
             const clauseMultiplier = league.clauseMultiplier || 1.5;
@@ -6564,6 +6654,10 @@ export async function startVisualizerServer(discordClient) {
             const db = getDb();
             const discordId = req.user.id;
 
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+            if (league.status === 'closed') return res.status(400).json({ error: 'La liga está finalizada y no se pueden poner jugadores en el mercado.' });
+
             const userTeam = await db.collection('fantasy_teams').findOne({ discordId, leagueId });
             if (!userTeam) return res.status(404).json({ error: 'No estás inscrito en esta liga.' });
             if (!userTeam.players.includes(eaPlayerName)) return res.status(400).json({ error: 'No posees a este jugador.' });
@@ -6596,6 +6690,10 @@ export async function startVisualizerServer(discordClient) {
             if (!eaPlayerName) return res.status(400).json({ error: 'Falta eaPlayerName' });
             const db = getDb();
             const discordId = req.user.id;
+
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+            if (league.status === 'closed') return res.status(400).json({ error: 'La liga está finalizada.' });
 
             await db.collection('fantasy_market_listings').deleteOne({ leagueId, sellerDiscordId: discordId, eaPlayerName });
             // Remove pending bids for this listing
@@ -6698,6 +6796,11 @@ export async function startVisualizerServer(discordClient) {
             const userTeam = await db.collection('fantasy_teams').findOne({ discordId, leagueId });
             if (!userTeam) return res.status(404).json({ error: 'No estás inscrito en esta liga.' });
             if (!userTeam.approved) return res.status(403).json({ error: 'Tu equipo está pendiente de aprobación.' });
+
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+            if (league.status === 'closed') return res.status(400).json({ error: 'La liga está finalizada y no se permiten pujas.' });
+
             if (userTeam.balance < bidAmount) {
                 return res.status(400).json({ error: `Saldo insuficiente. Pujar cuesta ${bidAmount.toLocaleString('es-ES')} € y tu saldo es ${userTeam.balance.toLocaleString('es-ES')} €.` });
             }
@@ -6802,6 +6905,11 @@ export async function startVisualizerServer(discordClient) {
 
             const bid = await db.collection('fantasy_market_bids').findOne({ _id: new ObjectId(bidId), leagueId });
             if (!bid) return res.status(404).json({ error: 'Oferta no encontrada.' });
+
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+            if (league.status === 'closed') return res.status(400).json({ error: 'La liga está finalizada.' });
+
             if (bid.sellerDiscordId !== discordId) {
                 return res.status(403).json({ error: 'No tienes permiso para responder a esta oferta.' });
             }

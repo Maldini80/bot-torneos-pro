@@ -502,7 +502,7 @@
                                         <select id="admin-league-status" class="form-select">
                                             <option value="open">Abierta (Inscripciones permitidas)</option>
                                             <option value="active">Activa (Liga en curso)</option>
-                                            <option value="closed">Cerrada</option>
+                                            <option value="closed">Finalizada (Solo lectura)</option>
                                         </select>
                                     </div>
                                     <div class="form-group col">
@@ -550,6 +550,14 @@
 
 
 
+
+                            <div class="action-card">
+                                <div>
+                                    <h4>Estado de la Liga</h4>
+                                    <p class="text-muted">Estado actual: <strong id="admin-league-status-text">...</strong>. Finaliza la liga para bloquear todas las transacciones o reábrela.</p>
+                                </div>
+                                <button id="btn-admin-toggle-status" class="btn btn-sm btn-primary">Cargando...</button>
+                            </div>
 
                             <div class="action-card">
                                 <div>

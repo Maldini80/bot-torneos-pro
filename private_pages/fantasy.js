@@ -196,6 +196,8 @@ const adminLeagueAllowClauses = document.getElementById('admin-league-allow-clau
 const adminLeagueClauseMultiplier = document.getElementById('admin-league-clause-multiplier');
 const adminLeagueInitialBudget = document.getElementById('admin-league-initial-budget');
 const btnAdminToggleMarket = document.getElementById('btn-admin-toggle-market');
+const btnAdminToggleStatus = document.getElementById('btn-admin-toggle-status');
+const adminLeagueStatusText = document.getElementById('admin-league-status-text');
 const btnAdminDeleteLeague = document.getElementById('btn-admin-delete-league');
 const btnAdminRebuildStats = null; // Removed from league admin panel
 const rebuildStatsProgress = null; // Removed from league admin panel
@@ -469,6 +471,7 @@ function setupEventHandlers() {
     
     // Quick admin buttons
     btnAdminToggleMarket.addEventListener('click', handleAdminToggleMarket);
+    if (btnAdminToggleStatus) btnAdminToggleStatus.addEventListener('click', handleAdminToggleStatus);
     btnAdminDeleteLeague.addEventListener('click', handleAdminDeleteLeague);
     if (btnAdminRebuildStats) btnAdminRebuildStats.addEventListener('click', () => executeRebuildStats(btnAdminRebuildStats, rebuildStatsProgress));
     if (btnOwnerRebuildStats) btnOwnerRebuildStats.addEventListener('click', () => executeRebuildStats(btnOwnerRebuildStats, ownerRebuildProgress));
@@ -568,7 +571,7 @@ async function showLeagueSelector() {
             let statusBadge = '';
             if (league.status === 'open') statusBadge = '<span class="badge badge-success">Abierta</span>';
             else if (league.status === 'active') statusBadge = '<span class="badge badge-info">En Curso</span>';
-            else statusBadge = '<span class="badge badge-danger">Cerrada</span>';
+            else statusBadge = '<span class="badge badge-danger">Finalizada</span>';
             
             card.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -697,7 +700,7 @@ async function handleCreateLeague(e) {
 }
 
 // Enter/Join League logic
-async function enterLeague(leagueId) {
+async function enterLeague(leagueId, keepCurrentTab = false) {
     try {
         const res = await fetch(`/api/fantasy/leagues/${leagueId}/my-team`);
         
@@ -765,16 +768,42 @@ async function enterLeague(leagueId) {
         }
         
         // Show/hide admin tab based on permissions
-        const canAdmin = currentUser.isAdmin || (activeLeague && activeLeague.createdBy === currentUser.discordId);
+        const canAdmin = currentUser.isAdmin || (activeLeague && (activeLeague.createdBy === currentUser.discordId || activeLeague.coAdmin === currentUser.discordId));
         if (btnLeagueAdminTab) {
             btnLeagueAdminTab.style.display = canAdmin ? '' : 'none';
         }
 
-        // Reset subtabs to first tab
-        document.querySelectorAll('.nav-tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelector('[data-league-tab="my-team"]').classList.add('active');
-        document.querySelectorAll('.league-tab-content').forEach(c => c.classList.remove('active'));
-        document.getElementById('league-tab-my-team').classList.add('active');
+        if (!keepCurrentTab) {
+            // Reset left subtabs to first tab
+            document.querySelectorAll('.nav-tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector('[data-league-tab="my-team"]').classList.add('active');
+            document.querySelectorAll('.league-tab-content').forEach(c => c.classList.remove('active'));
+            document.getElementById('league-tab-my-team').classList.add('active');
+
+            // Reset right panel tabs (Market vs Squad)
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            const defaultRightTab = document.querySelector('[data-tab="market"]');
+            if (defaultRightTab) defaultRightTab.classList.add('active');
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            const defaultRightPane = document.getElementById('tab-market');
+            if (defaultRightPane) defaultRightPane.classList.add('active');
+
+            // Reset market sub-tabs (Libres, Transferibles, Ofertas)
+            document.querySelectorAll('.market-sub-btn').forEach(btn => {
+                btn.classList.remove('active', 'btn-primary');
+                btn.classList.add('btn-secondary');
+                btn.style.background = '#334155';
+            });
+            const defaultMarketSubBtn = document.querySelector('[data-sub-tab="pc-market"]');
+            if (defaultMarketSubBtn) {
+                defaultMarketSubBtn.classList.remove('btn-secondary');
+                defaultMarketSubBtn.classList.add('active', 'btn-primary');
+                defaultMarketSubBtn.style.background = '';
+            }
+            document.querySelectorAll('.market-sub-content-pane').forEach(p => p.style.display = 'none');
+            const defaultMarketSubPane = document.getElementById('sub-pc-market');
+            if (defaultMarketSubPane) defaultMarketSubPane.style.display = 'block';
+        }
         
         // Fetch and load players
         const playersRes = await fetch(`/api/fantasy/players?leagueId=${leagueId}`);
@@ -815,6 +844,25 @@ async function enterLeague(leagueId) {
         filterAndRenderMarket();
         renderSquadList();
         updateSquadStats();
+
+        // Refresh active views if we kept the tab
+        if (keepCurrentTab) {
+            const activeLeftBtn = document.querySelector('.nav-tab-btn.active');
+            const activeLeftTab = activeLeftBtn ? activeLeftBtn.getAttribute('data-league-tab') : null;
+            if (activeLeftTab === 'leaderboard') {
+                await loadLeaderboard();
+            } else if (activeLeftTab === 'admin-panel') {
+                await loadAdminPanelData();
+            }
+            
+            const activeSubBtn = document.querySelector('.market-sub-btn.active');
+            const activeSubTab = activeSubBtn ? activeSubBtn.getAttribute('data-sub-tab') : null;
+            if (activeSubTab === 'user-market') {
+                await loadUserMarket();
+            } else if (activeSubTab === 'bids-market') {
+                await loadMarketBids();
+            }
+        }
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
@@ -914,13 +962,13 @@ function filterAndRenderMarket() {
                     <div class="text-yellow" style="font-weight: 700;">${formatCurrency(clauseVal)}</div>
                 `;
                 if (activeLeague && activeLeague.allowClauses !== false) {
-                    actionCol = `<button class="btn btn-warning btn-xs btn-clausulazo" data-name="${p.eaPlayerName}" data-clause="${clauseVal}" data-owner="${p.owner}" ${!activeLeague.marketOpen ? 'disabled' : ''}><i class="fa-solid fa-bolt"></i> Clausulazo</button>`;
+                    actionCol = `<button class="btn btn-warning btn-xs btn-clausulazo" data-name="${p.eaPlayerName}" data-clause="${clauseVal}" data-owner="${p.owner}" ${(!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-bolt"></i> Clausulazo</button>`;
                 } else {
                     actionCol = `<span class="badge badge-info text-xs" style="font-size: 0.75rem; border: none; padding: 4px 8px; border-radius: 4px; display: inline-block;"><i class="fa-solid fa-user-lock"></i> ${p.owner}</span>`;
                 }
             }
         } else {
-            actionCol = `<button class="btn btn-success btn-xs btn-buy" data-name="${p.eaPlayerName}" ${activeLeague && !activeLeague.marketOpen ? 'disabled' : ''}><i class="fa-solid fa-plus"></i> Fichar</button>`;
+            actionCol = `<button class="btn btn-success btn-xs btn-buy" data-name="${p.eaPlayerName}" ${activeLeague && (!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-plus"></i> Fichar</button>`;
         }
 
         row.innerHTML = `
@@ -1003,11 +1051,11 @@ function renderSquadList() {
             <td class="text-right price-text">${formatCurrency(p.price)}</td>
             <td class="text-center">
                 <div style="display: flex; gap: 4px; justify-content: center;">
-                    <button class="btn btn-danger btn-xs btn-sell" data-name="${p.eaPlayerName}" ${activeLeague && !activeLeague.marketOpen ? 'disabled' : ''}><i class="fa-solid fa-dollar-sign"></i> Vender (80%)</button>
-                    <button class="btn btn-warning btn-xs btn-clause" data-name="${p.eaPlayerName}" ${activeLeague && (!activeLeague.allowClauses || !activeLeague.marketOpen) ? 'disabled' : ''}><i class="fa-solid fa-arrow-trend-up"></i> Cláusula</button>
+                    <button class="btn btn-danger btn-xs btn-sell" data-name="${p.eaPlayerName}" ${activeLeague && (!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-dollar-sign"></i> Vender (80%)</button>
+                    <button class="btn btn-warning btn-xs btn-clause" data-name="${p.eaPlayerName}" ${activeLeague && (!activeLeague.allowClauses || !activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-arrow-trend-up"></i> Cláusula</button>
                     ${isListed 
-                        ? `<button class="btn btn-secondary btn-xs btn-unlist" data-name="${p.eaPlayerName}" ${activeLeague && !activeLeague.marketOpen ? 'disabled' : ''}><i class="fa-solid fa-minus"></i> Quitar Venta</button>`
-                        : `<button class="btn btn-info btn-xs btn-list" data-name="${p.eaPlayerName}" ${activeLeague && !activeLeague.marketOpen ? 'disabled' : ''}><i class="fa-solid fa-tag"></i> Vender en Mercado</button>`
+                        ? `<button class="btn btn-secondary btn-xs btn-unlist" data-name="${p.eaPlayerName}" ${activeLeague && (!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-minus"></i> Quitar Venta</button>`
+                        : `<button class="btn btn-info btn-xs btn-list" data-name="${p.eaPlayerName}" ${activeLeague && (!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-tag"></i> Vender en Mercado</button>`
                     }
                 </div>
             </td>
@@ -1241,7 +1289,7 @@ async function buyPlayer(player) {
         if (!res.ok) throw new Error(data.error || 'Error al comprar jugador.');
 
         showToast(data.message, 'success');
-        await enterLeague(currentLeagueId);
+        await enterLeague(currentLeagueId, true);
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
@@ -1266,7 +1314,7 @@ async function sellPlayer(player) {
         if (!res.ok) throw new Error(data.error || 'Error al vender jugador.');
 
         showToast(data.message, 'success');
-        await enterLeague(currentLeagueId);
+        await enterLeague(currentLeagueId, true);
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
@@ -1326,6 +1374,16 @@ async function loadLeaderboard() {
                 ? `https://cdn.discordapp.com/avatars/${manager.discordId}/${manager.discordAvatar}.png?size=64`
                 : '/img/default_avatar.png'; // Fallback
             
+            // Badges in leaderboard
+            let roleBadge = '';
+            if (activeLeague) {
+                if (manager.discordId === activeLeague.createdBy) {
+                    roleBadge = ' <span class="role-badge creator-badge" title="Creador">👑</span>';
+                } else if (manager.discordId === activeLeague.coAdmin) {
+                    roleBadge = ' <span class="role-badge helper-badge" title="Ayudante">⭐</span>';
+                }
+            }
+            
             row.innerHTML = `
                 <td class="text-center pos-col ${posBadgeClass}">${manager.position}</td>
                 <td>
@@ -1333,7 +1391,7 @@ async function loadLeaderboard() {
                         <img class="manager-avatar" src="${avatarUrl}" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'">
                         <div class="manager-info">
                             <span class="team-name-text">${manager.teamName}</span>
-                            <span class="manager-username">${manager.discordUsername} ${manager.isMe ? '(Tú)' : ''}</span>
+                            <span class="manager-username">${manager.discordUsername}${roleBadge} ${manager.isMe ? '(Tú)' : ''}</span>
                         </div>
                     </div>
                 </td>
@@ -1423,8 +1481,23 @@ async function showRivalTeam(discordId, teamName) {
 }
 
 // VIEW 2.3: Load admin panel settings and participants
+// VIEW 2.3: Load admin panel settings and participants
 async function loadAdminPanelData() {
-    const canAdmin = currentUser && (currentUser.isAdmin || (activeLeague && activeLeague.createdBy === currentUser.discordId));
+    // Refresh active league details from server first to get latest coAdmin
+    try {
+        const leaguesRes = await fetch('/api/fantasy/leagues');
+        if (leaguesRes.ok) {
+            const leaguesData = await leaguesRes.json();
+            const updatedLeague = leaguesData.leagues.find(l => l._id === currentLeagueId);
+            if (updatedLeague) {
+                activeLeague = updatedLeague;
+            }
+        }
+    } catch (e) {
+        console.error('Error refreshing active league details:', e);
+    }
+
+    const canAdmin = currentUser && (currentUser.isAdmin || (activeLeague && (activeLeague.createdBy === currentUser.discordId || activeLeague.coAdmin === currentUser.discordId)));
     if (!canAdmin) return;
     
     // Fill Config Form
@@ -1435,10 +1508,18 @@ async function loadAdminPanelData() {
     adminLeagueClauseMultiplier.value = activeLeague.clauseMultiplier || 1.5;
     adminLeagueInitialBudget.value = activeLeague.initialBudget || 50000000;
     
-    // VPG league checkboxes removed from league admin panel
+    // Hide/show delete card for helpers
+    const deleteCard = btnAdminDeleteLeague ? btnAdminDeleteLeague.closest('.action-card') : null;
+    const isOwnerOrCreator = currentUser.isAdmin || (activeLeague && activeLeague.createdBy === currentUser.discordId);
+    if (deleteCard) {
+        deleteCard.style.display = isOwnerOrCreator ? '' : 'none';
+    }
     
     // Set market toggle text
     updateMarketToggleButton(activeLeague.marketOpen);
+    if (adminLeagueStatusText && btnAdminToggleStatus) {
+        updateStatusToggleButton(activeLeague.status);
+    }
     
     // Fetch and render managers list
     adminParticipantsList.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Cargando participantes...</td></tr>`;
@@ -1456,9 +1537,28 @@ async function loadAdminPanelData() {
         } else {
             teams.forEach(team => {
                 const row = document.createElement('tr');
+                
+                // Badges
+                let roleBadge = '';
+                if (team.discordId === activeLeague.createdBy) {
+                    roleBadge = ' <span class="role-badge creator-badge" title="Creador">👑</span>';
+                } else if (team.discordId === activeLeague.coAdmin) {
+                    roleBadge = ' <span class="role-badge helper-badge" title="Ayudante">⭐</span>';
+                }
+
+                // Helper action button
+                let helperBtnHtml = '';
+                if (isOwnerOrCreator && team.discordId !== activeLeague.createdBy) {
+                    if (activeLeague.coAdmin === team.discordId) {
+                        helperBtnHtml = `<button class="btn btn-info btn-xs btn-toggle-helper" data-discord-id="${team.discordId}"><i class="fa-solid fa-star-slash"></i> Quitar Ayudante</button>`;
+                    } else {
+                        helperBtnHtml = `<button class="btn btn-primary btn-xs btn-toggle-helper" data-discord-id="${team.discordId}"><i class="fa-solid fa-star"></i> Hacer Ayudante</button>`;
+                    }
+                }
+
                 row.innerHTML = `
                     <td>
-                        <div style="font-weight: 600; color: #fff;">${team.discordUsername}</div>
+                        <div style="font-weight: 600; color: #fff;">${team.discordUsername}${roleBadge}</div>
                         <div style="font-size: 0.75rem; color: #64748b;">ID: ${team.discordId}</div>
                     </td>
                     <td><div style="font-weight: 600;">${team.teamName}</div></td>
@@ -1466,9 +1566,10 @@ async function loadAdminPanelData() {
                     <td class="text-right price-text">${formatCurrency(team.balance)}</td>
                     <td class="text-right text-yellow" style="font-weight: 700;">${team.points} pts</td>
                     <td class="text-center">
-                        <div style="display: flex; gap: 4px; justify-content: center;">
+                        <div style="display: flex; gap: 4px; justify-content: center; align-items: center; flex-wrap: wrap;">
                             <button class="btn btn-warning btn-xs btn-adjust-budget" data-team-id="${team._id}"><i class="fa-solid fa-coins"></i> Presupuesto</button>
                             <button class="btn btn-danger btn-xs btn-kick-manager" data-team-id="${team._id}"><i class="fa-solid fa-user-minus"></i> Expulsar</button>
+                            ${helperBtnHtml}
                         </div>
                     </td>
                 `;
@@ -1484,6 +1585,13 @@ async function loadAdminPanelData() {
                 if (kickBtn) {
                     kickBtn.addEventListener('click', () => {
                         handleKickManager(team._id, team.discordUsername);
+                    });
+                }
+
+                const toggleHelperBtn = row.querySelector('.btn-toggle-helper');
+                if (toggleHelperBtn) {
+                    toggleHelperBtn.addEventListener('click', () => {
+                        handleToggleCoAdmin(team.discordId, team.discordUsername);
                     });
                 }
                 
@@ -1642,6 +1750,82 @@ function updateMarketToggleButton(isOpen) {
     } else {
         btnAdminToggleMarket.className = 'btn btn-sm btn-success';
         btnAdminToggleMarket.innerHTML = '<i class="fa-solid fa-lock-open"></i> Abrir Mercado';
+    }
+}
+
+// Admin Toggle League Status
+async function handleAdminToggleStatus() {
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/toggle-status`, { method: 'POST' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al cambiar estado de la liga.');
+        
+        showToast(data.message, 'success');
+        activeLeague.status = data.status;
+        
+        // Update select input value to keep in sync
+        if (adminLeagueStatus) {
+            adminLeagueStatus.value = data.status;
+        }
+        
+        updateStatusToggleButton(data.status);
+        
+        // Refresh market and squad buttons disabled state
+        filterAndRenderMarket();
+        renderSquadList();
+        
+        // Refresh other lists if needed (e.g. user market or bids)
+        const activeSubBtn = document.querySelector('.market-sub-btn.active');
+        const activeSubTab = activeSubBtn ? activeSubBtn.getAttribute('data-sub-tab') : null;
+        if (activeSubTab === 'user-market') {
+            await loadUserMarket();
+        } else if (activeSubTab === 'bids-market') {
+            await loadMarketBids();
+        }
+    } catch (e) {
+        console.error(e);
+        showToast(e.message, 'error');
+    }
+}
+
+function updateStatusToggleButton(status) {
+    if (status === 'closed') {
+        adminLeagueStatusText.textContent = 'Finalizada';
+        adminLeagueStatusText.style.color = '#ef4444'; // Red
+        btnAdminToggleStatus.className = 'btn btn-sm btn-success';
+        btnAdminToggleStatus.innerHTML = '<i class="fa-solid fa-lock-open"></i> Reactivar Liga';
+    } else {
+        const text = status === 'open' ? 'Abierta' : 'Activa';
+        adminLeagueStatusText.textContent = text;
+        adminLeagueStatusText.style.color = status === 'open' ? '#10b981' : '#06b6d4'; // Green vs Blue/Cyan
+        btnAdminToggleStatus.className = 'btn btn-sm btn-danger';
+        btnAdminToggleStatus.innerHTML = '<i class="fa-solid fa-lock"></i> Finalizar Liga';
+    }
+}
+
+// Admin Assign/Remove Co-Admin Helper
+async function handleToggleCoAdmin(targetDiscordId, discordUsername) {
+    const isRemoving = activeLeague && activeLeague.coAdmin === targetDiscordId;
+    const confirmMessage = isRemoving
+        ? `¿Estás seguro de que quieres quitar el rol de Ayudante a ${discordUsername}?`
+        : `¿Estás seguro de que quieres asignar a ${discordUsername} como Ayudante de la liga?`;
+
+    if (!confirm(confirmMessage)) return;
+
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/co-admin`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ targetDiscordId })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al actualizar el ayudante.');
+        showToast(data.message, 'success');
+        
+        // Refresh admin data dynamically without reloading the whole page
+        await loadAdminPanelData();
+    } catch (e) {
+        showToast(e.message, 'error');
     }
 }
 
@@ -1944,7 +2128,7 @@ async function executeClausulazo(player, clauseAmount) {
         if (!res.ok) throw new Error(data.error || 'Error al ejecutar el clausulazo.');
 
         showToast(data.message, 'success');
-        await enterLeague(currentLeagueId);
+        await enterLeague(currentLeagueId, true);
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
@@ -1992,7 +2176,7 @@ async function handleClauseSubmit(e) {
 
         showToast(data.message, 'success');
         clauseModal.classList.remove('open');
-        await enterLeague(currentLeagueId);
+        await enterLeague(currentLeagueId, true);
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
@@ -2029,7 +2213,7 @@ async function handleListMarketSubmit(e) {
 
         showToast(data.message, 'success');
         listMarketModal.classList.remove('open');
-        await enterLeague(currentLeagueId);
+        await enterLeague(currentLeagueId, true);
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
@@ -2052,7 +2236,7 @@ async function handleUnlistMarket(playerName) {
         if (!res.ok) throw new Error(data.error || 'Error al retirar jugador.');
 
         showToast(data.message, 'success');
-        await enterLeague(currentLeagueId);
+        await enterLeague(currentLeagueId, true);
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
@@ -2086,7 +2270,7 @@ async function handleBidSubmit(e) {
 
         showToast(data.message, 'success');
         bidModal.classList.remove('open');
-        await loadUserMarket(); // Refresh listed users
+        await enterLeague(currentLeagueId, true);
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
@@ -2126,7 +2310,7 @@ async function loadUserMarket() {
                 <td class="text-right price-text">${formatCurrency(p.price)}</td>
                 <td class="text-right price-text text-yellow" style="font-weight: 700;">${formatCurrency(l.askingPrice)}</td>
                 <td class="text-center">
-                    <button class="btn btn-warning btn-xs btn-open-bid" data-name="${l.eaPlayerName}" data-seller="${l.sellerTeamName}" data-asking="${l.askingPrice}" data-value="${p.price}" ${activeLeague && !activeLeague.marketOpen ? 'disabled' : ''}><i class="fa-solid fa-gavel"></i> Pujar</button>
+                    <button class="btn btn-warning btn-xs btn-open-bid" data-name="${l.eaPlayerName}" data-seller="${l.sellerTeamName}" data-asking="${l.askingPrice}" data-value="${p.price}" ${activeLeague && (!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-gavel"></i> Pujar</button>
                 </td>
             `;
 
@@ -2191,8 +2375,8 @@ async function loadMarketBids() {
                     <td class="text-right price-text">${formatCurrency(p.price)}</td>
                     <td class="text-right price-text text-yellow" style="font-weight: 700;">${formatCurrency(b.bidAmount)}</td>
                     <td class="text-center">
-                        <button class="btn btn-success btn-xs btn-accept-bid" data-id="${b._id}" style="margin-right: 4px;"><i class="fa-solid fa-check"></i> Aceptar</button>
-                        <button class="btn btn-danger btn-xs btn-reject-bid" data-id="${b._id}"><i class="fa-solid fa-xmark"></i> Rechazar</button>
+                        <button class="btn btn-success btn-xs btn-accept-bid" data-id="${b._id}" style="margin-right: 4px;" ${activeLeague && activeLeague.status === 'closed' ? 'disabled' : ''}><i class="fa-solid fa-check"></i> Aceptar</button>
+                        <button class="btn btn-danger btn-xs btn-reject-bid" data-id="${b._id}" ${activeLeague && activeLeague.status === 'closed' ? 'disabled' : ''}><i class="fa-solid fa-xmark"></i> Rechazar</button>
                     </td>
                 `;
 
@@ -2257,7 +2441,7 @@ async function respondBid(bidId, responseType) {
         if (!res.ok) throw new Error(data.error || 'Error al responder a la puja.');
 
         showToast(data.message, 'success');
-        await enterLeague(currentLeagueId);
+        await enterLeague(currentLeagueId, true);
         await loadMarketBids();
     } catch (e) {
         console.error(e);
