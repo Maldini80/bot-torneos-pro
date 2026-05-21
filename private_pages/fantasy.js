@@ -285,11 +285,9 @@ async function checkUserSession() {
         // Owner-only elements (rebuild stats, etc.) - only visible for the owner, not referees
         if (currentUser.isOwner) {
             document.querySelectorAll('.owner-only-block').forEach(el => el.style.display = 'block');
+            await checkActiveRebuild();
         } else {
             document.querySelectorAll('.owner-only-block').forEach(el => el.style.display = 'none');
-        }
-        if (currentUser.isOwner || currentUser.isAdmin) {
-            await checkActiveRebuild();
         }
     } catch (e) {
         console.error('Error fetching user info:', e);
@@ -1472,7 +1470,7 @@ async function handleAdminRecalculate() {
 let rebuildPollInterval = null;
 
 async function checkActiveRebuild() {
-    if (!currentUser || (!currentUser.isOwner && !currentUser.isAdmin)) return;
+    if (!currentUser || !currentUser.isOwner) return;
     try {
         const res = await fetch('/api/fantasy/admin/rebuild-stats/status');
         if (!res.ok) return;

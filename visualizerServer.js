@@ -6873,12 +6873,12 @@ export async function startVisualizerServer(discordClient) {
     }
 
     // GET rebuild status
-    app.get('/api/fantasy/admin/rebuild-stats/status', isAuthenticated, isFantasyAdmin, (req, res) => {
+    app.get('/api/fantasy/admin/rebuild-stats/status', isAuthenticated, isOwner, (req, res) => {
         res.json(rebuildStatus);
     });
 
     // POST trigger rebuild
-    app.post('/api/fantasy/admin/rebuild-stats', isAuthenticated, isFantasyAdmin, async (req, res) => {
+    app.post('/api/fantasy/admin/rebuild-stats', isAuthenticated, isOwner, async (req, res) => {
         if (rebuildStatus.running) {
             return res.status(409).json({ error: 'Ya hay una reconstrucción en curso.', progress: rebuildStatus.progress });
         }
