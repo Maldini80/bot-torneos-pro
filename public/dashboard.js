@@ -454,8 +454,6 @@ class DashboardApp {
                     if (btn) btn.style.display = 'inline-block';
                     const vpnBtn = document.getElementById('nav-vpn-sync');
                     if (vpnBtn) vpnBtn.style.display = 'inline-block';
-                    const fantasyBtn = document.getElementById('nav-fantasy');
-                    if (fantasyBtn) fantasyBtn.style.display = 'inline-block';
                 }
             })
             .catch(err => console.error('Error checking VPG/VPN Sync permissions:', err));

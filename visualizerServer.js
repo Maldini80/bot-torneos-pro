@@ -5378,9 +5378,22 @@ export async function startVisualizerServer(discordClient) {
         next();
     }
 
-    // --- MIDDLEWARE: Fantasy enabled (granted to all authenticated users) ---
-    function isFantasyEnabled(req, res, next) {
+    // --- MIDDLEWARE: Fantasy enabled (granted to all authenticated users who are Discord members) ---
+    async function isFantasyEnabled(req, res, next) {
         if (!req.user) return res.status(401).json({ error: 'Debes iniciar sesión con Discord.' });
+        let isMember = req.user.isMember;
+        if (isMember === undefined) {
+            try {
+                const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${req.user.id}`, {
+                    headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` }
+                });
+                isMember = response.ok;
+                req.user.isMember = isMember;
+            } catch (e) { isMember = false; }
+        }
+        if (!isMember) {
+            return res.status(403).json({ error: 'Debes ser miembro del servidor Discord.' });
+        }
         next();
     }
 
@@ -5580,8 +5593,21 @@ export async function startVisualizerServer(discordClient) {
         res.sendFile('fantasy.js', { root: 'private_pages' });
     });
 
-    app.get('/fantasy', (req, res) => {
+    app.get('/fantasy', async (req, res) => {
         if (!req.user) return res.redirect('/login?returnTo=/fantasy');
+        let isMember = req.user.isMember;
+        if (isMember === undefined) {
+            try {
+                const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${req.user.id}`, {
+                    headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` }
+                });
+                isMember = response.ok;
+                req.user.isMember = isMember;
+            } catch (e) { isMember = false; }
+        }
+        if (!isMember) {
+            return res.redirect('/dashboard.html?notMember=true');
+        }
         res.sendFile('fantasy.html', { root: 'private_pages' });
     });
 
