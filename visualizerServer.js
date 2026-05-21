@@ -5778,7 +5778,13 @@ export async function startVisualizerServer(discordClient) {
 
             // Get active VPG leagues from global config
             const vpgConfig = await db.collection('fantasy_config').findOne({ key: 'active_leagues' });
-            const globalActiveSlugs = vpgConfig && Array.isArray(vpgConfig.slugs) ? vpgConfig.slugs : [];
+            let globalActiveSlugs = [];
+            if (vpgConfig && Array.isArray(vpgConfig.slugs)) {
+                globalActiveSlugs = vpgConfig.slugs;
+            } else {
+                const allLeagues = await fetchVpgSpainLeagues();
+                globalActiveSlugs = allLeagues.map(l => l.slug);
+            }
 
             let selectedLeagues = [];
             if (vpgLeagues !== undefined) {
