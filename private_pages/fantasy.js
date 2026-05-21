@@ -545,6 +545,9 @@ async function showLeagueSelector() {
     
     leaguesGrid.innerHTML = `<div class="loading-state"><i class="fa-solid fa-spinner fa-spin"></i> Cargando ligas...</div>`;
     
+    // Load VPG leagues for the creation form dropdown
+    loadCreationVpgLeagues();
+    
     try {
         const res = await fetch('/api/fantasy/leagues');
         if (!res.ok) throw new Error('No se pudieron obtener las ligas.');
@@ -662,11 +665,19 @@ async function handleCreateLeague(e) {
     const initialBudget = document.getElementById('new-league-budget').value;
     const pointsMode = document.getElementById('new-league-points-mode').value;
     
+    // Get checked VPG leagues
+    const checkboxesContainer = document.getElementById('new-league-vpg-checkboxes');
+    let vpgLeagues = [];
+    if (checkboxesContainer) {
+        const checkedBoxes = checkboxesContainer.querySelectorAll('input[type="checkbox"]:checked');
+        vpgLeagues = Array.from(checkedBoxes).map(cb => cb.value);
+    }
+    
     try {
         const res = await fetch('/api/fantasy/leagues', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, maxParticipants, initialBudget, pointsMode })
+            body: JSON.stringify({ name, maxParticipants, initialBudget, pointsMode, vpgLeagues })
         });
         
         const data = await res.json();
@@ -674,6 +685,10 @@ async function handleCreateLeague(e) {
         
         showToast(data.message, 'success');
         createLeagueForm.reset();
+        
+        // Reset/reload VPG checkboxes
+        await loadCreationVpgLeagues();
+        
         await showLeagueSelector();
     } catch (e) {
         console.error(e);
@@ -2384,33 +2399,91 @@ async function updateActiveLeagues(newActiveSlugs) {
 }
 
 function renderAdminLeaguesCheckboxes() {
-    const newLeagueContainer = document.getElementById('new-league-vpg-checkboxes');
-    if (!newLeagueContainer) return;
-    const adminLeagueContainer = null; // Removed from league admin panel
-    let html = '';
-    if (globalActiveLeagues.length === 0) {
-        html = '<span class="text-muted" style="font-size: 0.8rem;">No hay ligas VPG habilitadas en el panel del Owner.</span>';
+    // Left empty or unmodified as the admin league checkbox list is unused
+}
+
+// Toggle VPG dropdown open/close
+function toggleVpgDropdown(event) {
+    event.stopPropagation();
+    const multiselect = document.getElementById('vpg-leagues-multiselect');
+    if (multiselect) {
+        multiselect.classList.toggle('active');
+    }
+}
+
+// Close dropdown if clicking outside
+document.addEventListener('click', (event) => {
+    const multiselect = document.getElementById('vpg-leagues-multiselect');
+    if (multiselect && !multiselect.contains(event.target)) {
+        multiselect.classList.remove('active');
+    }
+});
+
+// Update the select box label with the count of selected VPG leagues
+function updateSelectedVpgCount() {
+    const container = document.getElementById('new-league-vpg-checkboxes');
+    const countLabel = document.getElementById('selected-vpg-count');
+    if (!container || !countLabel) return;
+
+    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+    const checked = Array.from(checkboxes).filter(cb => cb.checked);
+
+    if (checked.length === 0) {
+        countLabel.innerText = 'Ninguna liga seleccionada';
+    } else if (checked.length === checkboxes.length) {
+        countLabel.innerText = 'Todas las ligas seleccionadas';
+    } else if (checked.length === 1) {
+        const labelSpan = checked[0].nextElementSibling;
+        const labelText = labelSpan ? labelSpan.innerText : checked[0].value;
+        countLabel.innerText = labelText;
     } else {
-        globalActiveLeagues.forEach(slug => {
-            const matched = globalAllLeagues.find(l => l.slug === slug);
+        countLabel.innerText = `${checked.length} ligas seleccionadas`;
+    }
+}
+
+// Load active VPG leagues and populate the creation form dropdown
+async function loadCreationVpgLeagues() {
+    const container = document.getElementById('new-league-vpg-checkboxes');
+    if (!container) return;
+
+    try {
+        const res = await fetch('/api/fantasy/active-leagues');
+        if (!res.ok) throw new Error('No se pudieron obtener las ligas VPG activas.');
+        const data = await res.json();
+        
+        const activeLeagues = data.activeLeagues || [];
+        const allLeagues = data.allLeagues || [];
+
+        // Update global variables for compatibility
+        if (currentUser && currentUser.isAdmin) {
+            globalActiveLeagues = activeLeagues;
+            globalAllLeagues = allLeagues;
+        }
+
+        if (activeLeagues.length === 0) {
+            container.innerHTML = '<span class="text-muted" style="font-size: 0.8rem; padding: 8px; display: block;">No hay ligas VPG habilitadas.</span>';
+            const countLabel = document.getElementById('selected-vpg-count');
+            if (countLabel) countLabel.innerText = 'Ninguna liga habilitada';
+            return;
+        }
+
+        let html = '';
+        activeLeagues.forEach(slug => {
+            const matched = allLeagues.find(l => l.slug === slug);
             const title = matched ? (matched.title || slug) : slug;
             html += `
-                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer; color: #fff; margin: 0; padding: 2px 0;">
-                    <input type="checkbox" value="${slug}" checked style="accent-color: #10b981; cursor: pointer; width: 15px; height: 15px;">
+                <label>
+                    <input type="checkbox" value="${slug}" checked onchange="updateSelectedVpgCount()">
                     <span>${title}</span>
                 </label>
             `;
         });
-    }
-    if (newLeagueContainer) newLeagueContainer.innerHTML = html;
-    if (adminLeagueContainer) {
-        adminLeagueContainer.innerHTML = html;
-        if (activeLeague) {
-            const activeVpgLeagues = activeLeague.vpgLeagues;
-            const adminCheckboxes = adminLeagueContainer.querySelectorAll('input[type="checkbox"]');
-            adminCheckboxes.forEach(cb => {
-                cb.checked = !activeVpgLeagues || activeVpgLeagues.includes(cb.value);
-            });
-        }
+        container.innerHTML = html;
+        updateSelectedVpgCount();
+
+    } catch (e) {
+        console.error('Error al cargar ligas VPG para creación:', e);
+        container.innerHTML = '<span class="text-red" style="font-size: 0.8rem; padding: 8px; display: block;">Error al cargar ligas VPG.</span>';
     }
 }
+

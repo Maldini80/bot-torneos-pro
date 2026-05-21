@@ -5662,6 +5662,20 @@ export async function startVisualizerServer(discordClient) {
 
     // ========== FANTASY API: Leagues ==========
 
+    // Get active VPG leagues config for users to choose during creation
+    app.get('/api/fantasy/active-leagues', isAuthenticated, isFantasyEnabled, async (req, res) => {
+        try {
+            const db = getDb();
+            const config = await db.collection('fantasy_config').findOne({ key: "active_leagues" });
+            const allLeagues = await fetchVpgSpainLeagues();
+            const activeLeagues = config && Array.isArray(config.slugs) ? config.slugs : allLeagues.map(l => l.slug);
+            res.json({ activeLeagues, allLeagues });
+        } catch (e) {
+            console.error('[API Get Active Leagues] Error:', e);
+            res.status(500).json({ error: 'Error al obtener las ligas activas.' });
+        }
+    });
+
     // List all leagues
     app.get('/api/fantasy/leagues', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
@@ -5720,7 +5734,7 @@ export async function startVisualizerServer(discordClient) {
     // Create league (any authenticated user if allowed, admins always)
     app.post('/api/fantasy/leagues', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
-            const { name, maxParticipants, initialBudget, pointsMode } = req.body;
+            const { name, maxParticipants, initialBudget, pointsMode, vpgLeagues } = req.body;
             if (!name || name.trim() === '') return res.status(400).json({ error: 'El nombre de la liga es obligatorio.' });
             
             const db = getDb();
@@ -5738,7 +5752,25 @@ export async function startVisualizerServer(discordClient) {
 
             // Get active VPG leagues from global config
             const vpgConfig = await db.collection('fantasy_config').findOne({ key: 'active_leagues' });
-            const vpgLeagues = vpgConfig && Array.isArray(vpgConfig.slugs) ? vpgConfig.slugs : null;
+            const globalActiveSlugs = vpgConfig && Array.isArray(vpgConfig.slugs) ? vpgConfig.slugs : [];
+
+            let selectedLeagues = [];
+            if (vpgLeagues !== undefined) {
+                if (!Array.isArray(vpgLeagues)) {
+                    return res.status(400).json({ error: 'Las ligas VPG deben proporcionarse como un array.' });
+                }
+                if (vpgLeagues.length === 0) {
+                    return res.status(400).json({ error: 'Debes seleccionar al menos una liga VPG.' });
+                }
+                // Filter to keep only those that are globally active
+                selectedLeagues = vpgLeagues.filter(slug => globalActiveSlugs.includes(slug));
+                if (selectedLeagues.length === 0) {
+                    return res.status(400).json({ error: 'Ninguna de las ligas VPG seleccionadas es válida o está activa globalmente.' });
+                }
+            } else {
+                // If not provided, fallback to all globally active ones
+                selectedLeagues = globalActiveSlugs;
+            }
 
             const modeSelected = pointsMode === 'zero' ? 'zero' : 'accumulated';
             let basePoints = {};
@@ -5765,7 +5797,7 @@ export async function startVisualizerServer(discordClient) {
                 createdAt: new Date(),
                 startedAt: null,
                 endedAt: null,
-                vpgLeagues,
+                vpgLeagues: selectedLeagues,
                 approved: isPrivileged // admins: true, users: false
             };
             const result = await db.collection('fantasy_leagues').insertOne(league);

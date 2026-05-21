@@ -1359,3 +1359,89 @@ body {
     }
 }
 
+/* Custom Multi-select for VPG Leagues during League Creation */
+.custom-multiselect {
+    position: relative;
+    width: 100%;
+}
+
+.custom-multiselect .select-box {
+    background: #1e293b;
+    border: 1px solid #475569;
+    color: #fff;
+    border-radius: 6px;
+    padding: 10px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+    font-size: 0.9rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.custom-multiselect .select-box:hover {
+    border-color: #3b82f6;
+}
+
+.custom-multiselect .select-box i {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    transition: transform 0.2s;
+}
+
+.custom-multiselect.active .select-box {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.custom-multiselect.active .select-box i {
+    transform: rotate(180deg);
+}
+
+.custom-multiselect .checkboxes-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 5px);
+    left: 0;
+    width: 100%;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    max-height: 180px;
+    overflow-y: auto;
+    z-index: 999;
+    padding: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+}
+
+.custom-multiselect.active .checkboxes-dropdown {
+    display: block;
+}
+
+.custom-multiselect .checkboxes-dropdown label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    color: #cbd5e1;
+    margin: 0;
+    padding: 6px 8px;
+    border-radius: 4px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.custom-multiselect .checkboxes-dropdown label:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+}
+
+.custom-multiselect .checkboxes-dropdown input[type="checkbox"] {
+    accent-color: #10b981;
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+}
+
+
