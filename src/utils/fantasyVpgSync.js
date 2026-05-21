@@ -269,11 +269,6 @@ export async function syncFantasyWithVpg() {
                     const pName = String(player.team_name || '').toLowerCase().trim();
                     const dbTeam = vpgTeamToDbMap.get(pSlug) || vpgTeamToDbMap.get(pName);
 
-                    if (!dbTeam) {
-                        // El jugador pertenece a un equipo que no está mapeado en nuestra DB o no es activo
-                        continue;
-                    }
-
                     const username = player.username;
                     if (!username) continue;
 
@@ -283,7 +278,7 @@ export async function syncFantasyWithVpg() {
                     const avgRating = played > 0 ? (ratingSum / played) : 6.0;
 
                     // Escalar estadísticas del equipo a la proporción de partidos del jugador
-                    const standing = teamStandingsMap.get(pSlug);
+                    const standing = teamStandingsMap.get(pSlug) || teamStandingsMap.get(pName);
                     let wins = 0, losses = 0, ties = 0;
                     if (standing) {
                         const ratio = (standing.played && standing.played > 0) ? Math.min(1, played / standing.played) : 1;
@@ -317,9 +312,10 @@ export async function syncFantasyWithVpg() {
                     };
 
                     const updateData = {
-                        lastClub: dbTeam.name,
+                        lastClub: dbTeam ? dbTeam.name : (player.team_name || player.team_slug || "VPG Club"),
                         lastActive: new Date(),
                         lastPosition: fantasyPos,
+                        vpgLeagueSlug: leagueSlug,
                         stats: playerStats
                     };
 

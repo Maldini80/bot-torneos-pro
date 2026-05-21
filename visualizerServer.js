@@ -5989,8 +5989,14 @@ export async function startVisualizerServer(discordClient) {
                 }
             }
 
-            const { regexes } = await getActiveFantasyTeams(db, customLeagues);
-            const rawPlayers = await db.collection('player_profiles').find({ lastClub: { $in: regexes } }).toArray();
+            const { regexes, activeLeagues } = await getActiveFantasyTeams(db, customLeagues);
+            const leaguesToQuery = customLeagues || activeLeagues;
+            const rawPlayers = await db.collection('player_profiles').find({
+                $or: [
+                    { vpgLeagueSlug: { $in: leaguesToQuery } },
+                    { lastClub: { $in: regexes } }
+                ]
+            }).toArray();
 
             const ownerMap = {};
             const ownerDiscordIdMap = {};
