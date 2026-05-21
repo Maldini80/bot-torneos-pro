@@ -1834,7 +1834,7 @@ function formatPlayerPoints(p) {
     if (!activeLeague) return p.points;
     if (activeLeague.pointsMode === 'zero') {
         const base = p.basePoints || 0;
-        return `${p.points} (+${base} iniciales)`;
+        return `${p.points} <span class="points-base-label">(+${base}<span class="hide-mobile"> iniciales</span>)</span>`;
     }
     return p.points;
 }

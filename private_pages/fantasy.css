@@ -1339,3 +1339,23 @@ body {
     box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
 }
 
+/* Points formatting helper for mobile & desktop */
+.points-base-label {
+    font-size: 0.75rem;
+    font-weight: normal;
+    color: #94a3b8;
+    margin-left: 4px;
+}
+
+@media (max-width: 480px) {
+    .points-base-label {
+        display: block;
+        font-size: 0.7rem;
+        margin-top: 2px;
+        margin-left: 0;
+    }
+    .points-base-label .hide-mobile {
+        display: none !important;
+    }
+}
+
