@@ -54,6 +54,12 @@
                                 <input type="number" id="new-league-budget" value="50000000" step="5000000">
                             </div>
                         </div>
+                        <div class="form-group" style="margin-bottom: 14px;">
+                            <label style="display: block; margin-bottom: 6px; font-size: 0.85rem; color: #94a3b8;">Ligas VPG Habilitadas:</label>
+                            <div id="new-league-vpg-checkboxes" style="display: flex; flex-direction: column; gap: 6px; padding: 10px; background: rgba(15, 23, 42, 0.6); border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); max-height: 150px; overflow-y: auto;">
+                                <span class="text-muted" style="font-size: 0.8rem;">Cargando ligas habilitadas...</span>
+                            </div>
+                        </div>
                         <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-plus"></i> Crear Liga</button>
                     </form>
                 </section>
@@ -63,7 +69,8 @@
                     <div class="card-header">
                         <h2><i class="fa-solid fa-crown text-yellow"></i> Panel de Propietario</h2>
                     </div>
-                    <div class="admin-actions-col" style="margin-top: 16px;">
+                    <div class="admin-actions-col" style="margin-top: 16px; display: flex; flex-direction: column; gap: 16px;">
+                        <!-- Box 1: Rebuild Stats -->
                         <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
                             <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
                                 <div style="flex: 1; min-width: 0;">
@@ -97,6 +104,40 @@
                                             <input type="time" class="inp-end-time" value="23:59" style="background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #fff; font-size: 0.8rem;">
                                         </div>
                                     </div>
+                                    <div style="display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px;">
+                                        <div style="flex: 1; min-width: 120px; display: flex; flex-direction: column; gap: 4px;">
+                                            <label style="font-size: 0.75rem; color: #94a3b8;">Añadir Fecha Manual:</label>
+                                            <input type="date" class="inp-custom-date" style="background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #fff; font-size: 0.8rem; height: 32px; box-sizing: border-box;">
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-success btn-add-custom-date" style="padding: 6px 12px; font-size: 0.8rem; height: 32px;"><i class="fa-solid fa-plus"></i> Añadir</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Box 2: Manage Active VPG Leagues -->
+                        <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
+                            <div>
+                                <h4>Ligas VPG Disponibles en Fantasy</h4>
+                                <p class="text-muted">Define qué ligas oficiales de VPG España están activas en el bot de Fantasy. Los usuarios podrán elegir de esta lista al crear/editar una liga de Fantasy.</p>
+                            </div>
+                            
+                            <!-- Add League UI -->
+                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
+                                <div style="flex: 1; min-width: 200px; display: flex; gap: 8px;">
+                                    <select id="owner-available-leagues-select" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 8px; flex: 1; box-sizing: border-box; font-size: 0.85rem;">
+                                        <option value="">-- Seleccionar liga VPG --</option>
+                                    </select>
+                                    <input type="text" id="owner-custom-league-slug" placeholder="O slug manual..." style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 8px; flex: 1; min-width: 140px; box-sizing: border-box; font-size: 0.85rem;">
+                                </div>
+                                <button id="btn-owner-add-league" class="btn btn-sm btn-primary" style="padding: 8px 16px;"><i class="fa-solid fa-plus"></i> Añadir</button>
+                            </div>
+                            
+                            <!-- Active Leagues Chips -->
+                            <div style="margin-top: 4px;">
+                                <label style="font-size: 0.8rem; font-weight: 600; color: #94a3b8;">Ligas Habilitadas:</label>
+                                <div id="owner-active-leagues-chips" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;">
+                                    <!-- Chips like: superliga-spain-a (x) -->
                                 </div>
                             </div>
                         </div>
@@ -492,6 +533,12 @@
                                     <label for="admin-league-initial-budget">Presupuesto Inicial (de nuevos registros)</label>
                                     <input type="number" id="admin-league-initial-budget" min="1000000" max="500000000" step="1000000" class="form-control" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; width: 100%; box-sizing: border-box;">
                                 </div>
+                                <div class="form-group" style="margin-bottom: 14px;">
+                                    <label style="display: block; margin-bottom: 6px; font-size: 0.85rem; color: #94a3b8;">Ligas VPG Habilitadas:</label>
+                                    <div id="admin-league-vpg-checkboxes" style="display: flex; flex-direction: column; gap: 6px; padding: 10px; background: rgba(15, 23, 42, 0.6); border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); max-height: 150px; overflow-y: auto;">
+                                        <span class="text-muted" style="font-size: 0.8rem;">Cargando ligas habilitadas...</span>
+                                    </div>
+                                </div>
                                 <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-floppy-disk"></i> Guardar Cambios</button>
                             </form>
                         </div>
@@ -551,6 +598,13 @@
                                                 <label style="font-size: 0.75rem; color: #94a3b8;">Hora Fin (CET/España):</label>
                                                 <input type="time" class="inp-end-time" value="23:59" style="background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #fff; font-size: 0.8rem;">
                                             </div>
+                                        </div>
+                                        <div style="display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 8px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px;">
+                                            <div style="flex: 1; min-width: 120px; display: flex; flex-direction: column; gap: 4px;">
+                                                <label style="font-size: 0.75rem; color: #94a3b8;">Añadir Fecha Manual:</label>
+                                                <input type="date" class="inp-custom-date" style="background: rgba(15,23,42,0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; color: #fff; font-size: 0.8rem; height: 32px; box-sizing: border-box;">
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-success btn-add-custom-date" style="padding: 6px 12px; font-size: 0.8rem; height: 32px;"><i class="fa-solid fa-plus"></i> Añadir</button>
                                         </div>
                                     </div>
                                 </div>

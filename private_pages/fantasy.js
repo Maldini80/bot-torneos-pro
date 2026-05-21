@@ -99,6 +99,8 @@ const FORMATIONS = {
 
 // Application State
 let currentUser = null;
+let globalActiveLeagues = [];
+let globalAllLeagues = [];
 let currentLeagueId = sessionStorage.getItem('selected_league_id') || null;
 let activeLeague = null;
 let myTeam = {
@@ -289,6 +291,11 @@ async function checkUserSession() {
         } else {
             document.querySelectorAll('.owner-only-block').forEach(el => el.style.display = 'none');
         }
+
+        // Load admin league configuration if user is admin
+        if (currentUser.isAdmin) {
+            await loadAdminLeaguesConfig();
+        }
     } catch (e) {
         console.error('Error fetching user info:', e);
         selectorUserName.innerHTML = `<span class="text-red">Error de Conexión</span>`;
@@ -469,6 +476,80 @@ function setupEventHandlers() {
             }
         });
     }
+
+    // Custom date adding button listener
+    document.querySelectorAll('.btn-add-custom-date').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const container = e.target.closest('.rebuild-filters');
+            if (!container) return;
+            const inputEl = container.querySelector('.inp-custom-date');
+            const chipsEl = container.querySelector('.vpg-dates-chips');
+            if (!inputEl || !inputEl.value) {
+                showToast('Por favor, selecciona una fecha válida.', 'error');
+                return;
+            }
+            const dateStr = inputEl.value;
+            // Check if already exists in chips
+            const existing = Array.from(chipsEl.querySelectorAll('.vpg-date-chip')).find(c => c.dataset.date === dateStr);
+            if (existing) {
+                showToast('Esta fecha ya ha sido añadida.', 'info');
+                return;
+            }
+
+            // Create manual chip
+            const dayNames = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+            const d = new Date(dateStr + 'T12:00:00');
+            const dayName = dayNames[d.getDay()];
+            const chip = document.createElement('span');
+            chip.className = 'vpg-date-chip active';
+            chip.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border-radius: 12px; font-size: 0.72rem; cursor: pointer; transition: all 0.2s; background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); font-weight: 600;';
+            chip.dataset.date = dateStr;
+            chip.innerHTML = `<i class="fa-solid fa-calendar-day" style="font-size: 0.65rem;"></i> ${dateStr} <span style="opacity: 0.7; text-transform: uppercase;">${dayName}</span> <span style="opacity: 0.6; font-size: 0.65rem;">(Manual)</span>`;
+            
+            chip.addEventListener('click', () => {
+                chip.classList.toggle('active');
+                if (chip.classList.contains('active')) {
+                    chip.style.background = 'rgba(245, 158, 11, 0.2)';
+                    chip.style.color = '#f59e0b';
+                    chip.style.borderColor = 'rgba(245, 158, 11, 0.4)';
+                } else {
+                    chip.style.background = 'rgba(100, 116, 139, 0.15)';
+                    chip.style.color = '#64748b';
+                    chip.style.borderColor = 'rgba(100, 116, 139, 0.2)';
+                }
+            });
+            chipsEl.appendChild(chip);
+            inputEl.value = '';
+        });
+    });
+
+    // Owner Add League click
+    const btnOwnerAddLeague = document.getElementById('btn-owner-add-league');
+    if (btnOwnerAddLeague) {
+        btnOwnerAddLeague.addEventListener('click', async () => {
+            const selectEl = document.getElementById('owner-available-leagues-select');
+            const customInput = document.getElementById('owner-custom-league-slug');
+            let slug = selectEl.value;
+            if (customInput && customInput.value.trim()) {
+                slug = customInput.value.trim();
+            }
+
+            if (!slug) {
+                showToast('Por favor, selecciona una liga o introduce un slug.', 'error');
+                return;
+            }
+
+            // Check if already active
+            if (globalActiveLeagues.includes(slug)) {
+                showToast('Esta liga ya está habilitada.', 'info');
+                return;
+            }
+
+            const newActive = [...globalActiveLeagues, slug];
+            await updateActiveLeagues(newActive);
+            if (customInput) customInput.value = '';
+        });
+    }
 }
 
 // VIEW 1: Show Selector and Fetch All Leagues
@@ -531,12 +612,16 @@ async function handleCreateLeague(e) {
     const name = document.getElementById('new-league-name').value;
     const maxParticipants = document.getElementById('new-league-max-participants').value;
     const initialBudget = document.getElementById('new-league-budget').value;
+
+    // Collect VPG leagues
+    const checkboxes = document.querySelectorAll('#new-league-vpg-checkboxes input[type="checkbox"]:checked');
+    const vpgLeagues = Array.from(checkboxes).map(cb => cb.value);
     
     try {
         const res = await fetch('/api/fantasy/leagues', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, maxParticipants, initialBudget })
+            body: JSON.stringify({ name, maxParticipants, initialBudget, vpgLeagues })
         });
         
         const data = await res.json();
@@ -544,6 +629,8 @@ async function handleCreateLeague(e) {
         
         showToast(data.message, 'success');
         createLeagueForm.reset();
+        // Reset checkboxes to checked by default
+        document.querySelectorAll('#new-league-vpg-checkboxes input[type="checkbox"]').forEach(cb => cb.checked = true);
         await showLeagueSelector();
     } catch (e) {
         console.error(e);
@@ -1237,6 +1324,9 @@ async function loadAdminPanelData() {
     adminLeagueClauseMultiplier.value = activeLeague.clauseMultiplier || 1.5;
     adminLeagueInitialBudget.value = activeLeague.initialBudget || 50000000;
     
+    // Render/check checkboxes for permitted VPG leagues
+    renderAdminLeaguesCheckboxes();
+    
     // Set market toggle text
     updateMarketToggleButton(activeLeague.marketOpen);
     
@@ -1382,11 +1472,15 @@ async function handleUpdateLeagueSubmit(e) {
     const clauseMultiplier = parseFloat(adminLeagueClauseMultiplier.value);
     const initialBudget = parseInt(adminLeagueInitialBudget.value);
     
+    // Collect selected VPG leagues
+    const checkboxes = document.querySelectorAll('#admin-league-vpg-checkboxes input[type="checkbox"]:checked');
+    const vpgLeagues = Array.from(checkboxes).map(cb => cb.value);
+
     try {
         const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, status, maxParticipants, allowClauses, clauseMultiplier, initialBudget })
+            body: JSON.stringify({ name, status, maxParticipants, allowClauses, clauseMultiplier, initialBudget, vpgLeagues })
         });
         
         const data = await res.json();
@@ -1401,6 +1495,7 @@ async function handleUpdateLeagueSubmit(e) {
         activeLeague.allowClauses = allowClauses;
         activeLeague.clauseMultiplier = clauseMultiplier;
         activeLeague.initialBudget = initialBudget;
+        activeLeague.vpgLeagues = vpgLeagues;
         activeLeagueName.textContent = name;
     } catch (e) {
         console.error(e);
@@ -2277,5 +2372,107 @@ async function handleUpdatePlayerPrice(eaPlayerName, price) {
     } catch (e) {
         console.error(e);
         alert('Error: ' + e.message);
+    }
+}
+
+async function loadAdminLeaguesConfig() {
+    if (!currentUser || !currentUser.isAdmin) return;
+    try {
+        const res = await fetch('/api/fantasy/admin/config/leagues');
+        if (!res.ok) throw new Error('Error al cargar la configuración de ligas.');
+        const { activeLeagues, allLeagues } = await res.json();
+        globalActiveLeagues = activeLeagues || [];
+        globalAllLeagues = allLeagues || [];
+        renderAdminLeaguesCheckboxes();
+
+        if (currentUser.isOwner) {
+            const selectEl = document.getElementById('owner-available-leagues-select');
+            if (selectEl) {
+                selectEl.innerHTML = '<option value="">-- Seleccionar liga VPG --</option>';
+                allLeagues.forEach(league => {
+                    if (!globalActiveLeagues.includes(league.slug)) {
+                        const opt = document.createElement('option');
+                        opt.value = league.slug;
+                        opt.textContent = `${league.title} (${league.slug})`;
+                        selectEl.appendChild(opt);
+                    }
+                });
+            }
+            const chipsEl = document.getElementById('owner-active-leagues-chips');
+            if (chipsEl) {
+                chipsEl.innerHTML = '';
+                if (globalActiveLeagues.length === 0) {
+                    chipsEl.innerHTML = '<span class="text-muted" style="font-size: 0.8rem;">No hay ligas habilitadas.</span>';
+                } else {
+                    globalActiveLeagues.forEach(slug => {
+                        const matched = allLeagues.find(l => l.slug === slug);
+                        const title = matched ? matched.title : slug;
+                        const chip = document.createElement('span');
+                        chip.className = 'vpg-date-chip active';
+                        chip.style.cssText = 'display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 12px; font-size: 0.8rem; background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); font-weight: 600;';
+                        chip.innerHTML = `${title} <i class="fa-solid fa-circle-xmark remove-btn" style="cursor: pointer; opacity: 0.7; transition: opacity 0.2s;"></i>`;
+                        const cross = chip.querySelector('.remove-btn');
+                        cross.addEventListener('click', async () => {
+                            if (confirm(`¿Estás seguro de que deseas deshabilitar la liga "${title}"?`)) {
+                                const newActive = globalActiveLeagues.filter(s => s !== slug);
+                                await updateActiveLeagues(newActive);
+                            }
+                        });
+                        chipsEl.appendChild(chip);
+                    });
+                }
+            }
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+
+async function updateActiveLeagues(newActiveSlugs) {
+    try {
+        const res = await fetch('/api/fantasy/admin/config/leagues', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ activeLeagues: newActiveSlugs })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al guardar la configuración.');
+        showToast('Configuración de ligas guardada.', 'success');
+        await loadAdminLeaguesConfig();
+    } catch (e) {
+        console.error(e);
+        showToast(e.message, 'error');
+    }
+}
+
+function renderAdminLeaguesCheckboxes() {
+    const newLeagueContainer = document.getElementById('new-league-vpg-checkboxes');
+    const adminLeagueContainer = document.getElementById('admin-league-vpg-checkboxes');
+    if (!newLeagueContainer && !adminLeagueContainer) return;
+    let html = '';
+    if (globalActiveLeagues.length === 0) {
+        html = '<span class="text-muted" style="font-size: 0.8rem;">No hay ligas VPG habilitadas en el panel del Owner.</span>';
+    } else {
+        globalActiveLeagues.forEach(slug => {
+            const matched = globalAllLeagues.find(l => l.slug === slug);
+            const title = matched ? (matched.title || slug) : slug;
+            html += `
+                <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; cursor: pointer; color: #fff; margin: 0; padding: 2px 0;">
+                    <input type="checkbox" value="${slug}" checked style="accent-color: #10b981; cursor: pointer; width: 15px; height: 15px;">
+                    <span>${title}</span>
+                </label>
+            `;
+        });
+    }
+    if (newLeagueContainer) newLeagueContainer.innerHTML = html;
+    if (adminLeagueContainer) {
+        adminLeagueContainer.innerHTML = html;
+        if (activeLeague) {
+            const activeVpgLeagues = activeLeague.vpgLeagues;
+            const adminCheckboxes = adminLeagueContainer.querySelectorAll('input[type="checkbox"]');
+            adminCheckboxes.forEach(cb => {
+                cb.checked = !activeVpgLeagues || activeVpgLeagues.includes(cb.value);
+            });
+        }
     }
 }

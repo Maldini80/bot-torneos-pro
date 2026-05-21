@@ -96,6 +96,17 @@ async function startVpgBot() {
                 console.error('[VPG] Error fatal en el EA Stats Crawler:', error);
             }
         }, { scheduled: true, timezone: "Europe/Madrid" });
+
+        // Cronjob para Sincronización del Fantasy con VPG España (05:00 hora Madrid)
+        cron.schedule('0 5 * * *', async () => {
+            console.log('[VPG] Ejecutando sincronización diaria del Fantasy con VPG a las 5:00 AM (Madrid)...');
+            try {
+                const { syncFantasyWithVpg } = await import('../utils/fantasyVpgSync.js');
+                await syncFantasyWithVpg();
+            } catch (error) {
+                console.error('[VPG] Error fatal en la sincronización diaria del Fantasy con VPG:', error);
+            }
+        }, { scheduled: true, timezone: "Europe/Madrid" });
     });
 
     // =================================================================

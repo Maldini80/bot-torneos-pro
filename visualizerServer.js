@@ -12,12 +12,14 @@ import { Strategy as DiscordStrategy } from 'passport-discord';
 // IMPORTAMOS LAS NUEVAS FUNCIONES DE GESTIÓN
 import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb, handleRouletteSpinResult, undoLastPick, forcePickFromWeb, adminKickPlayerFromWeb, adminAddPlayerFromWeb, sendRegistrationRequest, sendPaymentApprovalRequest, adminReplacePickFromWeb, approveExternalDraftCaptain } from './src/logic/tournamentLogic.js';
 import { getDb } from './database.js';
+import { fetchVpgSpainLeagues } from './src/utils/vpgCrawler.js';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { ObjectId } from 'mongodb'; // FIX: Global import for ObjectId
 import { processMatchResult, finalizeMatchThread, findMatch } from './src/logic/matchLogic.js';
 import { getLeagueByElo, LEAGUE_EMOJIS } from './src/logic/eloLogic.js';
 import { createPoolEmbed } from './src/utils/embeds.js';
 import { scheduleRegistrationListUpdate } from './src/utils/registrationListManager.js';
+import { rebuildStatus, syncFantasyWithVpg } from './src/utils/fantasyVpgSync.js';
 
 // FIX: Mutex por draft para evitar race conditions en picks concurrentes
 const draftLocks = new Map();
@@ -106,6 +108,64 @@ export function calculatePlayerPointsAndPrice(p) {
     points -= (stats.losses || 0) * 2; // -2 por derrota
 
     return { price, points, avgRating };
+}
+
+export async function getActiveFantasyTeams(db, customLeagues = null) {
+    let activeLeagues;
+    if (Array.isArray(customLeagues) && customLeagues.length > 0) {
+        activeLeagues = customLeagues;
+    } else {
+        const defaultLeagues = ["superliga-spain-a", "superliga-spain-b"];
+        activeLeagues = defaultLeagues;
+        try {
+            const config = await db.collection('fantasy_config').findOne({ key: "active_leagues" });
+            if (config && Array.isArray(config.slugs)) {
+                activeLeagues = config.slugs;
+            }
+        } catch (e) {
+            console.error('[getActiveFantasyTeams] Error reading fantasy_config:', e);
+        }
+    }
+
+    const testDb = getDb('test');
+    const dbTeams = await testDb.collection('teams').find({ vpgLeagueSlug: { $in: activeLeagues } }).toArray();
+    
+    const HARDCODED_A = [
+        "GMK Villarreal CF eSports", "AD Ceuta eSports", "Suzaku esports", "Zenturions", 
+        "Alpha Wolfs", "Tempus eSports", "90min FC", "LTK eSports", "Jam eSports", 
+        "Cryzen Gaming", "Ventucorp eSports", "Banano eSports", "JS ELCANO", "CE Europa eSports"
+    ];
+
+    const HARDCODED_B = [
+        "Oxygen Levante", "DriFt Esports", "Ceuta Guardians", "Cadiz Esports", 
+        "Espartanos CF", "Transformers CF", "GUINEA PINK", "Shiva esports", 
+        "RYUX CLAN", "FC Mayango", "Black Hawks", "Columbus Pacers", 
+        "Bachateros FC", "FCP eSports"
+    ];
+
+    const teamNames = new Set();
+    
+    for (const t of dbTeams) {
+        if (t.name) {
+            teamNames.add(t.name.trim());
+        }
+    }
+
+    if (activeLeagues.includes("superliga-spain-a")) {
+        HARDCODED_A.forEach(name => teamNames.add(name));
+    }
+    if (activeLeagues.includes("superliga-spain-b")) {
+        HARDCODED_B.forEach(name => teamNames.add(name));
+    }
+
+    const teamNamesArr = Array.from(teamNames);
+    const regexes = teamNamesArr.map(name => new RegExp('^' + name.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i'));
+
+    return {
+        activeLeagues,
+        teamNames: teamNamesArr,
+        regexes
+    };
 }
 
 const app = express();
@@ -5191,7 +5251,17 @@ export async function startVisualizerServer(discordClient) {
 
             // 2. Get Superliga table to find a team slug for VPG calendar dates
             let teamSlug = null;
-            const superligaSlugs = ['Esports-Premier-PS5', 'superliga-spain-a', 'superliga-spain-b'];
+            const defaultLeagues = ["superliga-spain-a", "superliga-spain-b"];
+            let activeLeagues = defaultLeagues;
+            try {
+                const config = await getDb().collection('fantasy_config').findOne({ key: "active_leagues" });
+                if (config && Array.isArray(config.slugs) && config.slugs.length > 0) {
+                    activeLeagues = config.slugs;
+                }
+            } catch (e) {
+                console.error('[official-match-dates] Error reading active leagues config:', e);
+            }
+            const superligaSlugs = [...activeLeagues, 'Esports-Premier-PS5', 'superliga-spain-a', 'superliga-spain-b'];
             for (const slug of superligaSlugs) {
                 try {
                     const tableData = await fetchFromVpg(`leagues/${slug}/table`);
@@ -5346,6 +5416,14 @@ export async function startVisualizerServer(discordClient) {
         const isReferee = Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
         if (isAdmin || isReferee) return next();
         return res.status(403).json({ error: 'Solo el administrador o los árbitros pueden realizar esta acción.' });
+    }
+
+    // --- MIDDLEWARE: Fantasy Owner (only owner) ---
+    function isFantasyOwner(req, res, next) {
+        if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+        const isOwner = req.user.id === process.env.OWNER_DISCORD_ID;
+        if (isOwner) return next();
+        return res.status(403).json({ error: 'Solo el Owner del bot puede realizar esta acción.' });
     }
 
     app.get('/vpn.html', (req, res) => {
@@ -5528,6 +5606,39 @@ export async function startVisualizerServer(discordClient) {
         });
     });
 
+    // ========== FANTASY API: Config (Owner only) ==========
+    app.get('/api/fantasy/admin/config/leagues', isAuthenticated, isFantasyAdmin, async (req, res) => {
+        try {
+            const db = getDb();
+            const config = await db.collection('fantasy_config').findOne({ key: "active_leagues" });
+            const activeLeagues = config && Array.isArray(config.slugs) ? config.slugs : ["superliga-spain-a", "superliga-spain-b"];
+            const allLeagues = await fetchVpgSpainLeagues();
+            res.json({ activeLeagues, allLeagues });
+        } catch (e) {
+            console.error('[API Get Fantasy Leagues Config] Error:', e);
+            res.status(500).json({ error: 'Error al obtener la configuración de ligas.' });
+        }
+    });
+
+    app.post('/api/fantasy/admin/config/leagues', isAuthenticated, isFantasyOwner, async (req, res) => {
+        try {
+            const { activeLeagues } = req.body;
+            if (!Array.isArray(activeLeagues)) {
+                return res.status(400).json({ error: 'activeLeagues debe ser un array.' });
+            }
+            const db = getDb();
+            await db.collection('fantasy_config').updateOne(
+                { key: "active_leagues" },
+                { $set: { slugs: activeLeagues.map(s => s.trim()) } },
+                { upsert: true }
+            );
+            res.json({ success: true, message: 'Configuración guardada correctamente.', activeLeagues });
+        } catch (e) {
+            console.error('[API Post Fantasy Leagues Config] Error:', e);
+            res.status(500).json({ error: 'Error al guardar la configuración de ligas.' });
+        }
+    });
+
     // ========== FANTASY API: Leagues ==========
 
     // List all leagues
@@ -5549,7 +5660,7 @@ export async function startVisualizerServer(discordClient) {
     // Create league (admin only)
     app.post('/api/fantasy/leagues', isFantasyAdmin, async (req, res) => {
         try {
-            const { name, maxParticipants, initialBudget } = req.body;
+            const { name, maxParticipants, initialBudget, vpgLeagues } = req.body;
             if (!name || name.trim() === '') return res.status(400).json({ error: 'El nombre de la liga es obligatorio.' });
             const db = getDb();
             const league = {
@@ -5562,7 +5673,8 @@ export async function startVisualizerServer(discordClient) {
                 initialBudget: parseInt(initialBudget) || 50000000,
                 createdAt: new Date(),
                 startedAt: null,
-                endedAt: null
+                endedAt: null,
+                vpgLeagues: Array.isArray(vpgLeagues) ? vpgLeagues : null
             };
             const result = await db.collection('fantasy_leagues').insertOne(league);
             league._id = result.insertedId;
@@ -5589,6 +5701,9 @@ export async function startVisualizerServer(discordClient) {
             if (allowClauses !== undefined) updateFields.allowClauses = !!allowClauses;
             if (clauseMultiplier !== undefined) updateFields.clauseMultiplier = parseFloat(clauseMultiplier);
             if (initialBudget !== undefined) updateFields.initialBudget = parseInt(initialBudget);
+            if (req.body.vpgLeagues !== undefined) {
+                updateFields.vpgLeagues = Array.isArray(req.body.vpgLeagues) ? req.body.vpgLeagues : null;
+            }
             await db.collection('fantasy_leagues').updateOne({ _id: new ObjectId(req.params.id) }, { $set: updateFields });
             res.json({ success: true, message: 'Liga actualizada.' });
         } catch (e) {
@@ -5858,11 +5973,15 @@ export async function startVisualizerServer(discordClient) {
             const db = getDb();
             const { leagueId } = req.query;
 
-            const SUPERLIGA_TEAMS = [
-                "GMK Villarreal CF eSports", "AD Ceuta eSports", "Suzaku esports", "Zenturions", "Alpha Wolfs", "Tempus eSports", "90min FC", "LTK eSports", "Jam eSports", "Cryzen Gaming", "Ventucorp eSports", "Banano eSports", "JS ELCANO", "CE Europa eSports",
-                "Oxygen Levante", "DriFt Esports", "Ceuta Guardians", "Cadiz Esports", "Espartanos CF", "Transformers CF", "GUINEA PINK", "Shiva esports", "RYUX CLAN", "FC Mayango", "Black Hawks", "Columbus Pacers", "Bachateros FC", "FCP eSports"
-            ];
-            const regexes = SUPERLIGA_TEAMS.map(name => new RegExp('^' + name.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i'));
+            let customLeagues = null;
+            if (leagueId) {
+                const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+                if (league && Array.isArray(league.vpgLeagues) && league.vpgLeagues.length > 0) {
+                    customLeagues = league.vpgLeagues;
+                }
+            }
+
+            const { regexes } = await getActiveFantasyTeams(db, customLeagues);
             const rawPlayers = await db.collection('player_profiles').find({ lastClub: { $in: regexes } }).toArray();
 
             const ownerMap = {};
@@ -6552,14 +6671,11 @@ export async function startVisualizerServer(discordClient) {
         try {
             const { query, position } = req.query;
             
-            const SUPERLIGA_TEAMS = [
-                "GMK Villarreal CF eSports", "AD Ceuta eSports", "Suzaku esports", "Zenturions", "Alpha Wolfs", "Tempus eSports", "90min FC", "LTK eSports", "Jam eSports", "Cryzen Gaming", "Ventucorp eSports", "Banano eSports", "JS ELCANO", "CE Europa eSports",
-                "Oxygen Levante", "DriFt Esports", "Ceuta Guardians", "Cadiz Esports", "Espartanos CF", "Transformers CF", "GUINEA PINK", "Shiva esports", "RYUX CLAN", "FC Mayango", "Black Hawks", "Columbus Pacers", "Bachateros FC", "FCP eSports"
-            ];
-            const superligaRegexes = SUPERLIGA_TEAMS.map(name => new RegExp('^' + name.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i'));
+            const db = getDb();
+            const { regexes } = await getActiveFantasyTeams(db);
 
             const queryObj = {
-                lastClub: { $in: superligaRegexes }
+                lastClub: { $in: regexes }
             };
 
             const hasQuery = query && query.trim().length >= 2;
@@ -6588,7 +6704,6 @@ export async function startVisualizerServer(discordClient) {
                 queryObj.lastPosition = { $in: allowedPositions };
             }
 
-            const db = getDb();
             const players = await db.collection('player_profiles').find(queryObj).limit(100).toArray();
 
             // Calculate points and prices for search results
@@ -6645,241 +6760,8 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // ============================================================
-    // REBUILD STATS - Full reconstruction from scanned_matches
+    // REBUILD STATS - Sync stats with VPG public tables & leaderboards
     // ============================================================
-    function getMadridDateDetails(timestampSec) {
-        try {
-            // Subtract 4 hours (14400 seconds) for dateStr/dayOfWeek 
-            // so matches played past midnight align with the VPG match night.
-            const adjustedTimestampSec = parseInt(timestampSec) - 14400;
-            const dateObj = new Date(adjustedTimestampSec * 1000);
-            const actualDateObj = new Date(parseInt(timestampSec) * 1000);
-
-            // Format adjusted date as YYYY-MM-DD in Europe/Madrid timezone
-            const dateStr = dateObj.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
-
-            // Format actual date as HH:MM in Europe/Madrid timezone (24h)
-            const timeStr = actualDateObj.toLocaleTimeString('en-US', {
-                timeZone: 'Europe/Madrid',
-                hour12: false,
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-            const [hourStr, minuteStr] = timeStr.split(':');
-            const hour = parseInt(hourStr, 10);
-            const minute = parseInt(minuteStr, 10);
-            const timeMinutes = hour * 60 + minute;
-
-            // Get day of week in Madrid
-            const weekdayStr = dateObj.toLocaleDateString('en-US', { timeZone: 'Europe/Madrid', weekday: 'short' });
-            const weekdays = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
-            const dayOfWeek = weekdays[weekdayStr] !== undefined ? weekdays[weekdayStr] : dateObj.getDay();
-
-            return { dateStr, hour, minute, timeMinutes, dayOfWeek };
-        } catch (e) {
-            console.error('Error in getMadridDateDetails:', e);
-            const d = new Date(parseInt(timestampSec) * 1000);
-            return {
-                dateStr: d.toISOString().split('T')[0],
-                hour: d.getHours(),
-                minute: d.getMinutes(),
-                timeMinutes: d.getHours() * 60 + d.getMinutes(),
-                dayOfWeek: d.getDay()
-            };
-        }
-    }
-
-    let rebuildStatus = { running: false, progress: '', error: null, startedAt: null, completedAt: null };
-
-    const REBUILD_POS_MAP = {
-        0: 'POR', 1: 'LD', 2: 'DFC', 3: 'LI', 4: 'CAD', 5: 'CAI',
-        6: 'MCD', 7: 'MC', 8: 'MCO', 9: 'MD', 10: 'MI',
-        11: 'ED', 12: 'MI', 13: 'MP', 14: 'DC',
-        'goalkeeper': 'POR', 'defender': 'DFC', 'centerback': 'DFC',
-        'fullback': 'LD', 'leftback': 'LI', 'rightback': 'LD',
-        'midfielder': 'MC', 'defensivemidfield': 'MCD', 'centralmidfield': 'MC',
-        'attackingmidfield': 'MCO', 'forward': 'DC', 'attacker': 'DC',
-        'striker': 'DC', 'winger': 'ED', 'wing': 'ED'
-    };
-
-    function rebuildResolvePos(posRaw, archetypeid) {
-        if (!isNaN(posRaw) && REBUILD_POS_MAP[posRaw] !== undefined) return REBUILD_POS_MAP[posRaw];
-        const p = String(posRaw || '').toLowerCase();
-        if (p === 'goalkeeper') return 'POR';
-        if (p === 'forward' || p === 'attacker' || p === 'striker') return 'DC';
-        if (p === 'defender' || p === 'centerback') return 'DFC';
-        if (p === 'midfielder') {
-            if (archetypeid == 10 || archetypeid == 12) return 'CARR';
-            return 'MC';
-        }
-        return REBUILD_POS_MAP[posRaw] || posRaw || '???';
-    }
-
-    function rebuildExtractBuild(matchData) {
-        const attrString = matchData.vproattr || "";
-        const attrParts = attrString.split('|');
-        let height = null, weight = null;
-        if (attrParts.length >= 2) {
-            const last3 = attrParts.slice(-3);
-            for (const val of last3) {
-                const num = parseInt(val);
-                if (!isNaN(num)) {
-                    if (num >= 150 && num <= 220 && !height) height = num;
-                    else if (num >= 45 && num <= 130 && !weight) weight = num;
-                }
-            }
-        }
-        const perks = {};
-        for (let i = 0; i < 5; i++) {
-            if (matchData[`match_event_aggregate_${i}`] !== undefined) {
-                perks[`event_${i}`] = matchData[`match_event_aggregate_${i}`];
-            }
-        }
-        if (matchData.vprohackreason) perks.hackreason = matchData.vprohackreason;
-        return { height, weight, perks, vproattr: matchData.vproattr || null };
-    }
-
-    function rebuildExtractMatchInfo(match, clubId) {
-        const clubs = match.clubs || {};
-        const club = clubs[String(clubId)] || {};
-        const opponentId = Object.keys(clubs).find(id => id !== String(clubId));
-        const opponent = opponentId ? clubs[opponentId] : {};
-        let ourGoals = parseInt(club.goals || 0);
-        let oppGoals = parseInt(opponent.goals || 0);
-
-        if ((ourGoals === 3 && oppGoals === 0) || (ourGoals === 0 && oppGoals === 3)) {
-            const gv = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
-            let maxGC = 0;
-            if (match.players && match.players[String(clubId)]) {
-                Object.values(match.players[String(clubId)]).forEach(p => { const c = gv(p, 'goalsconceded', 'goalsConceded'); if (c > maxGC) maxGC = c; });
-            }
-            let maxOppGC = 0;
-            if (match.players && opponentId && match.players[opponentId]) {
-                Object.values(match.players[opponentId]).forEach(p => { const c = gv(p, 'goalsconceded', 'goalsConceded'); if (c > maxOppGC) maxOppGC = c; });
-            }
-            let trueOur = maxOppGC, trueOpp = maxGC;
-            if (trueOur === 0 && trueOpp === 0) {
-                let realOur = 0, realOpp = 0;
-                if (match.players && match.players[String(clubId)]) realOur = Object.values(match.players[String(clubId)]).reduce((s, p) => s + gv(p, 'goals'), 0);
-                if (match.players && opponentId && match.players[opponentId]) realOpp = Object.values(match.players[opponentId]).reduce((s, p) => s + gv(p, 'goals'), 0);
-                if (realOur > 0 || realOpp > 0) { trueOur = realOur; trueOpp = realOpp; }
-            }
-            if (ourGoals !== trueOur || oppGoals !== trueOpp) { ourGoals = trueOur; oppGoals = trueOpp; }
-        }
-        return { ourGoals, oppGoals };
-    }
-
-    function rebuildGroupMatchesByOpponent(matches, clubId) {
-        const sorted = [...matches].sort((a, b) => parseInt(a.timestamp) - parseInt(b.timestamp));
-        const groups = [];
-        const used = new Set();
-        for (let i = 0; i < sorted.length; i++) {
-            if (used.has(i)) continue;
-            const match = sorted[i];
-            const opponentId = Object.keys(match.clubs || {}).find(id => id !== String(clubId));
-            const group = [match];
-            used.add(i);
-            for (let j = i + 1; j < sorted.length; j++) {
-                if (used.has(j)) continue;
-                const nextMatch = sorted[j];
-                const nextOpponentId = Object.keys(nextMatch.clubs || {}).find(id => id !== String(clubId));
-                const timeDiff = Math.abs(parseInt(match.timestamp) - parseInt(nextMatch.timestamp));
-                if (nextOpponentId === opponentId && timeDiff < 3 * 3600) { group.push(nextMatch); used.add(j); }
-            }
-            groups.push(group);
-        }
-        return groups;
-    }
-
-    function rebuildFindBestSession(group, clubId) {
-        if (group.length === 1) return group[0];
-        let best = group[0], bestScore = 0;
-        for (const match of group) {
-            let maxSecs = 0, hasRealStats = false;
-            if (match.players && match.players[String(clubId)]) {
-                for (const p of Object.values(match.players[String(clubId)])) {
-                    const sec = parseInt(p.secondsPlayed || 0);
-                    if (sec > maxSecs) maxSecs = sec;
-                    const pm = parseInt(p.passesMade || p.passesmade || 0);
-                    const sh = parseInt(p.shots || 0);
-                    const tk = parseInt(p.tacklesMade || p.tacklesmade || 0);
-                    if ((pm + sh + tk) > 0) hasRealStats = true;
-                }
-            }
-            const score = (hasRealStats ? 10000 : 0) + maxSecs;
-            if (score > bestScore) { bestScore = score; best = match; }
-        }
-        return best;
-    }
-
-    function rebuildAggregateGroupStats(group, clubId) {
-        let totalGoals = 0, totalGoalsAgainst = 0, maxSecs = 0;
-        const aggregatedPlayers = {};
-        const gv = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
-        for (const match of group) {
-            const clubStats = match.clubs && match.clubs[String(clubId)] ? match.clubs[String(clubId)] : {};
-            let goals = parseInt(clubStats.goals || 0);
-            let goalsAgainst = parseInt(clubStats.goalsAgainst || 0);
-            const opponentId = Object.keys(match.clubs || {}).find(id => id !== String(clubId));
-            if ((goals === 3 && goalsAgainst === 0) || (goals === 0 && goalsAgainst === 3)) {
-                let maxGC = 0;
-                if (match.players && match.players[String(clubId)]) Object.values(match.players[String(clubId)]).forEach(p => { const c = gv(p, 'goalsconceded', 'goalsConceded'); if (c > maxGC) maxGC = c; });
-                let maxOppGC = 0;
-                if (match.players && opponentId && match.players[opponentId]) Object.values(match.players[opponentId]).forEach(p => { const c = gv(p, 'goalsconceded', 'goalsConceded'); if (c > maxOppGC) maxOppGC = c; });
-                let trueOur = maxOppGC, trueOpp = maxGC;
-                if (trueOur === 0 && trueOpp === 0) {
-                    let realOur = 0, realOpp = 0;
-                    if (match.players && match.players[String(clubId)]) realOur = Object.values(match.players[String(clubId)]).reduce((s, p) => s + gv(p, 'goals'), 0);
-                    if (match.players && opponentId && match.players[opponentId]) realOpp = Object.values(match.players[opponentId]).reduce((s, p) => s + gv(p, 'goals'), 0);
-                    if (realOur > 0 || realOpp > 0) { trueOur = realOur; trueOpp = realOpp; }
-                }
-                if (goals !== trueOur || goalsAgainst !== trueOpp) { goals = trueOur; goalsAgainst = trueOpp; }
-            }
-            totalGoals += goals;
-            totalGoalsAgainst += goalsAgainst;
-            if (match.players && match.players[String(clubId)]) {
-                const playersData = match.players[String(clubId)];
-                for (const playerId in playersData) {
-                    const player = playersData[playerId];
-                    const playerName = player.playername || player.playerName || playerId;
-                    const secs = parseInt(player.secondsPlayed || player.secondsplayed || 0);
-                    const rating = parseFloat(player.rating || 0);
-                    if (secs > maxSecs) maxSecs = secs;
-                    if (!aggregatedPlayers[playerName]) {
-                        aggregatedPlayers[playerName] = { playername: playerName, pos: player.pos, archetypeid: player.archetypeid, goals: 0, assists: 0, passesMade: 0, passesAttempted: 0, tacklesMade: 0, tacklesAttempted: 0, shots: 0, shotsOnTarget: 0, interceptions: 0, saves: 0, redCards: 0, yellowCards: 0, mom: 0, _bestRating: rating, _maxRatingSecs: secs, vproattr: player.vproattr };
-                    } else {
-                        if (secs > aggregatedPlayers[playerName]._maxRatingSecs) {
-                            aggregatedPlayers[playerName]._maxRatingSecs = secs;
-                            aggregatedPlayers[playerName]._bestRating = rating;
-                            aggregatedPlayers[playerName].pos = player.pos;
-                            aggregatedPlayers[playerName].archetypeid = player.archetypeid;
-                            if (player.vproattr) aggregatedPlayers[playerName].vproattr = player.vproattr;
-                        }
-                    }
-                    aggregatedPlayers[playerName].goals += gv(player, 'goals');
-                    aggregatedPlayers[playerName].assists += gv(player, 'assists');
-                    aggregatedPlayers[playerName].passesMade += gv(player, 'passesMade', 'passesmade', 'passescompleted');
-                    aggregatedPlayers[playerName].passesAttempted += gv(player, 'passesAttempted', 'passesattempted', 'passattempts');
-                    aggregatedPlayers[playerName].tacklesMade += gv(player, 'tacklesMade', 'tacklesmade', 'tacklescompleted');
-                    aggregatedPlayers[playerName].tacklesAttempted += gv(player, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts');
-                    aggregatedPlayers[playerName].shots += gv(player, 'shots');
-                    aggregatedPlayers[playerName].shotsOnTarget += gv(player, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal');
-                    aggregatedPlayers[playerName].interceptions += gv(player, 'interceptions');
-                    aggregatedPlayers[playerName].saves += gv(player, 'saves');
-                    aggregatedPlayers[playerName].redCards += gv(player, 'redCards', 'redcards');
-                    aggregatedPlayers[playerName].yellowCards += gv(player, 'yellowCards', 'yellowcards');
-                    aggregatedPlayers[playerName].mom = Math.max(aggregatedPlayers[playerName].mom, gv(player, 'mom'));
-                }
-            }
-        }
-        for (const playerName in aggregatedPlayers) {
-            const p = aggregatedPlayers[playerName];
-            p.rating = p._bestRating;
-            delete p._bestRating;
-            delete p._maxRatingSecs;
-        }
-        return { goals: totalGoals, goalsAgainst: totalGoalsAgainst, maxSecs, players: aggregatedPlayers };
-    }
 
     // GET rebuild status
     app.get('/api/fantasy/admin/rebuild-stats/status', isAuthenticated, isOwner, (req, res) => {
@@ -6889,211 +6771,15 @@ export async function startVisualizerServer(discordClient) {
     // POST trigger rebuild
     app.post('/api/fantasy/admin/rebuild-stats', isAuthenticated, isOwner, async (req, res) => {
         if (rebuildStatus.running) {
-            return res.status(409).json({ error: 'Ya hay una reconstrucción en curso.', progress: rebuildStatus.progress });
+            return res.status(409).json({ error: 'Ya hay una sincronización/reconstrucción en curso.', progress: rebuildStatus.progress });
         }
 
-        const filters = {
-            useFilters: req.body.useFilters === true,
-            startDate: req.body.startDate || null,
-            endDate: req.body.endDate || null,
-            startTime: req.body.startTime || null,
-            endTime: req.body.endTime || null,
-            daysOfWeek: Array.isArray(req.body.daysOfWeek) ? req.body.daysOfWeek.map(Number) : null,
-            specificDates: Array.isArray(req.body.specificDates) ? new Set(req.body.specificDates) : null
-        };
-
-        rebuildStatus = { running: true, progress: 'Iniciando...', error: null, startedAt: new Date(), completedAt: null };
-        res.json({ success: true, message: 'Reconstrucción de estadísticas iniciada en segundo plano.' });
-
         // Run in background
-        (async () => {
-            try {
-                const db = getDb();
-                const playerColl = db.collection('player_profiles');
-                const clubColl = db.collection('club_profiles');
-                const playerLatestInfo = new Map();
+        syncFantasyWithVpg().catch(err => {
+            console.error('[REBUILD API] Error en la sincronización con VPG:', err);
+        });
 
-                const SUPERLIGA_TEAMS = [
-                    "GMK Villarreal CF eSports", "AD Ceuta eSports", "Suzaku esports", "Zenturions", "Alpha Wolfs", "Tempus eSports", "90min FC", "LTK eSports", "Jam eSports", "Cryzen Gaming", "Ventucorp eSports", "Banano eSports", "JS ELCANO", "CE Europa eSports",
-                    "Oxygen Levante", "DriFt Esports", "Ceuta Guardians", "Cadiz Esports", "Espartanos CF", "Transformers CF", "GUINEA PINK", "Shiva esports", "RYUX CLAN", "FC Mayango", "Black Hawks", "Columbus Pacers", "Bachateros FC", "FCP eSports"
-                ];
-                const superligaRegexes = SUPERLIGA_TEAMS.map(name => new RegExp('^' + name.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i'));
-
-                // 1. Reset player profiles (preserve manualPrice, only Superliga players)
-                rebuildStatus.progress = 'Reseteando perfiles de jugadores de la Superliga...';
-                const initialStats = { matchesPlayed: 0, goals: 0, assists: 0, passesMade: 0, passesAttempted: 0, tacklesMade: 0, tacklesAttempted: 0, shots: 0, shotsOnTarget: 0, interceptions: 0, saves: 0, redCards: 0, yellowCards: 0, mom: 0, cleanSheets: 0, goalsConceded: 0, ratings: [], wins: 0, losses: 0, ties: 0 };
-                await playerColl.updateMany({ lastClub: { $in: superligaRegexes } }, { $set: { stats: initialStats } });
-
-                // 2. Reset club profiles (only Superliga clubs)
-                rebuildStatus.progress = 'Reseteando perfiles de clubes de la Superliga...';
-                const initialClubStats = { matchesPlayed: 0, wins: 0, losses: 0, ties: 0, goals: 0, goalsAgainst: 0, shots: 0, shotsOnTarget: 0, passesMade: 0, passesAttempted: 0, tacklesMade: 0, tacklesAttempted: 0, possession: 0, possessionCount: 0 };
-                await clubColl.updateMany({ eaClubName: { $in: superligaRegexes } }, { $set: { stats: initialClubStats } });
-
-                // 3. Load all VPG teams and filter to Superliga
-                rebuildStatus.progress = 'Cargando equipos de la Superliga...';
-                const allTeams = await getDb('test').collection('teams').find({ eaClubId: { $ne: null } }).toArray();
-                const superligaSet = new Set(SUPERLIGA_TEAMS.map(name => name.toLowerCase().trim()));
-                const teams = allTeams.filter(t => t.name && superligaSet.has(t.name.toLowerCase().trim()));
-                let totalSessions = 0;
-
-                // 4. Process each team
-                for (let t = 0; t < teams.length; t++) {
-                    const team = teams[t];
-                    const clubId = team.eaClubId;
-                    rebuildStatus.progress = `Procesando ${team.name} (${t + 1}/${teams.length})...`;
-
-                    const matches = await db.collection('scanned_matches').find({ [`clubs.${clubId}`]: { $exists: true } }).toArray();
-                    if (matches.length === 0) continue;
-
-                    const groups = rebuildGroupMatchesByOpponent(matches, clubId);
-
-                    for (const group of groups) {
-                        const aggregated = rebuildAggregateGroupStats(group, clubId);
-                        const isShortMatch = aggregated.maxSecs > 0 && aggregated.maxSecs < 5200;
-                        const isWin = aggregated.goals > aggregated.goalsAgainst ? 1 : 0;
-                        const isTie = aggregated.goals === aggregated.goalsAgainst ? 1 : 0;
-                        const isLoss = (isWin === 0 && isTie === 0) ? 1 : 0;
-                        const bestMatch = rebuildFindBestSession(group, clubId);
-                        if (!bestMatch || !bestMatch.timestamp) continue;
-
-                        // Check filters
-                        if (filters.useFilters) {
-                            const details = getMadridDateDetails(bestMatch.timestamp);
-                            // If specificDates provided (from VPG calendar), only allow those exact dates
-                            if (filters.specificDates && filters.specificDates.size > 0) {
-                                if (!filters.specificDates.has(details.dateStr)) continue;
-                            } else {
-                                // Fallback to legacy date range + days of week filters
-                                if (filters.startDate && details.dateStr < filters.startDate) continue;
-                                if (filters.endDate && details.dateStr > filters.endDate) continue;
-                                if (filters.daysOfWeek && filters.daysOfWeek.length > 0 && !filters.daysOfWeek.includes(details.dayOfWeek)) continue;
-                            }
-                            // Time range filter (handles midnight crossing, e.g. 23:00 to 00:15)
-                            let matchesTime = true;
-                            const startMin = filters.startTime ? filters.startTime.split(':').map(Number).reduce((h, m) => h * 60 + m) : null;
-                            const endMin = filters.endTime ? filters.endTime.split(':').map(Number).reduce((h, m) => h * 60 + m) : null;
-
-                            if (startMin !== null && endMin !== null) {
-                                if (startMin <= endMin) {
-                                    // Normal range (e.g. 21:00 to 23:59)
-                                    if (details.timeMinutes < startMin || details.timeMinutes > endMin) {
-                                        matchesTime = false;
-                                    }
-                                } else {
-                                    // Crosses midnight (e.g. 23:00 to 00:15)
-                                    if (details.timeMinutes < startMin && details.timeMinutes > endMin) {
-                                        matchesTime = false;
-                                    }
-                                }
-                            } else if (startMin !== null) {
-                                if (details.timeMinutes < startMin) matchesTime = false;
-                            } else if (endMin !== null) {
-                                if (details.timeMinutes > endMin) matchesTime = false;
-                            }
-
-                            if (!matchesTime) continue;
-                        }
-
-                        const matchDate = new Date(parseInt(bestMatch.timestamp) * 1000);
-
-                        for (const playerName in aggregated.players) {
-                            const player = aggregated.players[playerName];
-                            const pm = player.passesMade || 0;
-                            const sh = player.shots || 0;
-                            const tk = player.tacklesMade || 0;
-                            const hasRealStats = (pm + sh + tk) > 0;
-                            const pos = rebuildResolvePos(player.pos, player.archetypeid);
-                            const isGK = pos === 'POR';
-                            const rating = parseFloat(player.rating || 0);
-                            const build = rebuildExtractBuild(player);
-
-                            // Track chronological lastClub
-                            const matchTimestamp = matchDate.getTime();
-                            const currentLatest = playerLatestInfo.get(playerName);
-                            if (!currentLatest || matchTimestamp > currentLatest.timestamp) {
-                                playerLatestInfo.set(playerName, { clubName: team.name, matchDate, pos, build, timestamp: matchTimestamp });
-                            }
-
-                            if (isShortMatch && !hasRealStats) {
-                                await playerColl.updateOne({ eaPlayerName: playerName }, { $push: { 'stats.ratings': rating } }, { upsert: true });
-                            } else {
-                                const gvf = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; } return 0; };
-                                const pLoss = (isWin === 0 && isTie === 0) ? 1 : 0;
-                                const incData = {
-                                    'stats.matchesPlayed': 1, 'stats.goals': gvf(player, 'goals'), 'stats.assists': gvf(player, 'assists'),
-                                    'stats.passesMade': gvf(player, 'passesMade', 'passesmade', 'passescompleted'),
-                                    'stats.passesAttempted': gvf(player, 'passesAttempted', 'passesattempted', 'passattempts'),
-                                    'stats.tacklesMade': gvf(player, 'tacklesMade', 'tacklesmade', 'tacklescompleted'),
-                                    'stats.tacklesAttempted': gvf(player, 'tacklesAttempted', 'tacklesattempted', 'tackleattempts'),
-                                    'stats.shots': gvf(player, 'shots'), 'stats.shotsOnTarget': gvf(player, 'shotsOnTarget', 'shotsontarget', 'shotsongoal', 'shotsOnGoal'),
-                                    'stats.interceptions': gvf(player, 'interceptions'), 'stats.saves': gvf(player, 'saves'),
-                                    'stats.redCards': gvf(player, 'redCards', 'redcards'), 'stats.yellowCards': gvf(player, 'yellowCards', 'yellowcards'),
-                                    'stats.mom': gvf(player, 'mom'), 'stats.cleanSheets': (aggregated.goalsAgainst === 0) ? 1 : 0,
-                                    'stats.goalsConceded': isGK ? aggregated.goalsAgainst : 0,
-                                    'stats.wins': isWin, 'stats.losses': pLoss, 'stats.ties': isTie
-                                };
-                                await playerColl.updateOne({ eaPlayerName: playerName }, { $inc: incData, $push: { 'stats.ratings': rating } }, { upsert: true });
-                            }
-                        }
-
-                        // Process club
-                        if (bestMatch.clubs && bestMatch.clubs[clubId]) {
-                            const info = rebuildExtractMatchInfo(bestMatch, clubId);
-                            const clubData = bestMatch.clubs[clubId];
-                            const gvf = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined && obj[k] !== null) return parseInt(obj[k]) || 0; } return 0; };
-                            const gff = (obj, ...keys) => { for (const k of keys) { if (obj[k] !== undefined && obj[k] !== null) return parseFloat(obj[k]) || 0; } return 0; };
-                            const clubInc = {
-                                'stats.matchesPlayed': 1, 'stats.wins': isWin, 'stats.losses': isLoss, 'stats.ties': isTie,
-                                'stats.goals': parseInt(aggregated.goals) || 0, 'stats.goalsAgainst': parseInt(aggregated.goalsAgainst) || 0,
-                                'stats.shots': gvf(clubData, 'shots'), 'stats.shotsOnTarget': gvf(clubData, 'shotsOnTarget', 'shotsontarget'),
-                                'stats.passesMade': gvf(clubData, 'passesMade', 'passesmade', 'passescompleted'),
-                                'stats.passesAttempted': gvf(clubData, 'passesAttempted', 'passesattempted'),
-                                'stats.tacklesMade': gvf(clubData, 'tacklesMade', 'tacklesmade'),
-                                'stats.tacklesAttempted': gvf(clubData, 'tacklesAttempted', 'tacklesattempted'),
-                                'stats.possession': gff(clubData, 'possession'), 'stats.possessionCount': 1
-                            };
-                            await clubColl.updateOne({ eaClubId: clubId }, { $set: { eaClubName: team.name, lastActive: new Date() }, $inc: clubInc }, { upsert: true });
-                        }
-                        totalSessions += group.length;
-                    }
-                }
-
-                // 5. Bulk update lastClub/lastActive/lastPosition/build
-                rebuildStatus.progress = `Actualizando club activo de ${playerLatestInfo.size} jugadores...`;
-                const bulkOps = [];
-                for (const [playerName, info] of playerLatestInfo.entries()) {
-                    bulkOps.push({ updateOne: { filter: { eaPlayerName: playerName }, update: { $set: { lastClub: info.clubName, lastActive: info.matchDate, lastPosition: info.pos, build: info.build } } } });
-                    if (bulkOps.length >= 1000) { await playerColl.bulkWrite(bulkOps); bulkOps.length = 0; }
-                }
-                if (bulkOps.length > 0) await playerColl.bulkWrite(bulkOps);
-
-                // 6. Recalculate fantasy leagues
-                rebuildStatus.progress = 'Recalculando puntos de ligas Fantasy...';
-                const leagues = await db.collection('fantasy_leagues').find().toArray();
-                for (const league of leagues) {
-                    const fantasyTeams = await db.collection('fantasy_teams').find({ leagueId: league._id.toString() }).toArray();
-                    for (const fTeam of fantasyTeams) {
-                        let totalPoints = 0;
-                        for (const playerName of (fTeam.players || [])) {
-                            const player = await playerColl.findOne({ eaPlayerName: playerName });
-                            if (player) { const { points } = calculatePlayerPointsAndPrice(player); totalPoints += points; }
-                        }
-                        await db.collection('fantasy_teams').updateOne({ _id: fTeam._id }, { $set: { points: totalPoints } });
-                    }
-                }
-
-                rebuildStatus.running = false;
-                rebuildStatus.progress = `✅ Completado: ${totalSessions} sesiones, ${playerLatestInfo.size} jugadores, ${teams.length} equipos.`;
-                rebuildStatus.completedAt = new Date();
-                console.log(`[REBUILD API] ${rebuildStatus.progress}`);
-            } catch (err) {
-                console.error('[REBUILD API] Error:', err);
-                rebuildStatus.running = false;
-                rebuildStatus.error = err.message;
-                rebuildStatus.progress = `❌ Error: ${err.message}`;
-                rebuildStatus.completedAt = new Date();
-            }
-        })();
+        res.json({ success: true, message: 'Sincronización con VPG iniciada en segundo plano.' });
     });
 
     // === 404 Catch-all: Must be AFTER all routes ===
