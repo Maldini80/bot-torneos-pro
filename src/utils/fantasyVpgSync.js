@@ -144,6 +144,49 @@ export async function syncFantasyWithVpg() {
         let totalPlayersUpdated = 0;
         let totalClubsUpdated = 0;
 
+        // B. Calcular puntos previos de los equipos de Fantasy antes de que cambien los stats de los jugadores
+        console.log('[VPG SYNC] Calculando puntos previos de los equipos de Fantasy...');
+        const teamOldPoints = {};
+        try {
+            const leaguesList = await db.collection('fantasy_leagues').find().toArray();
+            const leaguesMap = {};
+            leaguesList.forEach(l => {
+                leaguesMap[l._id.toString()] = l;
+            });
+            const fantasyTeamsList = await db.collection('fantasy_teams').find().toArray();
+            for (const fTeam of fantasyTeamsList) {
+                let oldTeamPoints = 0;
+                const league = leaguesMap[fTeam.leagueId];
+                for (const playerName of (fTeam.players || [])) {
+                    const player = await playerColl.findOne({ 
+                        eaPlayerName: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } 
+                    });
+                    if (player) {
+                        const { points: rawPoints } = calculatePlayerPointsAndPrice(player);
+                        let playerPoints = rawPoints;
+                        if (league && league.pointsMode === 'zero' && league.basePoints) {
+                            const playerNameLower = player.eaPlayerName.toLowerCase();
+                            let base = 0;
+                            if (league.basePoints[player.eaPlayerName] !== undefined) {
+                                base = league.basePoints[player.eaPlayerName];
+                            } else {
+                                const foundKey = Object.keys(league.basePoints).find(k => k.toLowerCase() === playerNameLower);
+                                if (foundKey) {
+                                    base = league.basePoints[foundKey];
+                                }
+                            }
+                            playerPoints = Math.max(0, rawPoints - base);
+                        }
+                        oldTeamPoints += playerPoints;
+                    }
+                }
+                teamOldPoints[fTeam._id.toString()] = oldTeamPoints;
+            }
+            console.log('[VPG SYNC] Puntos previos calculados exitosamente.');
+        } catch (e) {
+            console.error('[VPG SYNC] Error calculando puntos previos:', e);
+        }
+
         // 3. Procesar cada liga activa
         for (const leagueSlug of activeLeagues) {
             // Quitar vpgLeagueSlug de los jugadores que tuvieran asignada esta liga antes,
@@ -389,7 +432,27 @@ export async function syncFantasyWithVpg() {
                         totalPoints += playerPoints;
                     }
                 }
-                await db.collection('fantasy_teams').updateOne({ _id: fTeam._id }, { $set: { points: totalPoints } });
+
+                // Calcular ganancias para el mánager por la jornada
+                const oldPoints = teamOldPoints[fTeam._id.toString()] !== undefined ? teamOldPoints[fTeam._id.toString()] : totalPoints;
+                const deltaPoints = totalPoints - oldPoints;
+                let rewardAmount = 0;
+                const updateDoc = { $set: { points: totalPoints } };
+
+                if (deltaPoints > 0) {
+                    const budget = league.initialBudget || 50000000;
+                    // Factor de recompensa: 0.005% del presupuesto inicial por punto ganado
+                    rewardAmount = deltaPoints * Math.round(budget * 0.00005);
+                    if (rewardAmount > 0) {
+                        updateDoc.$inc = { balance: rewardAmount };
+                    }
+                }
+
+                await db.collection('fantasy_teams').updateOne({ _id: fTeam._id }, updateDoc);
+
+                if (rewardAmount > 0) {
+                    console.log(`[VPG SYNC] El equipo ${fTeam.teamName} ha ganado ${rewardAmount.toLocaleString('es-ES')} € por ${deltaPoints} puntos en esta jornada.`);
+                }
             }
         }
 

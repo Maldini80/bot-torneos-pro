@@ -6184,14 +6184,17 @@ export async function startVisualizerServer(discordClient) {
             const ownerMap = {};
             const ownerDiscordIdMap = {};
             const clauseMap = {};
+            const protectionMap = {};
             if (leagueId) {
                 const teams = await db.collection('fantasy_teams').find({ leagueId }).toArray();
                 for (const team of teams) {
                     const clauses = team.clauses || {};
+                    const protections = team.clausesProtectedUntil || {};
                     for (const pName of (team.players || [])) {
                         ownerMap[pName] = team.teamName;
                         ownerDiscordIdMap[pName] = team.discordId;
                         clauseMap[pName] = clauses[pName] || null;
+                        protectionMap[pName] = protections[pName] || null;
                     }
                 }
             }
@@ -6230,7 +6233,8 @@ export async function startVisualizerServer(discordClient) {
                     basePoints: basePointsValue,
                     owner: ownerMap[p.eaPlayerName] || null,
                     ownerDiscordId: ownerDiscordIdMap[p.eaPlayerName] || null,
-                    clause: clauseMap[p.eaPlayerName] || null
+                    clause: clauseMap[p.eaPlayerName] || null,
+                    protectedUntil: protectionMap[p.eaPlayerName] || null
                 };
             });
 
@@ -6277,6 +6281,22 @@ export async function startVisualizerServer(discordClient) {
                     return res.status(400).json({ error: 'Este jugador ya pertenece a otro mánager y las cláusulas están desactivadas.' });
                 }
 
+                // Check if player is protected from clausulazo (3 days block)
+                if (ownerTeam.clausesProtectedUntil && ownerTeam.clausesProtectedUntil[eaPlayerName]) {
+                    const protectedUntil = new Date(ownerTeam.clausesProtectedUntil[eaPlayerName]);
+                    if (protectedUntil > new Date()) {
+                        const timeDiff = protectedUntil.getTime() - Date.now();
+                        const days = Math.floor(timeDiff / (24 * 60 * 60 * 1000));
+                        const hours = Math.floor((timeDiff % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+                        const mins = Math.max(1, Math.floor((timeDiff % (60 * 60 * 1000)) / (60 * 1000)));
+                        let timeStr = '';
+                        if (days > 0) timeStr += `${days}d `;
+                        if (hours > 0 || days > 0) timeStr += `${hours}h `;
+                        timeStr += `${mins}m`;
+                        return res.status(400).json({ error: `Este jugador está protegido contra clausulazos durante ${timeStr} más.` });
+                    }
+                }
+
                 // Determine clause value
                 const ownerClauses = ownerTeam.clauses || {};
                 const clauseAmount = ownerClauses[eaPlayerName] || Math.round(price * clauseMultiplier);
@@ -6287,7 +6307,7 @@ export async function startVisualizerServer(discordClient) {
 
                 // --- Execute Clausulazo ---
 
-                // 1. Remove player from owner, credit balance, unset clause, update lineup
+                // 1. Remove player from owner, credit balance, unset clause, update lineup, unset protection
                 const ownerLineup = { ...ownerTeam.lineup };
                 for (const pos in ownerLineup) {
                     if (Array.isArray(ownerLineup[pos])) {
@@ -6303,18 +6323,25 @@ export async function startVisualizerServer(discordClient) {
                         $inc: { balance: clauseAmount },
                         $pull: { players: eaPlayerName },
                         $set: { lineup: ownerLineup },
-                        $unset: { [`clauses.${eaPlayerName}`]: "" }
+                        $unset: { 
+                            [`clauses.${eaPlayerName}`]: "",
+                            [`clausesProtectedUntil.${eaPlayerName}`]: ""
+                        }
                     }
                 );
 
-                // 2. Add player to buyer, deduct balance, set initial clause
-                const buyerInitialClause = Math.round(price * clauseMultiplier);
+                // 2. Add player to buyer, deduct balance, set initial clause based on paid price and set 3-day protection
+                const buyerInitialClause = Math.round(clauseAmount * clauseMultiplier);
+                const protectedUntil = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days
                 await db.collection('fantasy_teams').updateOne(
                     { discordId, leagueId },
                     {
                         $inc: { balance: -clauseAmount },
                         $push: { players: eaPlayerName },
-                        $set: { [`clauses.${eaPlayerName}`]: buyerInitialClause }
+                        $set: { 
+                            [`clauses.${eaPlayerName}`]: buyerInitialClause,
+                            [`clausesProtectedUntil.${eaPlayerName}`]: protectedUntil
+                        }
                     }
                 );
 
@@ -6443,14 +6470,17 @@ export async function startVisualizerServer(discordClient) {
                 }
             }
 
-            // Update team: add balance, remove player from list, unset clause, save lineup
+            // Update team: add balance, remove player from list, unset clause, save lineup, unset protection
             await db.collection('fantasy_teams').updateOne(
                 { discordId, leagueId },
                 { 
                     $inc: { balance: saleReimbursement }, 
                     $pull: { players: eaPlayerName }, 
                     $set: { lineup: newLineup },
-                    $unset: { [`clauses.${eaPlayerName}`]: "" }
+                    $unset: { 
+                        [`clauses.${eaPlayerName}`]: "",
+                        [`clausesProtectedUntil.${eaPlayerName}`]: ""
+                    }
                 }
             );
 
@@ -6719,11 +6749,13 @@ export async function startVisualizerServer(discordClient) {
             const playerNames = [...new Set([...received.map(b => b.eaPlayerName), ...sent.map(b => b.eaPlayerName)])];
             const profiles = await db.collection('player_profiles').find({ eaPlayerName: { $in: playerNames } }).toArray();
 
-            // Fetch team avatars
-            const teams = await db.collection('fantasy_teams').find({ leagueId }, { projection: { discordId: 1, discordAvatar: 1 } }).toArray();
+            // Fetch team avatars and names
+            const teams = await db.collection('fantasy_teams').find({ leagueId }, { projection: { discordId: 1, discordAvatar: 1, teamName: 1 } }).toArray();
             const avatarMap = {};
+            const teamNameMap = {};
             teams.forEach(t => {
                 avatarMap[t.discordId] = t.discordAvatar;
+                teamNameMap[t.discordId] = t.teamName;
             });
 
             const playerMap = {};
@@ -6739,7 +6771,9 @@ export async function startVisualizerServer(discordClient) {
             const enrich = (bidsList) => bidsList.map(b => ({
                 ...b,
                 sellerAvatar: avatarMap[b.sellerDiscordId] || null,
+                sellerTeamName: teamNameMap[b.sellerDiscordId] || 'Sin Equipo',
                 bidderAvatar: avatarMap[b.bidderDiscordId] || null,
+                bidderTeamName: teamNameMap[b.bidderDiscordId] || (b.bidderDiscordId === 'liga' ? 'La Liga' : 'Sin Equipo'),
                 playerInfo: playerMap[b.eaPlayerName] || { lastPosition: 'MC', lastClub: 'Sin Club', price: b.bidAmount }
             }));
 
@@ -6813,7 +6847,10 @@ export async function startVisualizerServer(discordClient) {
                         $inc: { balance: bid.bidAmount },
                         $pull: { players: bid.eaPlayerName },
                         $set: { lineup: sellerLineup },
-                        $unset: { [`clauses.${bid.eaPlayerName}`]: "" }
+                        $unset: { 
+                            [`clauses.${bid.eaPlayerName}`]: "",
+                            [`clausesProtectedUntil.${bid.eaPlayerName}`]: ""
+                        }
                     }
                 );
 
@@ -6885,7 +6922,10 @@ export async function startVisualizerServer(discordClient) {
                     $inc: { balance: bid.bidAmount },
                     $pull: { players: bid.eaPlayerName },
                     $set: { lineup: sellerLineup },
-                    $unset: { [`clauses.${bid.eaPlayerName}`]: "" }
+                    $unset: { 
+                        [`clauses.${bid.eaPlayerName}`]: "",
+                        [`clausesProtectedUntil.${bid.eaPlayerName}`]: ""
+                    }
                 }
             );
 

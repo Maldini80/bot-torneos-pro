@@ -882,14 +882,42 @@ function filterAndRenderMarket() {
             actionCol = `<button class="btn btn-secondary btn-xs" disabled><i class="fa-solid fa-check"></i> En tu equipo</button>`;
         } else if (p.owner) {
             const clauseVal = p.clause || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
-            priceCol = `
-                <div style="font-size: 0.8rem; color: #64748b; text-decoration: line-through;">${formatCurrency(p.price)}</div>
-                <div class="text-yellow" style="font-weight: 700;">${formatCurrency(clauseVal)}</div>
-            `;
-            if (activeLeague && activeLeague.allowClauses !== false) {
-                actionCol = `<button class="btn btn-warning btn-xs btn-clausulazo" data-name="${p.eaPlayerName}" data-clause="${clauseVal}" data-owner="${p.owner}" ${!activeLeague.marketOpen ? 'disabled' : ''}><i class="fa-solid fa-bolt"></i> Clausulazo</button>`;
+            let isProtected = false;
+            let timeStr = '';
+            if (p.protectedUntil) {
+                const protDate = new Date(p.protectedUntil);
+                if (protDate > new Date()) {
+                    isProtected = true;
+                    const diffMs = protDate.getTime() - Date.now();
+                    const days = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+                    const hours = Math.floor((diffMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+                    const mins = Math.max(1, Math.floor((diffMs % (60 * 60 * 1000)) / (60 * 1000)));
+                    if (days > 0) timeStr += `${days}d `;
+                    if (hours > 0 || days > 0) timeStr += `${hours}h `;
+                    timeStr += `${mins}m`;
+                }
+            }
+
+            if (isProtected) {
+                priceCol = `
+                    <div style="font-size: 0.8rem; color: #64748b; text-decoration: line-through;">${formatCurrency(p.price)}</div>
+                    <div class="text-yellow" style="font-weight: 700; display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                        <i class="fa-solid fa-lock" style="color: #ef4444; font-size: 0.85rem;" title="Protección de clausulazo restante: ${timeStr}"></i>
+                        <span>${formatCurrency(clauseVal)}</span>
+                    </div>
+                    <div style="font-size: 0.7rem; color: #ef4444; margin-top: 2px;">Lock: ${timeStr}</div>
+                `;
+                actionCol = `<button class="btn btn-warning btn-xs btn-clausulazo" disabled style="opacity: 0.6; cursor: not-allowed;" title="Protegido durante ${timeStr}"><i class="fa-solid fa-lock"></i> Protegido</button>`;
             } else {
-                actionCol = `<span class="badge badge-info text-xs" style="font-size: 0.75rem; border: none; padding: 4px 8px; border-radius: 4px; display: inline-block;"><i class="fa-solid fa-user-lock"></i> ${p.owner}</span>`;
+                priceCol = `
+                    <div style="font-size: 0.8rem; color: #64748b; text-decoration: line-through;">${formatCurrency(p.price)}</div>
+                    <div class="text-yellow" style="font-weight: 700;">${formatCurrency(clauseVal)}</div>
+                `;
+                if (activeLeague && activeLeague.allowClauses !== false) {
+                    actionCol = `<button class="btn btn-warning btn-xs btn-clausulazo" data-name="${p.eaPlayerName}" data-clause="${clauseVal}" data-owner="${p.owner}" ${!activeLeague.marketOpen ? 'disabled' : ''}><i class="fa-solid fa-bolt"></i> Clausulazo</button>`;
+                } else {
+                    actionCol = `<span class="badge badge-info text-xs" style="font-size: 0.75rem; border: none; padding: 4px 8px; border-radius: 4px; display: inline-block;"><i class="fa-solid fa-user-lock"></i> ${p.owner}</span>`;
+                }
             }
         } else {
             actionCol = `<button class="btn btn-success btn-xs btn-buy" data-name="${p.eaPlayerName}" ${activeLeague && !activeLeague.marketOpen ? 'disabled' : ''}><i class="fa-solid fa-plus"></i> Fichar</button>`;
@@ -914,7 +942,7 @@ function filterAndRenderMarket() {
         }
 
         const clausulazoBtn = row.querySelector('.btn-clausulazo');
-        if (clausulazoBtn && activeLeague && activeLeague.marketOpen) {
+        if (clausulazoBtn && activeLeague && activeLeague.marketOpen && !clausulazoBtn.disabled) {
             const clauseVal = p.clause || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
             clausulazoBtn.addEventListener('click', () => executeClausulazo(p, clauseVal));
         }
@@ -942,6 +970,22 @@ function renderSquadList() {
         const playerClause = myTeam.clauses?.[playerName] || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
         const isListed = (marketListings || []).some(l => l.eaPlayerName === playerName);
 
+        let protectionHtml = '';
+        if (myTeam.clausesProtectedUntil && myTeam.clausesProtectedUntil[playerName]) {
+            const protDate = new Date(myTeam.clausesProtectedUntil[playerName]);
+            if (protDate > new Date()) {
+                const diffMs = protDate.getTime() - Date.now();
+                const days = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+                const hours = Math.floor((diffMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+                const mins = Math.max(1, Math.floor((diffMs % (60 * 60 * 1000)) / (60 * 1000)));
+                let timeStr = '';
+                if (days > 0) timeStr += `${days}d `;
+                if (hours > 0 || days > 0) timeStr += `${hours}h `;
+                timeStr += `${mins}m`;
+                protectionHtml = `<div style="font-size: 0.7rem; color: #22c55e; margin-top: 2px; display: flex; align-items: center; justify-content: flex-end; gap: 4px;"><i class="fa-solid fa-lock" title="Protección de clausulazo restante: ${timeStr}"></i> <span>Lock: ${timeStr}</span></div>`;
+            }
+        }
+
         row.innerHTML = `
             <td><div style="font-weight: 700; color: #f8fafc;">${p.eaPlayerName}</div></td>
             <td class="text-muted col-hide-md">${p.lastClub}</td>
@@ -952,7 +996,10 @@ function renderSquadList() {
                     ${isAligned ? 'Alineado' : 'Banquillo'}
                 </span>
             </td>
-            <td class="text-right price-text text-yellow" style="font-weight: 700;">${formatCurrency(playerClause)}</td>
+            <td class="text-right price-text text-yellow" style="font-weight: 700;">
+                <div>${formatCurrency(playerClause)}</div>
+                ${protectionHtml}
+            </td>
             <td class="text-right price-text">${formatCurrency(p.price)}</td>
             <td class="text-center">
                 <div style="display: flex; gap: 4px; justify-content: center;">
