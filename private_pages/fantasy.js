@@ -2015,6 +2015,7 @@ async function handleUnlistMarket(playerName) {
 async function handleBidSubmit(e) {
     e.preventDefault();
     const playerName = bidForm.getAttribute('data-player-name');
+    const sellerId = bidForm.getAttribute('data-seller-id');
     const amount = parseInt(bidAmountInput.value);
 
     if (amount <= 0) {
@@ -2030,7 +2031,7 @@ async function handleBidSubmit(e) {
         const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/market/bid`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ eaPlayerName: playerName, bidAmount: amount })
+            body: JSON.stringify({ eaPlayerName: playerName, bidAmount: amount, sellerDiscordId: sellerId })
         });
 
         const data = await res.json();
@@ -2089,6 +2090,7 @@ async function loadUserMarket() {
                 bidBalanceVal.textContent = formatCurrency(myTeam.balance);
                 bidAmountInput.value = l.askingPrice;
                 bidForm.setAttribute('data-player-name', l.eaPlayerName);
+                bidForm.setAttribute('data-seller-id', l.sellerDiscordId);
                 bidModal.classList.add('open');
             });
 
