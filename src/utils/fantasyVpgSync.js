@@ -411,6 +411,14 @@ export async function syncFantasyWithVpg() {
             }
         }
 
+        // 5. Procesar ofertas de compra de la liga para jugadores transferibles
+        try {
+            updateRebuildStatus({ progress: 'Procesando ofertas automáticas de La Liga...' });
+            await processLeagueMarketOffers(db);
+        } catch (e) {
+            console.error('[VPG SYNC] Error al procesar ofertas de la liga:', e);
+        }
+
         updateRebuildStatus({
             running: false,
             progress: `✅ Completado: Sincronizados ${totalPlayersUpdated} jugadores y ${totalClubsUpdated} clubes en total de las ligas de VPG España.`,
@@ -428,3 +436,88 @@ export async function syncFantasyWithVpg() {
         });
     }
 }
+
+export async function processLeagueMarketOffers(db) {
+    console.log('[LEAGUE MARKET OFFER] Iniciando procesamiento de ofertas de la liga...');
+    const now = new Date();
+    const listings = await db.collection('fantasy_market_listings').find().toArray();
+    if (listings.length === 0) {
+        console.log('[LEAGUE MARKET OFFER] No hay jugadores en venta.');
+        return;
+    }
+
+    const playerColl = db.collection('player_profiles');
+
+    for (const listing of listings) {
+        // Fallback si createdAt no existe
+        const createdAt = listing.createdAt ? new Date(listing.createdAt) : now;
+        const elapsedMs = now - createdAt;
+        const elapsedDays = elapsedMs / (1000 * 60 * 60 * 24);
+
+        if (elapsedDays < 2) {
+            continue; // Menos de 2 días
+        }
+
+        // Buscar el perfil del jugador
+        const player = await playerColl.findOne({
+            eaPlayerName: { $regex: new RegExp('^' + listing.eaPlayerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+        });
+        if (!player) {
+            console.warn(`[LEAGUE MARKET OFFER] No se encontró perfil para el jugador listado: ${listing.eaPlayerName}`);
+            continue;
+        }
+
+        const { price } = calculatePlayerPointsAndPrice(player);
+
+        let targetOffer;
+        let tier;
+        if (elapsedDays >= 4) {
+            targetOffer = Math.round(price * 0.20); // Valor menos 80% (20% del valor)
+            tier = 2;
+        } else {
+            targetOffer = Math.round(price * 0.25); // Valor menos 75% (25% del valor)
+            tier = 1;
+        }
+
+        // Buscar puja de la liga existente
+        const existingBid = await db.collection('fantasy_market_bids').findOne({
+            leagueId: listing.leagueId,
+            eaPlayerName: listing.eaPlayerName,
+            bidderDiscordId: 'liga'
+        });
+
+        if (!existingBid) {
+            // Crear nueva puja de la liga
+            await db.collection('fantasy_market_bids').insertOne({
+                leagueId: listing.leagueId,
+                bidderDiscordId: 'liga',
+                bidderTeamName: 'La Liga',
+                sellerDiscordId: listing.sellerDiscordId,
+                sellerTeamName: listing.sellerTeamName,
+                eaPlayerName: listing.eaPlayerName,
+                bidAmount: targetOffer,
+                tier: tier,
+                status: 'pending',
+                createdAt: new Date()
+            });
+            console.log(`[LEAGUE MARKET OFFER] Nueva oferta de La Liga creada para ${listing.eaPlayerName} por ${targetOffer.toLocaleString('es-ES')} € (Tier ${tier})`);
+        } else {
+            // Si el tier ha cambiado, actualizamos la oferta
+            if (existingBid.tier !== tier) {
+                await db.collection('fantasy_market_bids').updateOne(
+                    { _id: existingBid._id },
+                    {
+                        $set: {
+                            bidAmount: targetOffer,
+                            tier: tier,
+                            status: 'pending',
+                            createdAt: new Date()
+                        }
+                    }
+                );
+                console.log(`[LEAGUE MARKET OFFER] Oferta de La Liga para ${listing.eaPlayerName} actualizada a ${targetOffer.toLocaleString('es-ES')} € (Tier ${tier})`);
+            }
+        }
+    }
+}
+

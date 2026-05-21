@@ -35,9 +35,13 @@
             <!-- Sidebar for Admin controls -->
             <div class="selector-sidebar">
                 <!-- Admin: Create League Card -->
-                <section id="admin-create-league-section" class="fantasy-card admin-only-block" style="display: none;">
-                    <div class="card-header">
-                        <h2><i class="fa-solid fa-folder-plus text-blue"></i> Crear Nueva Liga</h2>
+                <section id="admin-create-league-section" class="fantasy-card" style="display: none;">
+                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <h2 id="create-league-title"><i class="fa-solid fa-folder-plus text-blue"></i> Crear Nueva Liga</h2>
+                        <label class="admin-only-block" style="display: none; align-items: center; gap: 8px; font-size: 0.8rem; color: #94a3b8; cursor: pointer; margin: 0;">
+                            <span>Permitir solicitudes</span>
+                            <input type="checkbox" id="toggle-allow-user-leagues" style="accent-color: #10b981; width: 16px; height: 16px; cursor: pointer;">
+                        </label>
                     </div>
                     <form id="create-league-form" class="admin-form">
                         <div class="form-group">
@@ -54,12 +58,7 @@
                                 <input type="number" id="new-league-budget" value="50000000" step="5000000">
                             </div>
                         </div>
-                        <div class="form-group" style="margin-bottom: 14px;">
-                            <label style="display: block; margin-bottom: 6px; font-size: 0.85rem; color: #94a3b8;">Ligas VPG Habilitadas:</label>
-                            <div id="new-league-vpg-checkboxes" style="display: flex; flex-direction: column; gap: 6px; padding: 10px; background: rgba(15, 23, 42, 0.6); border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); max-height: 150px; overflow-y: auto;">
-                                <span class="text-muted" style="font-size: 0.8rem;">Cargando ligas habilitadas...</span>
-                            </div>
-                        </div>
+
                         <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-plus"></i> Crear Liga</button>
                     </form>
                 </section>
@@ -108,6 +107,16 @@
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </section>
+
+                <!-- Admin: Pending League Requests -->
+                <section id="pending-league-requests-section" class="fantasy-card admin-only-block" style="display: none;">
+                    <div class="card-header">
+                        <h2><i class="fa-solid fa-clock text-yellow"></i> Solicitudes de Ligas Pendientes</h2>
+                    </div>
+                    <div id="pending-leagues-list" style="display: flex; flex-direction: column; gap: 12px; padding: 16px;">
+                        <span class="text-muted" style="font-size: 0.85rem;">No hay solicitudes pendientes.</span>
                     </div>
                 </section>
             </div>
@@ -201,7 +210,7 @@
         <nav class="league-nav">
             <button class="nav-tab-btn active" data-league-tab="my-team"><i class="fa-solid fa-people-group"></i> Mi Equipo</button>
             <button class="nav-tab-btn" data-league-tab="leaderboard"><i class="fa-solid fa-ranking-star"></i> Clasificación</button>
-            <button class="nav-tab-btn admin-only-block" data-league-tab="admin-panel" style="display: none;"><i class="fa-solid fa-gears"></i> Panel Admin</button>
+            <button id="btn-league-admin-tab" class="nav-tab-btn" data-league-tab="admin-panel" style="display: none;"><i class="fa-solid fa-gears"></i> Panel Admin</button>
         </nav>
 
         <!-- Pending Approval Message -->
@@ -494,18 +503,14 @@
                                     <div class="form-group col">
                                         <label for="admin-league-clause-multiplier">Multiplicador de Cláusula</label>
                                         <input type="number" id="admin-league-clause-multiplier" min="1.0" max="5.0" step="0.1">
+                                        <small style="color: #64748b; font-size: 0.75rem; margin-top: 4px; display: block;">Ej: 1.5x = la cláusula de rescisión será 1.5 veces el valor de mercado del jugador.</small>
                                     </div>
                                 </div>
                                 <div class="form-group">
                                     <label for="admin-league-initial-budget">Presupuesto Inicial (de nuevos registros)</label>
                                     <input type="number" id="admin-league-initial-budget" min="1000000" max="500000000" step="1000000" class="form-control" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; width: 100%; box-sizing: border-box;">
                                 </div>
-                                <div class="form-group" style="margin-bottom: 14px;">
-                                    <label style="display: block; margin-bottom: 6px; font-size: 0.85rem; color: #94a3b8;">Ligas VPG Habilitadas:</label>
-                                    <div id="admin-league-vpg-checkboxes" style="display: flex; flex-direction: column; gap: 6px; padding: 10px; background: rgba(15, 23, 42, 0.6); border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); max-height: 150px; overflow-y: auto;">
-                                        <span class="text-muted" style="font-size: 0.8rem;">Cargando ligas habilitadas...</span>
-                                    </div>
-                                </div>
+
                                 <button type="submit" class="btn btn-primary btn-block"><i class="fa-solid fa-floppy-disk"></i> Guardar Cambios</button>
                             </form>
                         </div>
@@ -533,16 +538,8 @@
                                 <button id="btn-admin-recalculate" class="btn btn-sm btn-secondary"><i class="fa-solid fa-arrows-rotate"></i> Recalcular</button>
                             </div>
 
-                            <div class="action-card owner-only-block" style="display: none; flex-direction: column; align-items: stretch; gap: 12px;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
-                                    <div style="flex: 1; min-width: 0;">
-                                        <h4>Sincronizar Datos VPG</h4>
-                                        <p class="text-muted">Sincroniza de forma inmediata los perfiles de jugadores, clubes y estadísticas de líderes desde la API oficial de VPG España para las ligas habilitadas. Tarda menos de 1 minuto.</p>
-                                        <p id="rebuild-stats-progress" class="text-muted" style="font-size: 0.8rem; margin-top: 4px; display: none; color: #f59e0b;"></p>
-                                    </div>
-                                    <button id="btn-admin-rebuild-stats" class="btn btn-sm btn-warning" style="flex-shrink: 0;"><i class="fa-solid fa-arrows-rotate"></i> Sincronizar</button>
-                                </div>
-                            </div>
+
+
 
                             <div class="action-card">
                                 <div>

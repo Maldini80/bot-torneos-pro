@@ -149,6 +149,11 @@ const selectorUserName = document.getElementById('selector-user-name');
 const leaguesGrid = document.getElementById('leagues-grid');
 const adminCreateLeagueSection = document.getElementById('admin-create-league-section');
 const createLeagueForm = document.getElementById('create-league-form');
+const createLeagueSection = document.getElementById('admin-create-league-section');
+const createLeagueTitle = document.getElementById('create-league-title');
+const toggleAllowUserLeagues = document.getElementById('toggle-allow-user-leagues');
+const btnLeagueAdminTab = document.getElementById('btn-league-admin-tab');
+let allowUserLeagueCreation = false;
 
 // DOM Elements - Dashboard View
 const activeLeagueName = document.getElementById('active-league-name');
@@ -193,8 +198,8 @@ const adminLeagueInitialBudget = document.getElementById('admin-league-initial-b
 const btnAdminToggleMarket = document.getElementById('btn-admin-toggle-market');
 const btnAdminRecalculate = document.getElementById('btn-admin-recalculate');
 const btnAdminDeleteLeague = document.getElementById('btn-admin-delete-league');
-const btnAdminRebuildStats = document.getElementById('btn-admin-rebuild-stats');
-const rebuildStatsProgress = document.getElementById('rebuild-stats-progress');
+const btnAdminRebuildStats = null; // Removed from league admin panel
+const rebuildStatsProgress = null; // Removed from league admin panel
 const btnOwnerRebuildStats = document.getElementById('btn-owner-rebuild-stats');
 const ownerRebuildProgress = document.getElementById('owner-rebuild-progress');
 const adminParticipantsList = document.getElementById('admin-participants-list');
@@ -283,6 +288,32 @@ async function checkUserSession() {
             document.querySelectorAll('.admin-only-block').forEach(el => el.style.display = 'none');
             const selMain = document.querySelector('.selector-main');
             if (selMain) selMain.classList.remove('has-admin');
+        }
+
+        // Fetch allow-user-leagues config and handle create league visibility
+        try {
+            const configRes = await fetch('/api/fantasy/admin/config/allow-user-leagues');
+            if (configRes.ok) {
+                const configData = await configRes.json();
+                allowUserLeagueCreation = configData.allowed;
+                if (toggleAllowUserLeagues) toggleAllowUserLeagues.checked = allowUserLeagueCreation;
+            }
+        } catch (e) { console.error('Error fetching allow-user-leagues config:', e); }
+
+        // Show create league section: always for admins, or for users if allowed
+        if (createLeagueSection) {
+            if (currentUser.isAdmin) {
+                createLeagueSection.style.display = 'block';
+                if (createLeagueTitle) createLeagueTitle.innerHTML = '<i class="fa-solid fa-folder-plus text-blue"></i> Crear Nueva Liga';
+            } else if (allowUserLeagueCreation) {
+                createLeagueSection.style.display = 'block';
+                if (createLeagueTitle) createLeagueTitle.innerHTML = '<i class="fa-solid fa-folder-plus text-blue"></i> Solicitar Nueva Liga';
+                // Also ensure sidebar is visible for non-admins
+                const selMain = document.querySelector('.selector-main');
+                if (selMain) selMain.classList.add('has-admin');
+            } else {
+                createLeagueSection.style.display = 'none';
+            }
         }
         // Owner-only elements (rebuild stats, etc.) - only visible for the owner, not referees
         if (currentUser.isOwner) {
@@ -444,6 +475,27 @@ function setupEventHandlers() {
     if (btnAdminRebuildStats) btnAdminRebuildStats.addEventListener('click', () => executeRebuildStats(btnAdminRebuildStats, rebuildStatsProgress));
     if (btnOwnerRebuildStats) btnOwnerRebuildStats.addEventListener('click', () => executeRebuildStats(btnOwnerRebuildStats, ownerRebuildProgress));
 
+    // Toggle allow user league creation
+    if (toggleAllowUserLeagues) {
+        toggleAllowUserLeagues.addEventListener('change', async () => {
+            try {
+                const res = await fetch('/api/fantasy/admin/config/allow-user-leagues', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ allowed: toggleAllowUserLeagues.checked })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Error al cambiar configuración.');
+                allowUserLeagueCreation = data.allowed;
+                showToast(data.message, 'success');
+            } catch (e) {
+                console.error(e);
+                showToast(e.message, 'error');
+                toggleAllowUserLeagues.checked = !toggleAllowUserLeagues.checked; // revert
+            }
+        });
+    }
+
     // Admin player price override handlers
     if (btnAdminSearchPlayer) {
         btnAdminSearchPlayer.addEventListener('click', handleAdminPlayerSearch);
@@ -536,28 +588,86 @@ async function showLeagueSelector() {
             
             leaguesGrid.appendChild(card);
         });
+
+        // Load pending league requests for admins
+        if (currentUser && currentUser.isAdmin) {
+            await loadPendingLeagueRequests();
+        }
     } catch (e) {
         console.error(e);
         leaguesGrid.innerHTML = `<div class="text-center py-4 text-red"><i class="fa-solid fa-triangle-exclamation"></i> Error al cargar las ligas.</div>`;
     }
 }
 
-// Create league logic (admin)
+// Load pending league requests for admin sidebar
+async function loadPendingLeagueRequests() {
+    const container = document.getElementById('pending-leagues-list');
+    const section = document.getElementById('pending-league-requests-section');
+    if (!container || !section) return;
+    try {
+        const res = await fetch('/api/fantasy/leagues/pending-leagues');
+        if (!res.ok) return;
+        const data = await res.json();
+        const pending = data.pending || [];
+        if (pending.length === 0) {
+            container.innerHTML = '<span class="text-muted" style="font-size: 0.85rem;">No hay solicitudes pendientes.</span>';
+            return;
+        }
+        container.innerHTML = '';
+        pending.forEach(league => {
+            const card = document.createElement('div');
+            card.style.cssText = 'background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;';
+            const date = new Date(league.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            card.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div style="font-weight: 600; color: #fff; font-size: 0.9rem;">${league.name}</div>
+                        <div style="font-size: 0.75rem; color: #64748b;">Por: ${league.createdByUsername || 'Desconocido'} • ${date}</div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-sm btn-primary btn-approve-league" data-id="${league._id}" style="flex: 1;"><i class="fa-solid fa-check"></i> Aprobar</button>
+                    <button class="btn btn-sm btn-danger btn-reject-league" data-id="${league._id}" style="flex: 1;"><i class="fa-solid fa-xmark"></i> Rechazar</button>
+                </div>
+            `;
+            card.querySelector('.btn-approve-league').addEventListener('click', async () => {
+                try {
+                    const r = await fetch(`/api/fantasy/leagues/${league._id}/approve-league`, { method: 'POST' });
+                    const d = await r.json();
+                    if (!r.ok) throw new Error(d.error);
+                    showToast(d.message, 'success');
+                    await showLeagueSelector();
+                } catch (err) { showToast(err.message, 'error'); }
+            });
+            card.querySelector('.btn-reject-league').addEventListener('click', async () => {
+                if (!confirm('¿Estás seguro de rechazar esta solicitud? La liga será eliminada.')) return;
+                try {
+                    const r = await fetch(`/api/fantasy/leagues/${league._id}/reject-league`, { method: 'DELETE' });
+                    const d = await r.json();
+                    if (!r.ok) throw new Error(d.error);
+                    showToast(d.message, 'success');
+                    await showLeagueSelector();
+                } catch (err) { showToast(err.message, 'error'); }
+            });
+            container.appendChild(card);
+        });
+    } catch (e) {
+        console.error('Error loading pending leagues:', e);
+    }
+}
+
+// Create league logic
 async function handleCreateLeague(e) {
     e.preventDefault();
     const name = document.getElementById('new-league-name').value;
     const maxParticipants = document.getElementById('new-league-max-participants').value;
     const initialBudget = document.getElementById('new-league-budget').value;
-
-    // Collect VPG leagues
-    const checkboxes = document.querySelectorAll('#new-league-vpg-checkboxes input[type="checkbox"]:checked');
-    const vpgLeagues = Array.from(checkboxes).map(cb => cb.value);
     
     try {
         const res = await fetch('/api/fantasy/leagues', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, maxParticipants, initialBudget, vpgLeagues })
+            body: JSON.stringify({ name, maxParticipants, initialBudget })
         });
         
         const data = await res.json();
@@ -565,8 +675,6 @@ async function handleCreateLeague(e) {
         
         showToast(data.message, 'success');
         createLeagueForm.reset();
-        // Reset checkboxes to checked by default
-        document.querySelectorAll('#new-league-vpg-checkboxes input[type="checkbox"]').forEach(cb => cb.checked = true);
         await showLeagueSelector();
     } catch (e) {
         console.error(e);
@@ -642,6 +750,12 @@ async function enterLeague(leagueId) {
             pendingApprovalView.style.display = 'none';
         }
         
+        // Show/hide admin tab based on permissions
+        const canAdmin = currentUser.isAdmin || (activeLeague && activeLeague.createdBy === currentUser.discordId);
+        if (btnLeagueAdminTab) {
+            btnLeagueAdminTab.style.display = canAdmin ? '' : 'none';
+        }
+
         // Reset subtabs to first tab
         document.querySelectorAll('.nav-tab-btn').forEach(btn => btn.classList.remove('active'));
         document.querySelector('[data-league-tab="my-team"]').classList.add('active');
@@ -1250,7 +1364,8 @@ async function showRivalTeam(discordId, teamName) {
 
 // VIEW 2.3: Load admin panel settings and participants
 async function loadAdminPanelData() {
-    if (!currentUser || !currentUser.isAdmin) return;
+    const canAdmin = currentUser && (currentUser.isAdmin || (activeLeague && activeLeague.createdBy === currentUser.discordId));
+    if (!canAdmin) return;
     
     // Fill Config Form
     adminLeagueName.value = activeLeague.name;
@@ -1260,8 +1375,7 @@ async function loadAdminPanelData() {
     adminLeagueClauseMultiplier.value = activeLeague.clauseMultiplier || 1.5;
     adminLeagueInitialBudget.value = activeLeague.initialBudget || 50000000;
     
-    // Render/check checkboxes for permitted VPG leagues
-    renderAdminLeaguesCheckboxes();
+    // VPG league checkboxes removed from league admin panel
     
     // Set market toggle text
     updateMarketToggleButton(activeLeague.marketOpen);
@@ -1408,15 +1522,11 @@ async function handleUpdateLeagueSubmit(e) {
     const clauseMultiplier = parseFloat(adminLeagueClauseMultiplier.value);
     const initialBudget = parseInt(adminLeagueInitialBudget.value);
     
-    // Collect selected VPG leagues
-    const checkboxes = document.querySelectorAll('#admin-league-vpg-checkboxes input[type="checkbox"]:checked');
-    const vpgLeagues = Array.from(checkboxes).map(cb => cb.value);
-
     try {
         const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, status, maxParticipants, allowClauses, clauseMultiplier, initialBudget, vpgLeagues })
+            body: JSON.stringify({ name, status, maxParticipants, allowClauses, clauseMultiplier, initialBudget })
         });
         
         const data = await res.json();
@@ -1431,7 +1541,6 @@ async function handleUpdateLeagueSubmit(e) {
         activeLeague.allowClauses = allowClauses;
         activeLeague.clauseMultiplier = clauseMultiplier;
         activeLeague.initialBudget = initialBudget;
-        activeLeague.vpgLeagues = vpgLeagues;
         activeLeagueName.textContent = name;
     } catch (e) {
         console.error(e);
@@ -1956,7 +2065,12 @@ async function loadUserMarket() {
                 <td>
                     <div style="font-weight: 700; color: #f8fafc;">${l.eaPlayerName}</div>
                 </td>
-                <td>${l.sellerTeamName}</td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <img src="${l.sellerAvatar ? `https://cdn.discordapp.com/avatars/${l.sellerDiscordId}/${l.sellerAvatar}.png?size=32` : 'https://cdn.discordapp.com/embed/avatars/0.png'}" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" class="team-shield">
+                        <span>${l.sellerTeamName}</span>
+                    </div>
+                </td>
                 <td><span class="position-badge pos-${p.lastPosition.toLowerCase()}">${p.lastPosition}</span></td>
                 <td class="text-right price-text">${formatCurrency(p.price)}</td>
                 <td class="text-right price-text text-yellow" style="font-weight: 700;">${formatCurrency(l.askingPrice)}</td>
@@ -2011,7 +2125,17 @@ async function loadMarketBids() {
                     <td>
                         <div style="font-weight: 700; color: #f8fafc;">${b.eaPlayerName}</div>
                     </td>
-                    <td>${b.bidderTeamName}</td>
+                    <td>
+                        ${b.bidderDiscordId === 'liga' 
+                            ? `<span class="badge" style="background: linear-gradient(135deg, #4f46e5, #06b6d4); color: white; border: none; font-size: 0.75rem; border-radius: 4px; padding: 3px 6px; font-weight: 600; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);">La Liga (Oferta Auto)</span>` 
+                            : `
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <img src="${b.bidderAvatar ? `https://cdn.discordapp.com/avatars/${b.bidderDiscordId}/${b.bidderAvatar}.png?size=32` : 'https://cdn.discordapp.com/embed/avatars/0.png'}" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" class="team-shield">
+                                    <span>${b.bidderTeamName}</span>
+                                </div>
+                            `
+                        }
+                    </td>
                     <td class="text-right price-text">${formatCurrency(p.price)}</td>
                     <td class="text-right price-text text-yellow" style="font-weight: 700;">${formatCurrency(b.bidAmount)}</td>
                     <td class="text-center">
@@ -2047,7 +2171,12 @@ async function loadMarketBids() {
                     <td>
                         <div style="font-weight: 700; color: #f8fafc;">${b.eaPlayerName}</div>
                     </td>
-                    <td>${b.sellerTeamName}</td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <img src="${b.sellerAvatar ? `https://cdn.discordapp.com/avatars/${b.sellerDiscordId}/${b.sellerAvatar}.png?size=32` : 'https://cdn.discordapp.com/embed/avatars/0.png'}" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" class="team-shield">
+                            <span>${b.sellerTeamName}</span>
+                        </div>
+                    </td>
                     <td class="text-right price-text">${formatCurrency(p.price)}</td>
                     <td class="text-right price-text text-blue" style="font-weight: 700;">${formatCurrency(b.bidAmount)}</td>
                     <td class="text-center">${statusBadge}</td>
@@ -2268,8 +2397,8 @@ async function updateActiveLeagues(newActiveSlugs) {
 
 function renderAdminLeaguesCheckboxes() {
     const newLeagueContainer = document.getElementById('new-league-vpg-checkboxes');
-    const adminLeagueContainer = document.getElementById('admin-league-vpg-checkboxes');
-    if (!newLeagueContainer && !adminLeagueContainer) return;
+    if (!newLeagueContainer) return;
+    const adminLeagueContainer = null; // Removed from league admin panel
     let html = '';
     if (globalActiveLeagues.length === 0) {
         html = '<span class="text-muted" style="font-size: 0.8rem;">No hay ligas VPG habilitadas en el panel del Owner.</span>';

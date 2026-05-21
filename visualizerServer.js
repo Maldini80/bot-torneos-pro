@@ -5434,6 +5434,23 @@ export async function startVisualizerServer(discordClient) {
         return res.status(403).json({ error: 'Solo el Owner del bot puede realizar esta acción.' });
     }
 
+    // --- MIDDLEWARE: Can Admin a specific League (owner, referee, or league creator) ---
+    async function canAdminLeague(req, res, next) {
+        if (!req.user) return res.status(401).json({ error: 'No autenticado' });
+        const isAdmin = req.user.id === process.env.OWNER_DISCORD_ID;
+        const isReferee = Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
+        if (isAdmin || isReferee) return next();
+        // Check if user is the league creator
+        try {
+            const db = getDb();
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(req.params.id) });
+            if (league && league.createdBy === req.user.id) return next();
+        } catch (e) {
+            console.error('[canAdminLeague] Error:', e);
+        }
+        return res.status(403).json({ error: 'No tienes permisos para administrar esta liga.' });
+    }
+
     app.get('/vpn.html', (req, res) => {
         if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
             return res.redirect('/home.html');
@@ -5647,13 +5664,42 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
+    // Get allow-user-leagues config (accessible to all authenticated users)
+    app.get('/api/fantasy/admin/config/allow-user-leagues', isAuthenticated, isFantasyEnabled, async (req, res) => {
+        try {
+            const db = getDb();
+            const config = await db.collection('fantasy_config').findOne({ key: 'allow_user_league_creation' });
+            res.json({ allowed: config ? !!config.value : false });
+        } catch (e) {
+            console.error('[API Get Allow User Leagues] Error:', e);
+            res.status(500).json({ error: 'Error al obtener configuración.' });
+        }
+    });
+
+    // Set allow-user-leagues config (admin only)
+    app.post('/api/fantasy/admin/config/allow-user-leagues', isAuthenticated, isFantasyAdmin, async (req, res) => {
+        try {
+            const { allowed } = req.body;
+            const db = getDb();
+            await db.collection('fantasy_config').updateOne(
+                { key: 'allow_user_league_creation' },
+                { $set: { key: 'allow_user_league_creation', value: !!allowed } },
+                { upsert: true }
+            );
+            res.json({ success: true, allowed: !!allowed, message: allowed ? 'Solicitudes de ligas habilitadas.' : 'Solicitudes de ligas deshabilitadas.' });
+        } catch (e) {
+            console.error('[API Post Allow User Leagues] Error:', e);
+            res.status(500).json({ error: 'Error al guardar configuración.' });
+        }
+    });
+
     // ========== FANTASY API: Leagues ==========
 
     // List all leagues
     app.get('/api/fantasy/leagues', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
             const db = getDb();
-            const leagues = await db.collection('fantasy_leagues').find({}).sort({ createdAt: -1 }).toArray();
+            const leagues = await db.collection('fantasy_leagues').find({ $or: [{ approved: true }, { approved: { $exists: false } }] }).sort({ createdAt: -1 }).toArray();
             // For each league, count participants
             for (const league of leagues) {
                 league.participantCount = await db.collection('fantasy_teams').countDocuments({ leagueId: league._id.toString() });
@@ -5665,28 +5711,90 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
-    // Create league (admin only)
-    app.post('/api/fantasy/leagues', isFantasyAdmin, async (req, res) => {
+    // Get pending league requests (admin only)
+    app.get('/api/fantasy/leagues/pending-leagues', isAuthenticated, isFantasyAdmin, async (req, res) => {
         try {
-            const { name, maxParticipants, initialBudget, vpgLeagues } = req.body;
-            if (!name || name.trim() === '') return res.status(400).json({ error: 'El nombre de la liga es obligatorio.' });
             const db = getDb();
+            const pending = await db.collection('fantasy_leagues').find({ approved: false }).sort({ createdAt: -1 }).toArray();
+            res.json({ pending });
+        } catch (e) {
+            console.error('[API Fantasy Pending Leagues] Error:', e);
+            res.status(500).json({ error: 'Error al obtener ligas pendientes.' });
+        }
+    });
+
+    // Approve a pending league (admin only)
+    app.post('/api/fantasy/leagues/:id/approve-league', isAuthenticated, isFantasyAdmin, async (req, res) => {
+        try {
+            const db = getDb();
+            await db.collection('fantasy_leagues').updateOne(
+                { _id: new ObjectId(req.params.id) },
+                { $set: { approved: true } }
+            );
+            res.json({ success: true, message: 'Liga aprobada correctamente.' });
+        } catch (e) {
+            console.error('[API Fantasy Approve League] Error:', e);
+            res.status(500).json({ error: 'Error al aprobar la liga.' });
+        }
+    });
+
+    // Reject (delete) a pending league (admin only)
+    app.delete('/api/fantasy/leagues/:id/reject-league', isAuthenticated, isFantasyAdmin, async (req, res) => {
+        try {
+            const db = getDb();
+            await db.collection('fantasy_leagues').deleteOne({ _id: new ObjectId(req.params.id) });
+            res.json({ success: true, message: 'Solicitud de liga rechazada y eliminada.' });
+        } catch (e) {
+            console.error('[API Fantasy Reject League] Error:', e);
+            res.status(500).json({ error: 'Error al rechazar la liga.' });
+        }
+    });
+
+    // Create league (any authenticated user if allowed, admins always)
+    app.post('/api/fantasy/leagues', isAuthenticated, isFantasyEnabled, async (req, res) => {
+        try {
+            const { name, maxParticipants, initialBudget } = req.body;
+            if (!name || name.trim() === '') return res.status(400).json({ error: 'El nombre de la liga es obligatorio.' });
+            
+            const db = getDb();
+            const isAdmin = req.user.id === process.env.OWNER_DISCORD_ID;
+            const isReferee = Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
+            const isPrivileged = isAdmin || isReferee;
+
+            // If not admin/referee, check if user league creation is allowed
+            if (!isPrivileged) {
+                const config = await db.collection('fantasy_config').findOne({ key: 'allow_user_league_creation' });
+                if (!config || !config.value) {
+                    return res.status(403).json({ error: 'La creación de ligas por usuarios no está habilitada actualmente.' });
+                }
+            }
+
+            // Get active VPG leagues from global config
+            const vpgConfig = await db.collection('fantasy_config').findOne({ key: 'active_leagues' });
+            const vpgLeagues = vpgConfig && Array.isArray(vpgConfig.slugs) ? vpgConfig.slugs : null;
+
             const league = {
                 name: name.trim(),
                 createdBy: req.user.id,
-                status: 'open', // open, active, closed
+                createdByUsername: req.user.global_name || req.user.username,
+                status: 'open',
                 marketOpen: true,
                 maxParticipants: parseInt(maxParticipants) || 20,
-                maxSquadSize: 15, // 11 titulares + 4 suplentes (estilo Marca)
+                maxSquadSize: 15,
                 initialBudget: parseInt(initialBudget) || 50000000,
                 createdAt: new Date(),
                 startedAt: null,
                 endedAt: null,
-                vpgLeagues: Array.isArray(vpgLeagues) ? vpgLeagues : null
+                vpgLeagues,
+                approved: isPrivileged // admins: true, users: false
             };
             const result = await db.collection('fantasy_leagues').insertOne(league);
             league._id = result.insertedId;
-            res.json({ success: true, message: `Liga "${league.name}" creada.`, league });
+            
+            const message = isPrivileged
+                ? `Liga "${league.name}" creada.`
+                : `Solicitud de liga "${league.name}" enviada. Un administrador debe aprobarla.`;
+            res.json({ success: true, message, league, needsApproval: !isPrivileged });
         } catch (e) {
             console.error('[API Fantasy Create League] Error:', e);
             res.status(500).json({ error: 'Error al crear la liga.' });
@@ -5694,7 +5802,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Update league (admin only)
-    app.put('/api/fantasy/leagues/:id', isFantasyAdmin, async (req, res) => {
+    app.put('/api/fantasy/leagues/:id', isAuthenticated, canAdminLeague, async (req, res) => {
         try {
             const { name, status, maxParticipants, allowClauses, clauseMultiplier, initialBudget } = req.body;
             const db = getDb();
@@ -5721,7 +5829,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Delete league (admin only)
-    app.delete('/api/fantasy/leagues/:id', isFantasyAdmin, async (req, res) => {
+    app.delete('/api/fantasy/leagues/:id', isAuthenticated, canAdminLeague, async (req, res) => {
         try {
             const db = getDb();
             const leagueId = req.params.id;
@@ -5735,7 +5843,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Toggle market open/close (admin only)
-    app.post('/api/fantasy/leagues/:id/toggle-market', isFantasyAdmin, async (req, res) => {
+    app.post('/api/fantasy/leagues/:id/toggle-market', isAuthenticated, canAdminLeague, async (req, res) => {
         try {
             const db = getDb();
             const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(req.params.id) });
@@ -5750,7 +5858,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Get all teams in a league (admin only)
-    app.get('/api/fantasy/leagues/:id/teams', isFantasyAdmin, async (req, res) => {
+    app.get('/api/fantasy/leagues/:id/teams', isAuthenticated, canAdminLeague, async (req, res) => {
         try {
             const db = getDb();
             const teams = await db.collection('fantasy_teams').find({ leagueId: req.params.id, approved: true }).sort({ points: -1 }).toArray();
@@ -5762,11 +5870,27 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Kick team from league (admin only)
-    app.delete('/api/fantasy/leagues/:id/teams/:teamId', isFantasyAdmin, async (req, res) => {
+    app.delete('/api/fantasy/leagues/:id/teams/:teamId', isAuthenticated, canAdminLeague, async (req, res) => {
         try {
             const db = getDb();
-            await db.collection('fantasy_teams').deleteOne({ _id: new ObjectId(req.params.teamId), leagueId: req.params.id });
-            res.json({ success: true, message: 'Equipo expulsado de la liga.' });
+            const team = await db.collection('fantasy_teams').findOne({ _id: new ObjectId(req.params.teamId), leagueId: req.params.id });
+            if (!team) return res.status(404).json({ error: 'Equipo no encontrado.' });
+
+            await db.collection('fantasy_teams').deleteOne({ _id: team._id });
+
+            // Clean up listings
+            await db.collection('fantasy_market_listings').deleteMany({ leagueId: req.params.id, sellerDiscordId: team.discordId });
+
+            // Clean up bids
+            await db.collection('fantasy_market_bids').deleteMany({
+                leagueId: req.params.id,
+                $or: [
+                    { bidderDiscordId: team.discordId },
+                    { sellerDiscordId: team.discordId }
+                ]
+            });
+
+            res.json({ success: true, message: 'Equipo expulsado y mercado limpiado correctamente.' });
         } catch (e) {
             console.error('[API Fantasy Kick Team] Error:', e);
             res.status(500).json({ error: 'Error al expulsar equipo.' });
@@ -5774,7 +5898,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Adjust team budget (admin only)
-    app.post('/api/fantasy/leagues/:id/teams/:teamId/budget', isFantasyAdmin, async (req, res) => {
+    app.post('/api/fantasy/leagues/:id/teams/:teamId/budget', isAuthenticated, canAdminLeague, async (req, res) => {
         try {
             const { amount, action } = req.body;
             const numAmount = parseInt(amount);
@@ -5815,7 +5939,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Recalculate all team points in a league (admin only)
-    app.post('/api/fantasy/leagues/:id/recalculate', isFantasyAdmin, async (req, res) => {
+    app.post('/api/fantasy/leagues/:id/recalculate', isAuthenticated, canAdminLeague, async (req, res) => {
         try {
             const db = getDb();
             const teams = await db.collection('fantasy_teams').find({ leagueId: req.params.id }).toArray();
@@ -5840,7 +5964,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Get all pending team requests in a league (admin only)
-    app.get('/api/fantasy/leagues/:id/pending', isFantasyAdmin, async (req, res) => {
+    app.get('/api/fantasy/leagues/:id/pending', isAuthenticated, canAdminLeague, async (req, res) => {
         try {
             const db = getDb();
             const pending = await db.collection('fantasy_teams').find({ leagueId: req.params.id, approved: false }).toArray();
@@ -5852,7 +5976,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Approve a team request (admin only)
-    app.post('/api/fantasy/leagues/:id/approve', isFantasyAdmin, async (req, res) => {
+    app.post('/api/fantasy/leagues/:id/approve', isAuthenticated, canAdminLeague, async (req, res) => {
         try {
             const { teamId } = req.body;
             if (!teamId) return res.status(400).json({ error: 'Falta teamId' });
@@ -6389,6 +6513,13 @@ export async function startVisualizerServer(discordClient) {
             const playerNames = listings.map(l => l.eaPlayerName);
             const profiles = await db.collection('player_profiles').find({ eaPlayerName: { $in: playerNames } }).toArray();
 
+            // Fetch team avatars
+            const teams = await db.collection('fantasy_teams').find({ leagueId }, { projection: { discordId: 1, discordAvatar: 1 } }).toArray();
+            const avatarMap = {};
+            teams.forEach(t => {
+                avatarMap[t.discordId] = t.discordAvatar;
+            });
+
             const playerMap = {};
             profiles.forEach(p => {
                 const stats = calculatePlayerPointsAndPrice(p);
@@ -6406,6 +6537,7 @@ export async function startVisualizerServer(discordClient) {
                 eaPlayerName: l.eaPlayerName,
                 sellerDiscordId: l.sellerDiscordId,
                 sellerTeamName: l.sellerTeamName,
+                sellerAvatar: avatarMap[l.sellerDiscordId] || null,
                 askingPrice: l.askingPrice,
                 createdAt: l.createdAt,
                 isMine: l.sellerDiscordId === discordId,
@@ -6490,6 +6622,13 @@ export async function startVisualizerServer(discordClient) {
             const playerNames = [...new Set([...received.map(b => b.eaPlayerName), ...sent.map(b => b.eaPlayerName)])];
             const profiles = await db.collection('player_profiles').find({ eaPlayerName: { $in: playerNames } }).toArray();
 
+            // Fetch team avatars
+            const teams = await db.collection('fantasy_teams').find({ leagueId }, { projection: { discordId: 1, discordAvatar: 1 } }).toArray();
+            const avatarMap = {};
+            teams.forEach(t => {
+                avatarMap[t.discordId] = t.discordAvatar;
+            });
+
             const playerMap = {};
             profiles.forEach(p => {
                 const stats = calculatePlayerPointsAndPrice(p);
@@ -6502,6 +6641,8 @@ export async function startVisualizerServer(discordClient) {
 
             const enrich = (bidsList) => bidsList.map(b => ({
                 ...b,
+                sellerAvatar: avatarMap[b.sellerDiscordId] || null,
+                bidderAvatar: avatarMap[b.bidderDiscordId] || null,
                 playerInfo: playerMap[b.eaPlayerName] || { lastPosition: 'MC', lastClub: 'Sin Club', price: b.bidAmount }
             }));
 
@@ -6520,7 +6661,7 @@ export async function startVisualizerServer(discordClient) {
         try {
             const leagueId = req.params.id;
             const bidId = req.params.bidId;
-            const { action } = req.body; // 'accept' or 'reject'
+            const action = req.body.action || req.body.response; // 'accept' or 'reject'
             if (!action || !['accept', 'reject'].includes(action)) {
                 return res.status(400).json({ error: 'Acción no válida. Debe ser accept o reject.' });
             }
@@ -6556,6 +6697,49 @@ export async function startVisualizerServer(discordClient) {
             const sellerTeam = await db.collection('fantasy_teams').findOne({ discordId, leagueId });
             if (!sellerTeam.players.includes(bid.eaPlayerName)) {
                 return res.status(400).json({ error: 'Ya no posees a este jugador en tu plantilla.' });
+            }
+
+            // --- LIGA BUYOUT SPECIAL FLOW ---
+            if (bid.bidderDiscordId === 'liga') {
+                const sellerLineup = { ...sellerTeam.lineup };
+                for (const pos in sellerLineup) {
+                    if (Array.isArray(sellerLineup[pos])) {
+                        sellerLineup[pos] = sellerLineup[pos].filter(p => p !== bid.eaPlayerName);
+                    } else if (sellerLineup[pos] === bid.eaPlayerName) {
+                        sellerLineup[pos] = null;
+                    }
+                }
+
+                await db.collection('fantasy_teams').updateOne(
+                    { discordId, leagueId },
+                    {
+                        $inc: { balance: bid.bidAmount },
+                        $pull: { players: bid.eaPlayerName },
+                        $set: { lineup: sellerLineup },
+                        $unset: { [`clauses.${bid.eaPlayerName}`]: "" }
+                    }
+                );
+
+                // Update bid status to accepted
+                await db.collection('fantasy_market_bids').updateOne(
+                    { _id: new ObjectId(bidId) },
+                    { $set: { status: 'accepted' } }
+                );
+
+                // Delete the listing for this player
+                await db.collection('fantasy_market_listings').deleteOne({ leagueId, eaPlayerName: bid.eaPlayerName });
+
+                // Delete/reject other pending bids for the same player in this league
+                await db.collection('fantasy_market_bids').deleteMany({
+                    leagueId,
+                    eaPlayerName: bid.eaPlayerName,
+                    _id: { $ne: new ObjectId(bidId) }
+                });
+
+                return res.json({
+                    success: true,
+                    message: `¡Venta completada! Has vendido a ${bid.eaPlayerName} a La Liga por ${bid.bidAmount.toLocaleString('es-ES')} €.`
+                });
             }
 
             // Check bidder exists and has balance
@@ -6615,7 +6799,7 @@ export async function startVisualizerServer(discordClient) {
             );
 
             // 4. Delete the listing for this player
-            await db.collection('fantasy_market_listings').deleteOne({ leagueId, eaPlayerName });
+            await db.collection('fantasy_market_listings').deleteOne({ leagueId, eaPlayerName: bid.eaPlayerName });
 
             // 5. Delete/reject other pending bids for the same player in this league
             await db.collection('fantasy_market_bids').deleteMany({
@@ -6634,9 +6818,10 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
+
     // --- ADMIN PANEL CONTROLS ---
     // Toggle Clausulazos setting
-    app.post('/api/fantasy/leagues/:id/toggle-clauses', isAuthenticated, isFantasyAdmin, async (req, res) => {
+    app.post('/api/fantasy/leagues/:id/toggle-clauses', isAuthenticated, canAdminLeague, async (req, res) => {
         try {
             const leagueId = req.params.id;
             const { allowClauses } = req.body;
@@ -6656,7 +6841,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Set Clause Multiplier setting
-    app.post('/api/fantasy/leagues/:id/clause-multiplier', isAuthenticated, isFantasyAdmin, async (req, res) => {
+    app.post('/api/fantasy/leagues/:id/clause-multiplier', isAuthenticated, canAdminLeague, async (req, res) => {
         try {
             const leagueId = req.params.id;
             const { clauseMultiplier } = req.body;
