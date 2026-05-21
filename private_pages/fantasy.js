@@ -2159,7 +2159,7 @@ async function handleAdminPlayerSearch() {
                 <td class="text-center">
                     <div style="display: flex; gap: 4px; justify-content: center;">
                         <button class="btn btn-primary btn-xs btn-save-manual-price" data-player-name="${p.eaPlayerName}"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
-                        \${isManual ? `<button class="btn btn-secondary btn-xs btn-reset-manual-price" data-player-name="\${p.eaPlayerName}"><i class="fa-solid fa-rotate-left"></i> Restablecer</button>` : ''}
+                        ${isManual ? `<button class="btn btn-secondary btn-xs btn-reset-manual-price" data-player-name="${p.eaPlayerName}"><i class="fa-solid fa-rotate-left"></i> Restablecer</button>` : ''}
                     </div>
                 </td>
             `;
