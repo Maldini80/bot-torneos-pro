@@ -6135,6 +6135,7 @@ export async function startVisualizerServer(discordClient) {
             const processedPlayers = rawPlayers.map(p => {
                 const { price, points: rawPoints, avgRating } = calculatePlayerPointsAndPrice(p);
                 let points = rawPoints;
+                let basePointsValue = 0;
                 if (leagueDoc && leagueDoc.pointsMode === 'zero' && leagueDoc.basePoints) {
                     const playerNameLower = p.eaPlayerName.toLowerCase();
                     let base = 0;
@@ -6147,6 +6148,7 @@ export async function startVisualizerServer(discordClient) {
                         }
                     }
                     points = Math.max(0, rawPoints - base);
+                    basePointsValue = base;
                 }
                 const displayClub = (p.lastClub && p.lastClub.toLowerCase() === 'black hawks') ? 'Thunder Gaming' : p.lastClub;
                 const stats = p.stats || {};
@@ -6161,6 +6163,7 @@ export async function startVisualizerServer(discordClient) {
                     avgRating: parseFloat(avgRating.toFixed(2)),
                     price,
                     points,
+                    basePoints: basePointsValue,
                     owner: ownerMap[p.eaPlayerName] || null,
                     ownerDiscordId: ownerDiscordIdMap[p.eaPlayerName] || null,
                     clause: clauseMap[p.eaPlayerName] || null
@@ -6537,6 +6540,7 @@ export async function startVisualizerServer(discordClient) {
             profiles.forEach(p => {
                 const { price, points: rawPoints, avgRating } = calculatePlayerPointsAndPrice(p);
                 let points = rawPoints;
+                let basePointsValue = 0;
                 if (league && league.pointsMode === 'zero' && league.basePoints) {
                     const playerNameLower = p.eaPlayerName.toLowerCase();
                     let base = 0;
@@ -6549,13 +6553,15 @@ export async function startVisualizerServer(discordClient) {
                         }
                     }
                     points = Math.max(0, rawPoints - base);
+                    basePointsValue = base;
                 }
                 playerMap[p.eaPlayerName] = {
                     lastPosition: p.lastPosition,
                     lastClub: p.lastClub,
                     avgRating: avgRating,
                     points: points,
-                    price: price
+                    price: price,
+                    basePoints: basePointsValue
                 };
             });
 

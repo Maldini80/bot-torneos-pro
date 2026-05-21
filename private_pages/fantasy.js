@@ -886,8 +886,7 @@ function filterAndRenderMarket() {
             </td>
             <td class="text-muted col-hide-md">${p.lastClub}</td>
             <td><span class="position-badge pos-${p.lastPosition.toLowerCase()}">${p.lastPosition}</span></td>
-            <td class="text-center col-hide-sm" style="font-weight: 600;">${p.avgRating.toFixed(2)}</td>
-            <td class="text-center text-yellow" style="font-weight: 700;">${p.points}</td>
+            <td class="text-center text-yellow" style="font-weight: 700;">${formatPlayerPoints(p)}</td>
             <td class="text-right price-text">${priceCol}</td>
             <td class="text-center">
                 ${actionCol}
@@ -932,8 +931,7 @@ function renderSquadList() {
             <td><div style="font-weight: 700; color: #f8fafc;">${p.eaPlayerName}</div></td>
             <td class="text-muted col-hide-md">${p.lastClub}</td>
             <td><span class="position-badge pos-${p.lastPosition.toLowerCase()}">${p.lastPosition}</span></td>
-            <td class="text-center col-hide-sm" style="font-weight: 600;">${p.avgRating.toFixed(2)}</td>
-            <td class="text-center text-yellow" style="font-weight: 700;">${p.points}</td>
+            <td class="text-center text-yellow" style="font-weight: 700;">${formatPlayerPoints(p)}</td>
             <td class="text-center">
                 <span class="badge ${isAligned ? 'btn-success' : 'text-muted'}" style="border: none;">
                     ${isAligned ? 'Alineado' : 'Banquillo'}
@@ -1107,7 +1105,7 @@ function openPositionSelector(posKey, idx) {
             row.innerHTML = `
                 <div class="modal-player-info">
                     <div class="modal-player-name">${name} ${isUsed ? '(Ya alineado)' : ''}</div>
-                    <div class="modal-player-club">${p.lastClub} | Media: ${p.avgRating.toFixed(2)} | Puntos: ${p.points}</div>
+                    <div class="modal-player-club">${p.lastClub} | Puntos VPG: ${formatPlayerPoints(p)}</div>
                 </div>
                 <i class="fa-solid fa-check text-green"></i>
             `;
@@ -1832,6 +1830,15 @@ function formatCurrency(val) {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(val);
 }
 
+function formatPlayerPoints(p) {
+    if (!activeLeague) return p.points;
+    if (activeLeague.pointsMode === 'zero') {
+        const base = p.basePoints || 0;
+        return `${p.points} (+${base} iniciales)`;
+    }
+    return p.points;
+}
+
 function showToast(msg, type = 'success') {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -2232,7 +2239,7 @@ async function handleAdminPlayerSearch() {
                 </td>
                 <td><div>${p.lastClub}</div></td>
                 <td><span class="badge position-badge">${p.lastPosition}</span></td>
-                <td class="text-center">${p.avgRating}</td>
+                <td class="text-center" style="font-weight: 600;">${p.points}</td>
                 <td class="text-right ${isManual ? 'text-yellow' : 'price-text'}" style="font-weight: 600;">
                     ${priceText} ${isManual ? '<i class="fa-solid fa-hand-holding-dollar" title="Precio manual establecido"></i>' : ''}
                 </td>
