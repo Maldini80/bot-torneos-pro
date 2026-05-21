@@ -6406,7 +6406,7 @@ export async function startVisualizerServer(discordClient) {
     app.post('/api/fantasy/leagues/:id/players/:playerName/clause', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
             const { id: leagueId, playerName: eaPlayerName } = req.params;
-            const { newClauseAmount } = req.body;
+            const newClauseAmount = req.body.newClauseAmount || req.body.newClauseValue;
             if (!newClauseAmount || isNaN(newClauseAmount) || newClauseAmount <= 0) {
                 return res.status(400).json({ error: 'Debes proporcionar un valor de cláusula válido mayor que cero.' });
             }
