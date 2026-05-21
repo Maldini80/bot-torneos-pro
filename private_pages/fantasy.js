@@ -115,6 +115,29 @@ let currentFilteredPlayers = [];
 let selectedSlotPos = null; 
 let selectedSlotIdx = null; 
 
+function matchPositionCategory(lastPosition, filterCategory) {
+    if (!lastPosition || !filterCategory) return false;
+    const pos = lastPosition.toUpperCase();
+    const cat = filterCategory.toUpperCase();
+    if (cat === 'POR') return pos === 'POR' || pos === 'GK';
+    if (cat === 'DFC') return pos === 'DFC' || pos === 'LD' || pos === 'LI';
+    if (cat === 'CARR') return pos === 'CARR' || pos === 'CAD' || pos === 'CAI';
+    if (cat === 'MC') return pos === 'MC' || pos === 'MCD' || pos === 'MCO' || pos === 'MD' || pos === 'MI';
+    if (cat === 'DC') return pos === 'DC' || pos === 'ED' || pos === 'EI' || pos === 'MP';
+    return pos === cat;
+}
+
+function isPlayerEligibleForSlot(playerPosition, slotKey) {
+    if (!playerPosition || !slotKey) return false;
+    const pos = playerPosition.toUpperCase();
+    const slot = slotKey.toUpperCase();
+    if (matchPositionCategory(pos, slot)) return true;
+    const isCarrCategory = pos === 'CARR' || pos === 'CAD' || pos === 'CAI';
+    if (isCarrCategory && (slot === 'DFC' || slot === 'MC')) return true;
+    return false;
+}
+ 
+
 // DOM Elements - View Switchers
 const leagueSelectorView = document.getElementById('league-selector-view');
 const leagueDashboardView = document.getElementById('league-dashboard-view');
@@ -174,6 +197,7 @@ const btnOwnerRebuildStats = document.getElementById('btn-owner-rebuild-stats');
 const ownerRebuildProgress = document.getElementById('owner-rebuild-progress');
 const adminParticipantsList = document.getElementById('admin-participants-list');
 const adminSearchPlayerInput = document.getElementById('admin-search-player-input');
+const adminSearchPlayerPos = document.getElementById('admin-search-player-pos');
 const btnAdminSearchPlayer = document.getElementById('btn-admin-search-player');
 const adminSearchPlayerResults = document.getElementById('admin-search-player-results');
 
@@ -261,9 +285,11 @@ async function checkUserSession() {
         // Owner-only elements (rebuild stats, etc.) - only visible for the owner, not referees
         if (currentUser.isOwner) {
             document.querySelectorAll('.owner-only-block').forEach(el => el.style.display = 'block');
-            await checkActiveRebuild();
         } else {
             document.querySelectorAll('.owner-only-block').forEach(el => el.style.display = 'none');
+        }
+        if (currentUser.isOwner || currentUser.isAdmin) {
+            await checkActiveRebuild();
         }
     } catch (e) {
         console.error('Error fetching user info:', e);
@@ -434,6 +460,9 @@ function setupEventHandlers() {
     // Admin player price override handlers
     if (btnAdminSearchPlayer) {
         btnAdminSearchPlayer.addEventListener('click', handleAdminPlayerSearch);
+    }
+    if (adminSearchPlayerPos) {
+        adminSearchPlayerPos.addEventListener('change', handleAdminPlayerSearch);
     }
     if (adminSearchPlayerInput) {
         adminSearchPlayerInput.addEventListener('keydown', (e) => {
@@ -679,7 +708,7 @@ function filterAndRenderMarket() {
         const matchesSearch = !searchVal || 
             p.eaPlayerName.toLowerCase().includes(searchVal) || 
             p.lastClub.toLowerCase().includes(searchVal);
-        const matchesPos = !posVal || p.lastPosition === posVal;
+        const matchesPos = !posVal || matchPositionCategory(p.lastPosition, posVal);
         return matchesSearch && matchesPos;
     });
 
@@ -898,9 +927,7 @@ function openPositionSelector(posKey, idx) {
     const matchingPlayers = (myTeam.players || []).filter(name => {
         const p = allPlayers.find(x => x.eaPlayerName === name);
         if (!p) return false;
-        if (p.lastPosition === posKey) return true;
-        if (p.lastPosition === 'CARR' && (posKey === 'DFC' || posKey === 'MC')) return true;
-        return false;
+        return isPlayerEligibleForSlot(p.lastPosition, posKey);
     });
 
     const alignedPlayer = (myTeam.lineup[posKey] && myTeam.lineup[posKey][idx]) || 
@@ -1445,7 +1472,7 @@ async function handleAdminRecalculate() {
 let rebuildPollInterval = null;
 
 async function checkActiveRebuild() {
-    if (!currentUser || !currentUser.isOwner) return;
+    if (!currentUser || (!currentUser.isOwner && !currentUser.isAdmin)) return;
     try {
         const res = await fetch('/api/fantasy/admin/rebuild-stats/status');
         if (!res.ok) return;
@@ -2145,15 +2172,21 @@ async function respondBid(bidId, responseType) {
 
 async function handleAdminPlayerSearch() {
     const query = adminSearchPlayerInput.value.trim();
-    if (query.length < 2) {
-        alert('Por favor, introduce al menos 2 letras.');
+    const position = adminSearchPlayerPos ? adminSearchPlayerPos.value : '';
+    
+    if (query.length < 2 && !position) {
+        alert('Por favor, introduce al menos 2 letras o selecciona una posición.');
         return;
     }
     
     adminSearchPlayerResults.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Buscando jugadores...</td></tr>`;
     
     try {
-        const res = await fetch(`/api/fantasy/admin/players/search?query=${encodeURIComponent(query)}`);
+        let url = `/api/fantasy/admin/players/search?query=${encodeURIComponent(query)}`;
+        if (position) {
+            url += `&position=${encodeURIComponent(position)}`;
+        }
+        const res = await fetch(url);
         if (!res.ok) throw new Error('Error al buscar jugadores.');
         const players = await res.json();
         

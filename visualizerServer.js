@@ -5149,12 +5149,20 @@ export async function startVisualizerServer(discordClient) {
             const db = getDb();
 
             // 1. Get all unique dates from our scanned_matches in MongoDB using aggregation
+            // Subtract 14400 seconds (4 hours) so late night matches (00:00 - 04:00) are grouped with the previous day's VPG match night
             const dbDates = await db.collection('scanned_matches').aggregate([
                 {
                     $project: {
                         dateStr: {
                             $dateToString: {
-                                date: { $toDate: { $multiply: [ { $toDouble: "$timestamp" }, 1000 ] } },
+                                date: {
+                                    $toDate: {
+                                        $multiply: [
+                                            { $subtract: [ { $toDouble: "$timestamp" }, 14400 ] },
+                                            1000
+                                        ]
+                                    }
+                                },
                                 format: "%Y-%m-%d",
                                 timezone: "Europe/Madrid"
                             }
@@ -6542,15 +6550,37 @@ export async function startVisualizerServer(discordClient) {
     // Search players in admin panel
     app.get('/api/fantasy/admin/players/search', isAuthenticated, isFantasyAdmin, async (req, res) => {
         try {
-            const { query } = req.query;
-            if (!query || query.trim().length < 2) {
+            const { query, position } = req.query;
+            const queryObj = {};
+
+            const hasQuery = query && query.trim().length >= 2;
+            const hasPos = !!position;
+
+            if (!hasQuery && !hasPos) {
                 return res.json([]);
             }
+
+            if (hasQuery) {
+                const regex = new RegExp(sanitizeInput(query.trim()), 'i');
+                queryObj.$or = [
+                    { eaPlayerName: regex },
+                    { lastClub: regex }
+                ];
+            }
+            if (hasPos) {
+                const posUpper = position.toUpperCase();
+                let allowedPositions = [posUpper];
+                if (posUpper === 'POR') allowedPositions = ['POR', 'GK'];
+                else if (posUpper === 'DFC') allowedPositions = ['DFC', 'LD', 'LI'];
+                else if (posUpper === 'CARR') allowedPositions = ['CARR', 'CAD', 'CAI'];
+                else if (posUpper === 'MC') allowedPositions = ['MC', 'MCD', 'MCO', 'MD', 'MI'];
+                else if (posUpper === 'DC') allowedPositions = ['DC', 'ED', 'EI', 'MP'];
+                
+                queryObj.lastPosition = { $in: allowedPositions };
+            }
+
             const db = getDb();
-            const regex = new RegExp(sanitizeInput(query.trim()), 'i');
-            const players = await db.collection('player_profiles').find({
-                eaPlayerName: regex
-            }).limit(20).toArray();
+            const players = await db.collection('player_profiles').find(queryObj).limit(100).toArray();
 
             // Calculate points and prices for search results
             const processed = players.map(p => {
@@ -6610,34 +6640,32 @@ export async function startVisualizerServer(discordClient) {
     // ============================================================
     function getMadridDateDetails(timestampSec) {
         try {
-            const dateObj = new Date(parseInt(timestampSec) * 1000);
-            const formatter = new Intl.DateTimeFormat('es-ES', {
-                timeZone: 'Europe/Madrid',
-                year: 'numeric', month: '2-digit', day: '2-digit',
-                hour: '2-digit', minute: '2-digit', second: '2-digit',
-                hour12: false
-            });
-            const parts = formatter.formatToParts(dateObj);
-            const details = {};
-            for (const part of parts) {
-                details[part.type] = part.value;
-            }
-            const year = parseInt(details.year);
-            const month = parseInt(details.month);
-            const day = parseInt(details.day);
-            const hour = parseInt(details.hour);
-            const minute = parseInt(details.minute);
-            
-            const weekdayName = new Intl.DateTimeFormat('en-US', {
-                timeZone: 'Europe/Madrid',
-                weekday: 'short'
-            }).format(dateObj);
-            const weekdays = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
-            const dayOfWeek = weekdays[weekdayName] !== undefined ? weekdays[weekdayName] : dateObj.getDay();
+            // Subtract 4 hours (14400 seconds) for dateStr/dayOfWeek 
+            // so matches played past midnight align with the VPG match night.
+            const adjustedTimestampSec = parseInt(timestampSec) - 14400;
+            const dateObj = new Date(adjustedTimestampSec * 1000);
+            const actualDateObj = new Date(parseInt(timestampSec) * 1000);
 
-            const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            // Format adjusted date as YYYY-MM-DD in Europe/Madrid timezone
+            const dateStr = dateObj.toLocaleDateString('sv-SE', { timeZone: 'Europe/Madrid' });
+
+            // Format actual date as HH:MM in Europe/Madrid timezone (24h)
+            const timeStr = actualDateObj.toLocaleTimeString('en-US', {
+                timeZone: 'Europe/Madrid',
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            const [hourStr, minuteStr] = timeStr.split(':');
+            const hour = parseInt(hourStr, 10);
+            const minute = parseInt(minuteStr, 10);
             const timeMinutes = hour * 60 + minute;
-            
+
+            // Get day of week in Madrid
+            const weekdayStr = dateObj.toLocaleDateString('en-US', { timeZone: 'Europe/Madrid', weekday: 'short' });
+            const weekdays = { 'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6 };
+            const dayOfWeek = weekdays[weekdayStr] !== undefined ? weekdays[weekdayStr] : dateObj.getDay();
+
             return { dateStr, hour, minute, timeMinutes, dayOfWeek };
         } catch (e) {
             console.error('Error in getMadridDateDetails:', e);
@@ -6923,17 +6951,30 @@ export async function startVisualizerServer(discordClient) {
                                 if (filters.endDate && details.dateStr > filters.endDate) continue;
                                 if (filters.daysOfWeek && filters.daysOfWeek.length > 0 && !filters.daysOfWeek.includes(details.dayOfWeek)) continue;
                             }
-                            // Time range filter always applies
-                            if (filters.startTime) {
-                                const [sH, sM] = filters.startTime.split(':').map(Number);
-                                const startMin = sH * 60 + sM;
-                                if (details.timeMinutes < startMin) continue;
+                            // Time range filter (handles midnight crossing, e.g. 23:00 to 00:15)
+                            let matchesTime = true;
+                            const startMin = filters.startTime ? filters.startTime.split(':').map(Number).reduce((h, m) => h * 60 + m) : null;
+                            const endMin = filters.endTime ? filters.endTime.split(':').map(Number).reduce((h, m) => h * 60 + m) : null;
+
+                            if (startMin !== null && endMin !== null) {
+                                if (startMin <= endMin) {
+                                    // Normal range (e.g. 21:00 to 23:59)
+                                    if (details.timeMinutes < startMin || details.timeMinutes > endMin) {
+                                        matchesTime = false;
+                                    }
+                                } else {
+                                    // Crosses midnight (e.g. 23:00 to 00:15)
+                                    if (details.timeMinutes < startMin && details.timeMinutes > endMin) {
+                                        matchesTime = false;
+                                    }
+                                }
+                            } else if (startMin !== null) {
+                                if (details.timeMinutes < startMin) matchesTime = false;
+                            } else if (endMin !== null) {
+                                if (details.timeMinutes > endMin) matchesTime = false;
                             }
-                            if (filters.endTime) {
-                                const [eH, eM] = filters.endTime.split(':').map(Number);
-                                const endMin = eH * 60 + eM;
-                                if (details.timeMinutes > endMin) continue;
-                            }
+
+                            if (!matchesTime) continue;
                         }
 
                         const matchDate = new Date(parseInt(bestMatch.timestamp) * 1000);

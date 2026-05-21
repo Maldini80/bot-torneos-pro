@@ -123,9 +123,17 @@
             </div>
             <div class="card-body">
                 <p class="text-muted">Busca cualquier jugador por su nombre para anular su precio de mercado calculado automáticamente o restablecerlo. Este cambio afecta de forma global a todas las ligas.</p>
-                <div style="display: flex; gap: 8px; margin-bottom: 16px; max-width: 500px;">
-                    <input type="text" id="admin-search-player-input" placeholder="Buscar jugador (mín. 2 letras)..." style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; flex: 1; box-sizing: border-box;">
-                    <button id="btn-admin-search-player" class="btn btn-primary"><i class="fa-solid fa-magnifying-glass"></i> Buscar</button>
+                <div style="display: flex; gap: 8px; margin-bottom: 16px; max-width: 650px; flex-wrap: wrap;">
+                    <input type="text" id="admin-search-player-input" placeholder="Buscar jugador o club (mín. 2 letras)..." style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; flex: 2; min-width: 200px; box-sizing: border-box;">
+                    <select id="admin-search-player-pos" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; flex: 1; min-width: 120px; box-sizing: border-box;">
+                        <option value="">Posiciones (Todas)</option>
+                        <option value="POR">Portero (POR)</option>
+                        <option value="DFC">Defensa (DFC)</option>
+                        <option value="CARR">Carrilero (CARR)</option>
+                        <option value="MC">Medio (MC)</option>
+                        <option value="DC">Delantero (DC)</option>
+                    </select>
+                    <button id="btn-admin-search-player" class="btn btn-primary" style="padding: 10px 16px;"><i class="fa-solid fa-magnifying-glass"></i> Buscar</button>
                 </div>
                 <div class="table-scroll-container">
                     <table class="fantasy-table">
@@ -274,6 +282,7 @@
                                         <option value="">Posiciones</option>
                                         <option value="POR">Portero</option>
                                         <option value="DFC">Defensa</option>
+                                        <option value="CARR">Carrilero</option>
                                         <option value="MC">Medio</option>
                                         <option value="DC">Delantero</option>
                                     </select>
