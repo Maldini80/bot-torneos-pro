@@ -6926,9 +6926,7 @@ export async function startVisualizerServer(discordClient) {
 
             // --- Accept Bid Flow ---
 
-            // Get league details
-            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
-            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+            // Get league details (already fetched above)
             if (!league.marketOpen) return res.status(400).json({ error: 'El mercado está cerrado.' });
 
             // Check seller still has the player
