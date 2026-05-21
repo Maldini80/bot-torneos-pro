@@ -5929,6 +5929,8 @@ export async function startVisualizerServer(discordClient) {
             console.error('[API Fantasy Toggle Status] Error:', e);
             res.status(500).json({ error: 'Error al cambiar estado de la liga.' });
         }
+    });
+
     // Toggle/assign co-admin helper role (creator, admin, referee only)
     app.post('/api/fantasy/leagues/:id/co-admin', isAuthenticated, canAdminLeague, async (req, res) => {
         try {
