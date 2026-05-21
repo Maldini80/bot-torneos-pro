@@ -6551,7 +6551,16 @@ export async function startVisualizerServer(discordClient) {
     app.get('/api/fantasy/admin/players/search', isAuthenticated, isFantasyAdmin, async (req, res) => {
         try {
             const { query, position } = req.query;
-            const queryObj = {};
+            
+            const SUPERLIGA_TEAMS = [
+                "GMK Villarreal CF eSports", "AD Ceuta eSports", "Suzaku esports", "Zenturions", "Alpha Wolfs", "Tempus eSports", "90min FC", "LTK eSports", "Jam eSports", "Cryzen Gaming", "Ventucorp eSports", "Banano eSports", "JS ELCANO", "CE Europa eSports",
+                "Oxygen Levante", "DriFt Esports", "Ceuta Guardians", "Cadiz Esports", "Espartanos CF", "Transformers CF", "GUINEA PINK", "Shiva esports", "RYUX CLAN", "FC Mayango", "Black Hawks", "Columbus Pacers", "Bachateros FC", "FCP eSports"
+            ];
+            const superligaRegexes = SUPERLIGA_TEAMS.map(name => new RegExp('^' + name.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i'));
+
+            const queryObj = {
+                lastClub: { $in: superligaRegexes }
+            };
 
             const hasQuery = query && query.trim().length >= 2;
             const hasPos = !!position;
@@ -6904,19 +6913,27 @@ export async function startVisualizerServer(discordClient) {
                 const clubColl = db.collection('club_profiles');
                 const playerLatestInfo = new Map();
 
-                // 1. Reset player profiles (preserve manualPrice)
-                rebuildStatus.progress = 'Reseteando perfiles de jugadores...';
+                const SUPERLIGA_TEAMS = [
+                    "GMK Villarreal CF eSports", "AD Ceuta eSports", "Suzaku esports", "Zenturions", "Alpha Wolfs", "Tempus eSports", "90min FC", "LTK eSports", "Jam eSports", "Cryzen Gaming", "Ventucorp eSports", "Banano eSports", "JS ELCANO", "CE Europa eSports",
+                    "Oxygen Levante", "DriFt Esports", "Ceuta Guardians", "Cadiz Esports", "Espartanos CF", "Transformers CF", "GUINEA PINK", "Shiva esports", "RYUX CLAN", "FC Mayango", "Black Hawks", "Columbus Pacers", "Bachateros FC", "FCP eSports"
+                ];
+                const superligaRegexes = SUPERLIGA_TEAMS.map(name => new RegExp('^' + name.trim().replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i'));
+
+                // 1. Reset player profiles (preserve manualPrice, only Superliga players)
+                rebuildStatus.progress = 'Reseteando perfiles de jugadores de la Superliga...';
                 const initialStats = { matchesPlayed: 0, goals: 0, assists: 0, passesMade: 0, passesAttempted: 0, tacklesMade: 0, tacklesAttempted: 0, shots: 0, shotsOnTarget: 0, interceptions: 0, saves: 0, redCards: 0, yellowCards: 0, mom: 0, cleanSheets: 0, goalsConceded: 0, ratings: [], wins: 0, losses: 0, ties: 0 };
-                await playerColl.updateMany({}, { $set: { stats: initialStats } });
+                await playerColl.updateMany({ lastClub: { $in: superligaRegexes } }, { $set: { stats: initialStats } });
 
-                // 2. Reset club profiles
-                rebuildStatus.progress = 'Reseteando perfiles de clubes...';
+                // 2. Reset club profiles (only Superliga clubs)
+                rebuildStatus.progress = 'Reseteando perfiles de clubes de la Superliga...';
                 const initialClubStats = { matchesPlayed: 0, wins: 0, losses: 0, ties: 0, goals: 0, goalsAgainst: 0, shots: 0, shotsOnTarget: 0, passesMade: 0, passesAttempted: 0, tacklesMade: 0, tacklesAttempted: 0, possession: 0, possessionCount: 0 };
-                await clubColl.updateMany({}, { $set: { stats: initialClubStats } });
+                await clubColl.updateMany({ eaClubName: { $in: superligaRegexes } }, { $set: { stats: initialClubStats } });
 
-                // 3. Load all VPG teams
-                rebuildStatus.progress = 'Cargando equipos competitivos...';
-                const teams = await getDb('test').collection('teams').find({ eaClubId: { $ne: null } }).toArray();
+                // 3. Load all VPG teams and filter to Superliga
+                rebuildStatus.progress = 'Cargando equipos de la Superliga...';
+                const allTeams = await getDb('test').collection('teams').find({ eaClubId: { $ne: null } }).toArray();
+                const superligaSet = new Set(SUPERLIGA_TEAMS.map(name => name.toLowerCase().trim()));
+                const teams = allTeams.filter(t => t.name && superligaSet.has(t.name.toLowerCase().trim()));
                 let totalSessions = 0;
 
                 // 4. Process each team
