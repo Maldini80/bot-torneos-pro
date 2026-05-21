@@ -6811,7 +6811,6 @@ export async function startVisualizerServer(discordClient) {
             }
 
             // Check max squad size
-            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
             if (userTeam.players.length >= (league.maxSquadSize || 15)) {
                 return res.status(400).json({ error: 'No puedes pujar porque tu plantilla ya está llena.' });
             }
