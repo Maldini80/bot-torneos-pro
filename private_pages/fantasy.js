@@ -196,7 +196,6 @@ const adminLeagueAllowClauses = document.getElementById('admin-league-allow-clau
 const adminLeagueClauseMultiplier = document.getElementById('admin-league-clause-multiplier');
 const adminLeagueInitialBudget = document.getElementById('admin-league-initial-budget');
 const btnAdminToggleMarket = document.getElementById('btn-admin-toggle-market');
-const btnAdminRecalculate = document.getElementById('btn-admin-recalculate');
 const btnAdminDeleteLeague = document.getElementById('btn-admin-delete-league');
 const btnAdminRebuildStats = null; // Removed from league admin panel
 const rebuildStatsProgress = null; // Removed from league admin panel
@@ -470,7 +469,6 @@ function setupEventHandlers() {
     
     // Quick admin buttons
     btnAdminToggleMarket.addEventListener('click', handleAdminToggleMarket);
-    btnAdminRecalculate.addEventListener('click', handleAdminRecalculate);
     btnAdminDeleteLeague.addEventListener('click', handleAdminDeleteLeague);
     if (btnAdminRebuildStats) btnAdminRebuildStats.addEventListener('click', () => executeRebuildStats(btnAdminRebuildStats, rebuildStatsProgress));
     if (btnOwnerRebuildStats) btnOwnerRebuildStats.addEventListener('click', () => executeRebuildStats(btnOwnerRebuildStats, ownerRebuildProgress));
@@ -1585,26 +1583,7 @@ function updateMarketToggleButton(isOpen) {
     }
 }
 
-// Admin Recalculate Points
-async function handleAdminRecalculate() {
-    try {
-        btnAdminRecalculate.disabled = true;
-        btnAdminRecalculate.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Recalculando...';
-        
-        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/recalculate`, { method: 'POST' });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Error al recalcular.');
-        
-        showToast(data.message, 'success');
-        await loadAdminPanelData();
-    } catch (e) {
-        console.error(e);
-        showToast(e.message, 'error');
-    } finally {
-        btnAdminRecalculate.disabled = false;
-        btnAdminRecalculate.innerHTML = '<i class="fa-solid fa-arrows-rotate"></i> Recalcular';
-    }
-}// Admin Rebuild Stats
+// Admin Recalculate Points (Removed)// Admin Rebuild Stats
 let rebuildPollInterval = null;
 
 async function checkActiveRebuild() {
