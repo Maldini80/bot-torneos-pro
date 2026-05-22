@@ -432,6 +432,7 @@ export async function syncFantasyWithVpg() {
                                 lastActive: new Date(),
                                 lastPosition: fantasyPos,
                                 vpgLeagueSlug: leagueSlug,
+                                avatar: player.user_avatar || null,
                                 stats: playerStats
                             };
 

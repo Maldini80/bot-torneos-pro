@@ -6639,6 +6639,16 @@ export async function startVisualizerServer(discordClient) {
                 vpgLeagueSlug: { $in: leaguesToQuery }
             }).toArray();
 
+            // Fetch team logos from test db
+            const testDb = getDb('test');
+            const teamsList = await testDb.collection('teams').find({}, { projection: { name: 1, logoUrl: 1 } }).toArray();
+            const teamLogoMap = {};
+            teamsList.forEach(t => {
+                if (t.name) {
+                    teamLogoMap[t.name.toLowerCase().trim()] = t.logoUrl || null;
+                }
+            });
+
             const ownerMap = {};
             const ownerDiscordIdMap = {};
             const clauseMap = {};
@@ -6703,7 +6713,9 @@ export async function startVisualizerServer(discordClient) {
                     ownerDiscordId: ownerDiscordIdMap[p.eaPlayerName] || null,
                     clause: clauseMap[p.eaPlayerName] || null,
                     protectedUntil: protectionMap[p.eaPlayerName] || null,
-                    bidCount: bidCountMap[nameLower] || 0
+                    bidCount: bidCountMap[nameLower] || 0,
+                    clubLogo: (p.lastClub ? teamLogoMap[p.lastClub.toLowerCase().trim()] : null) || (displayClub ? teamLogoMap[displayClub.toLowerCase().trim()] : null) || null,
+                    avatar: p.avatar || null
                 };
             });
 

@@ -96,22 +96,22 @@ const FORMATIONS = {
         ]
     },
     '3-1-4-2': {
-        POR: [{ left: 50, top: 88, label: 'POR' }],
+        POR: [{ left: 50, top: 89, label: 'POR' }],
         DFC: [
-            { left: 30, top: 68, label: 'DFC L' },
-            { left: 50, top: 68, label: 'DFC C' },
-            { left: 70, top: 68, label: 'DFC R' }
+            { left: 30, top: 71, label: 'DFC L' },
+            { left: 50, top: 71, label: 'DFC C' },
+            { left: 70, top: 71, label: 'DFC R' }
         ],
         MC: [
-            { left: 50, top: 55, label: 'MCD' },
-            { left: 15, top: 40, label: 'MI' },
-            { left: 35, top: 40, label: 'MC L' },
-            { left: 65, top: 40, label: 'MC R' },
-            { left: 85, top: 40, label: 'MD' }
+            { left: 50, top: 52, label: 'MCD' },
+            { left: 15, top: 35, label: 'MI' },
+            { left: 35, top: 35, label: 'MC L' },
+            { left: 65, top: 35, label: 'MC R' },
+            { left: 85, top: 35, label: 'MD' }
         ],
         DC: [
-            { left: 35, top: 20, label: 'DC L' },
-            { left: 65, top: 20, label: 'DC R' }
+            { left: 35, top: 17, label: 'DC L' },
+            { left: 65, top: 17, label: 'DC R' }
         ]
     },
     '3-4-3': {
@@ -1640,6 +1640,14 @@ function renderField() {
                 const p = allPlayers.find(x => x.eaPlayerName === alignedPlayer);
                 const rating = p ? p.points : 0;
                 const lastName = alignedPlayer.split(' ').pop();
+
+                const avatarHtml = p && p.avatar ? 
+                    `<img src="https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${p.avatar}/smThumb" alt="" class="player-avatar-img">` : 
+                    `<i class="fa-solid fa-user"></i>`;
+                const logoHtml = p && p.clubLogo ? 
+                    `<img src="${p.clubLogo}" alt="" class="player-club-logo-img">` : 
+                    `<i class="fa-solid fa-shield-halved"></i>`;
+
                 node.innerHTML = `
                     <div class="player-card-ut occupied">
                         <div class="player-card-ut-inner">
@@ -1647,8 +1655,11 @@ function renderField() {
                                 <span class="player-card-ut-rating">${rating}</span>
                                 <span class="player-card-ut-position">${pos.label.split(' ')[0]}</span>
                             </div>
+                            <div class="player-card-ut-club-logo">
+                                ${logoHtml}
+                            </div>
                             <div class="player-card-ut-avatar">
-                                <i class="fa-solid fa-shield-halved"></i>
+                                ${avatarHtml}
                             </div>
                             <div class="player-card-ut-name">${lastName}</div>
                         </div>
@@ -1700,6 +1711,10 @@ function openPositionSelector(posKey, idx) {
         const p = alignedPlayerProfile;
         const clauseVal = myTeam.clauses?.[alignedPlayer] || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
 
+        const avatarUrl = p.avatar ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${p.avatar}/smThumb` : null;
+        const avatarHtml = avatarUrl ? `<img src="${avatarUrl}" alt="" class="fut-card-player-avatar-img">` : `<i class="fa-solid fa-user-ninja"></i>`;
+        const clubLogoHtml = p.clubLogo ? `<img src="${p.clubLogo}" alt="" class="fut-card-club-logo-img">` : `<i class="fa-solid fa-shield-halved"></i>`;
+
         modalBody.innerHTML = `
             <div class="modal-split-layout">
                 <div class="modal-card-column">
@@ -1710,10 +1725,10 @@ function openPositionSelector(posKey, idx) {
                                 <div class="fut-card-pos">${posKey}</div>
                             </div>
                             <div class="fut-card-club-badge">
-                                <i class="fa-solid fa-shield-halved"></i>
+                                ${clubLogoHtml}
                             </div>
                             <div class="fut-card-player-avatar">
-                                <i class="fa-solid fa-user-ninja"></i>
+                                ${avatarHtml}
                             </div>
                             <div class="fut-card-player-name">${p.eaPlayerName.split(' ').pop()}</div>
                             <div class="fut-card-stats-grid">
@@ -1823,10 +1838,20 @@ function populatePlayerListElements(listEl, matchingPlayers, alignedPlayer) {
             row.style.pointerEvents = 'none';
         }
 
+        const avatarUrl = p.avatar ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${p.avatar}/smThumb` : null;
+        const avatarHtml = avatarUrl ? `<img src="${avatarUrl}" alt="" class="modal-player-row-avatar">` : `<div class="modal-player-row-avatar-fallback"><i class="fa-solid fa-user"></i></div>`;
+        const clubLogoHtml = p.clubLogo ? `<img src="${p.clubLogo}" alt="" class="modal-player-row-club-logo">` : `<div class="modal-player-row-club-logo-fallback"><i class="fa-solid fa-shield-halved"></i></div>`;
+
         row.innerHTML = `
-            <div class="modal-player-info">
-                <div class="modal-player-name">${name} ${isUsed ? '(Ya alineado)' : ''}</div>
-                <div class="modal-player-club">${p.lastClub} | Puntos VPG: ${formatPlayerPoints(p)}</div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+                <div class="modal-player-row-left">
+                    ${avatarHtml}
+                    ${clubLogoHtml}
+                </div>
+                <div class="modal-player-info">
+                    <div class="modal-player-name">${name} ${isUsed ? '(Ya alineado)' : ''}</div>
+                    <div class="modal-player-club">${p.lastClub} | Puntos VPG: ${formatPlayerPoints(p)}</div>
+                </div>
             </div>
             <i class="fa-solid fa-check text-green"></i>
         `;
@@ -2291,6 +2316,14 @@ async function showRivalTeam(discordId, teamName) {
                         const p = allPlayers.find(x => x.eaPlayerName === alignedPlayer);
                         const rating = p ? p.points : 0;
                         const lastName = alignedPlayer.split(' ').pop();
+
+                        const avatarHtml = p && p.avatar ? 
+                            `<img src="https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${p.avatar}/smThumb" alt="" class="player-avatar-img">` : 
+                            `<i class="fa-solid fa-user" style="color: #cbd5e1; opacity: 0.4;"></i>`;
+                        const logoHtml = p && p.clubLogo ? 
+                            `<img src="${p.clubLogo}" alt="" class="player-club-logo-img">` : 
+                            `<i class="fa-solid fa-shield-halved" style="color: #cbd5e1; opacity: 0.3;"></i>`;
+
                         node.innerHTML = `
                             <div class="player-card-ut occupied" style="pointer-events: none;">
                                 <div class="player-card-ut-inner" style="background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);">
@@ -2298,8 +2331,11 @@ async function showRivalTeam(discordId, teamName) {
                                         <span class="player-card-ut-rating" style="color: #cbd5e1; text-shadow: none;">${rating}</span>
                                         <span class="player-card-ut-position" style="color: #94a3b8;">${pos.label.split(' ')[0]}</span>
                                     </div>
+                                    <div class="player-card-ut-club-logo">
+                                        ${logoHtml}
+                                    </div>
                                     <div class="player-card-ut-avatar">
-                                        <i class="fa-solid fa-shield-halved" style="color: #64748b; opacity: 0.5;"></i>
+                                        ${avatarHtml}
                                     </div>
                                     <div class="player-card-ut-name">${lastName}</div>
                                 </div>
