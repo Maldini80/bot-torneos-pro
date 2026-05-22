@@ -962,8 +962,8 @@ export async function generateRandomSquadForTeam(db, leagueId, teamId) {
         const nameLower = p.eaPlayerName.toLowerCase();
         if (ownedPlayerNames.has(nameLower)) return false;
         if (marketFreeAgents.has(nameLower)) return false;
-        // Individual player price must not exceed 40M
-        if (p.price > 40000000) return false;
+        // Individual player price must not exceed 55M
+        if (p.price > 55000000) return false;
         return true;
     });
 
@@ -975,7 +975,7 @@ export async function generateRandomSquadForTeam(db, leagueId, teamId) {
     const poolCARR = pool.filter(p => isLateral(p.lastPosition));
 
     // Validate that we have enough candidates in the database
-    if (poolPOR.length < 1 || poolCB.length < 3 || poolDC.length < 2 || poolMCStrict.length < 3 || poolCARR.length < 3) {
+    if (poolPOR.length < 1 || poolCB.length < 3 || poolDC.length < 3 || poolMCStrict.length < 4 || poolCARR.length < 3) {
         throw new Error('No hay suficientes jugadores en la base de datos con las posiciones mínimas requeridas para generar una plantilla.');
     }
 
@@ -1003,22 +1003,22 @@ export async function generateRandomSquadForTeam(db, leagueId, teamId) {
             return picked;
         }
 
-        // 1. Pick minimum required ones
+        // 1. Pick minimum required ones (14 players total)
         const gks = pickFromPool(poolPOR, 1);
         const cbs = pickFromPool(poolCB, 3);
-        const dcs = pickFromPool(poolDC, 2);
-        const mcs = pickFromPool(poolMCStrict, 3);
+        const dcs = pickFromPool(poolDC, 3);
+        const mcs = pickFromPool(poolMCStrict, 4);
         const carrs = pickFromPool(poolCARR, 3);
 
         if (!gks || !cbs || !dcs || !mcs || !carrs) {
             continue;
         }
 
-        currentSquad.push(...gks, ...cbs, ...dcs, ...mcs, ...carrs); // 12 players
+        currentSquad.push(...gks, ...cbs, ...dcs, ...mcs, ...carrs); // 14 players
 
-        // 2. Pick remaining 3 players from the rest of the pool
+        // 2. Pick remaining 1 player from the rest of the pool to reach 15
         const restPool = pool.filter(p => !usedNames.has(p.eaPlayerName));
-        const extra = pickFromPool(restPool, 3);
+        const extra = pickFromPool(restPool, 1);
         if (!extra) continue;
 
         currentSquad.push(...extra); // 15 players total
@@ -1273,7 +1273,7 @@ export async function resolveFreeAgentBids(db, leagueDoc) {
         let winnerBid = null;
         for (const bid of playerBids) {
             const team = await db.collection('fantasy_teams').findOne({ discordId: bid.bidderDiscordId, leagueId });
-            if (team && team.approved && (team.players || []).length < (leagueDoc.maxSquadSize || 15)) {
+            if (team && team.approved) {
                 winnerBid = bid;
                 break;
             }

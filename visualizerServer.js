@@ -6820,7 +6820,6 @@ export async function startVisualizerServer(discordClient) {
             if (!league.marketOpen) return res.status(400).json({ error: 'El mercado está cerrado.' });
 
             if (userTeam.players.includes(eaPlayerName)) return res.status(400).json({ error: 'Ya tienes este jugador.' });
-            if ((userTeam.players || []).length >= (league.maxSquadSize || 15)) return res.status(400).json({ error: `Plantilla llena (máx. ${league.maxSquadSize || 15} jugadores).` });
 
             const player = await db.collection('player_profiles').findOne({ eaPlayerName });
             if (!player) return res.status(404).json({ error: 'Jugador no encontrado.' });
@@ -7479,11 +7478,6 @@ export async function startVisualizerServer(discordClient) {
                 }
             }
 
-            // Check max squad size (only if not an update of the same player)
-            if (!existingBid && userTeam.players.length >= (league.maxSquadSize || 15)) {
-                return res.status(400).json({ error: 'No puedes pujar porque tu plantilla ya está llena.' });
-            }
-
             // Deduct the difference from the bidder's balance immediately
             await db.collection('fantasy_teams').updateOne({ _id: userTeam._id }, { $inc: { balance: -diff } });
 
@@ -7692,11 +7686,6 @@ export async function startVisualizerServer(discordClient) {
             // Check bidder exists
             const bidderTeam = await db.collection('fantasy_teams').findOne({ discordId: bid.bidderDiscordId, leagueId });
             if (!bidderTeam) return res.status(404).json({ error: 'El comprador ya no pertenece a la liga.' });
-
-            // Check bidder squad size limits
-            if (bidderTeam.players.length >= (league.maxSquadSize || 15)) {
-                return res.status(400).json({ error: 'El comprador no tiene espacio en su plantilla (máx. 15 jugadores).' });
-            }
 
             const player = await db.collection('player_profiles').findOne({ eaPlayerName: bid.eaPlayerName });
             if (!player) return res.status(404).json({ error: 'Jugador no encontrado.' });

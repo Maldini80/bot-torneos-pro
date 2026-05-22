@@ -1455,7 +1455,7 @@ function renderSquadList() {
     }
 
     myTeam.players.forEach(playerName => {
-        const p = allPlayers.find(x => x.eaPlayerName === playerName);
+        const p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === playerName.toLowerCase());
         if (!p) return;
 
         const isAligned = isPlayerInLineup(playerName);
@@ -1563,13 +1563,21 @@ function updateSquadStats() {
     
     if (myTeam.players) {
         myTeam.players.forEach(playerName => {
-            const p = allPlayers.find(x => x.eaPlayerName === playerName);
+            const p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === playerName.toLowerCase());
             if (p) totalVal += p.price;
         });
     }
     
     squadValueEl.textContent = formatCurrency(totalVal);
     squadCountEl.textContent = squadSize;
+}
+
+function getCardTierClass(points) {
+    const pts = parseFloat(points) || 0;
+    if (pts < 30) return 'bronze';
+    if (pts < 85) return 'silver';
+    if (pts < 200) return 'gold';
+    return 'burgundy';
 }
 
 // Render Soccer pitch
@@ -1637,7 +1645,7 @@ function renderField() {
             const alignedPlayer = groupKey === 'POR' ? myTeam.lineup.POR : (myTeam.lineup[groupKey] && myTeam.lineup[groupKey][idx]);
 
             if (alignedPlayer) {
-                const p = allPlayers.find(x => x.eaPlayerName === alignedPlayer);
+                const p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === alignedPlayer.toLowerCase());
                 const rating = p ? p.points : 0;
                 const lastName = alignedPlayer.split(' ').pop();
 
@@ -1649,7 +1657,7 @@ function renderField() {
                     `<i class="fa-solid fa-shield-halved"></i>`;
 
                 node.innerHTML = `
-                    <div class="player-card-ut occupied">
+                    <div class="player-card-ut occupied ${getCardTierClass(rating)}">
                         <div class="player-card-ut-inner">
                             <div class="player-card-ut-rating-pos">
                                 <span class="player-card-ut-rating">${rating}</span>
@@ -1699,13 +1707,13 @@ function openPositionSelector(posKey, idx) {
     if (!modalBody) return;
 
     const matchingPlayers = (myTeam.players || []).filter(name => {
-        const p = allPlayers.find(x => x.eaPlayerName === name);
+        const p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === name.toLowerCase());
         if (!p) return false;
         return isPlayerEligibleForSlot(p.lastPosition, posKey, myTeam.formation, idx);
     });
 
     const alignedPlayer = posKey === 'POR' ? myTeam.lineup.POR : (myTeam.lineup[posKey] && myTeam.lineup[posKey][idx]);
-    const alignedPlayerProfile = alignedPlayer ? allPlayers.find(x => x.eaPlayerName === alignedPlayer) : null;
+    const alignedPlayerProfile = alignedPlayer ? allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === alignedPlayer.toLowerCase()) : null;
 
     if (alignedPlayer && alignedPlayerProfile) {
         const p = alignedPlayerProfile;
@@ -1718,7 +1726,7 @@ function openPositionSelector(posKey, idx) {
         modalBody.innerHTML = `
             <div class="modal-split-layout">
                 <div class="modal-card-column">
-                    <div class="fut-card">
+                    <div class="fut-card ${getCardTierClass(p.points)}">
                         <div class="fut-card-inner">
                             <div class="fut-card-top-section">
                                 <div class="fut-card-left-col">
@@ -1833,7 +1841,7 @@ function populatePlayerListElements(listEl, matchingPlayers, alignedPlayer) {
 
     matchingPlayers.forEach(name => {
         const isUsed = isPlayerInLineup(name) && name !== alignedPlayer;
-        const p = allPlayers.find(x => x.eaPlayerName === name);
+        const p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === name.toLowerCase());
         if (!p) return;
 
         const row = document.createElement('div');
@@ -1923,7 +1931,7 @@ function adjustLineupToNewFormation(oldF, newF) {
 
     const playerPositionMap = {};
     alignedPlayers.forEach(pName => {
-        const p = allPlayers.find(x => x.eaPlayerName === pName);
+        const p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === pName.toLowerCase());
         if (p) {
             playerPositionMap[pName] = p.lastPosition;
         }
@@ -2318,7 +2326,7 @@ async function showRivalTeam(discordId, teamName) {
                     const alignedPlayer = groupKey === 'POR' ? rivalTeam.lineup.POR : (rivalTeam.lineup[groupKey] && rivalTeam.lineup[groupKey][idx]);
 
                     if (alignedPlayer) {
-                        const p = allPlayers.find(x => x.eaPlayerName === alignedPlayer);
+                        const p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === alignedPlayer.toLowerCase());
                         const rating = p ? p.points : 0;
                         const lastName = alignedPlayer.split(' ').pop();
 
@@ -2330,7 +2338,7 @@ async function showRivalTeam(discordId, teamName) {
                             `<i class="fa-solid fa-shield-halved" style="color: #cbd5e1; opacity: 0.3;"></i>`;
 
                         node.innerHTML = `
-                            <div class="player-card-ut occupied" style="pointer-events: none;">
+                            <div class="player-card-ut occupied ${getCardTierClass(rating)}" style="pointer-events: none;">
                                 <div class="player-card-ut-inner" style="background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);">
                                     <div class="player-card-ut-rating-pos">
                                         <span class="player-card-ut-rating" style="color: #cbd5e1; text-shadow: none;">${rating}</span>
