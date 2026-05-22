@@ -55,14 +55,14 @@
                             </div>
                             <div class="form-group col">
                                 <label for="new-league-budget">Presupuesto Inicial (€)</label>
-                                <input type="number" id="new-league-budget" value="50000000" step="5000000">
+                                <input type="number" id="new-league-budget" value="100000000" step="5000000">
                             </div>
                         </div>
                         <div class="form-group">
                             <label for="new-league-points-mode">Puntuación Inicial</label>
                             <select id="new-league-points-mode" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; width: 100%; box-sizing: border-box; cursor: pointer;">
-                                <option value="zero">Empezar de cero (0 puntos al crear la liga)</option>
-                                <option value="accumulated" selected>Puntos ya acumulados en la temporada</option>
+                                <option value="zero" selected>Empezar de cero (0 puntos al crear la liga)</option>
+                                <option value="accumulated">Puntos ya acumulados en la temporada</option>
                             </select>
                         </div>
                         <div class="form-group" style="position: relative;">
@@ -266,6 +266,8 @@
                                     <option value="3-5-2">3-5-2</option>
                                     <option value="4-5-1">4-5-1</option>
                                     <option value="5-3-2">5-3-2</option>
+                                    <option value="3-1-4-2">3-1-4-2</option>
+                                    <option value="3-4-3">3-4-3</option>
                                 </select>
                             </div>
                             <button id="btn-save-lineup" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Guardar Once</button>
@@ -574,6 +576,14 @@
                                     <p class="text-muted">Reinicia los puntos de todos los jugadores a 0 usando sus puntos actuales de VPG como la nueva base. (Solo Modo ZERO)</p>
                                 </div>
                                 <button id="btn-admin-reset-base-points" class="btn btn-sm btn-warning">Resetear a 0</button>
+                            </div>
+
+                            <div class="action-card">
+                                <div>
+                                    <h4>Rehacer Onces y Mercado</h4>
+                                    <p class="text-muted">Reconstruye la plantilla aleatoria de todos los mánagers (Once inicial + 4 suplentes) y regenera de inmediato el mercado de agentes libres (30 jugadores nuevos).</p>
+                                </div>
+                                <button id="btn-admin-reset-all-squads" class="btn btn-sm btn-warning">Rehacer Todo</button>
                             </div>
 
                             <div class="action-card">

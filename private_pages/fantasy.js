@@ -94,6 +94,44 @@ const FORMATIONS = {
             { left: 35, top: 20, label: 'DC L' },
             { left: 65, top: 20, label: 'DC R' }
         ]
+    },
+    '3-1-4-2': {
+        POR: [{ left: 50, top: 88, label: 'POR' }],
+        DFC: [
+            { left: 30, top: 68, label: 'DFC L' },
+            { left: 50, top: 68, label: 'DFC C' },
+            { left: 70, top: 68, label: 'DFC R' }
+        ],
+        MC: [
+            { left: 50, top: 55, label: 'MCD' },
+            { left: 15, top: 40, label: 'MI' },
+            { left: 35, top: 40, label: 'MC L' },
+            { left: 65, top: 40, label: 'MC R' },
+            { left: 85, top: 40, label: 'MD' }
+        ],
+        DC: [
+            { left: 35, top: 20, label: 'DC L' },
+            { left: 65, top: 20, label: 'DC R' }
+        ]
+    },
+    '3-4-3': {
+        POR: [{ left: 50, top: 88, label: 'POR' }],
+        DFC: [
+            { left: 30, top: 68, label: 'DFC L' },
+            { left: 50, top: 68, label: 'DFC C' },
+            { left: 70, top: 68, label: 'DFC R' }
+        ],
+        MC: [
+            { left: 15, top: 45, label: 'MI' },
+            { left: 38.3, top: 45, label: 'MC L' },
+            { left: 61.6, top: 45, label: 'MC R' },
+            { left: 85, top: 45, label: 'MD' }
+        ],
+        DC: [
+            { left: 25, top: 20, label: 'EI' },
+            { left: 50, top: 20, label: 'DC' },
+            { left: 75, top: 20, label: 'ED' }
+        ]
     }
 };
 
@@ -105,7 +143,7 @@ let currentLeagueId = sessionStorage.getItem('selected_league_id') || null;
 let activeLeague = null;
 let autoRefreshInterval = null;
 let myTeam = {
-    balance: 50000000,
+    balance: 100000000,
     players: [],
     lineup: { POR: null, DFC: [], MC: [], DC: [] },
     formation: '4-3-3',
@@ -114,6 +152,7 @@ let myTeam = {
 };
 let allPlayers = [];
 let marketListings = [];
+let mySentBids = [];
 let currentFilteredPlayers = [];
 let selectedSlotPos = null; 
 let selectedSlotIdx = null; 
@@ -204,6 +243,7 @@ const adminLeagueStatusText = document.getElementById('admin-league-status-text'
 const btnAdminDeleteLeague = document.getElementById('btn-admin-delete-league');
 const btnAdminResetBasePoints = document.getElementById('btn-admin-reset-base-points');
 const adminResetBasePointsContainer = document.getElementById('admin-reset-base-points-container');
+const btnAdminResetAllSquads = document.getElementById('btn-admin-reset-all-squads');
 const btnAdminRebuildStats = null; // Removed from league admin panel
 const rebuildStatsProgress = null; // Removed from league admin panel
 const btnOwnerRebuildStats = document.getElementById('btn-owner-rebuild-stats');
@@ -511,6 +551,7 @@ function setupEventHandlers() {
     if (btnAdminToggleStatus) btnAdminToggleStatus.addEventListener('click', handleAdminToggleStatus);
     btnAdminDeleteLeague.addEventListener('click', handleAdminDeleteLeague);
     if (btnAdminResetBasePoints) btnAdminResetBasePoints.addEventListener('click', handleAdminResetBasePoints);
+    if (btnAdminResetAllSquads) btnAdminResetAllSquads.addEventListener('click', handleAdminResetAllSquads);
     if (btnAdminRebuildStats) btnAdminRebuildStats.addEventListener('click', () => executeRebuildStats(btnAdminRebuildStats, rebuildStatsProgress));
     if (btnOwnerRebuildStats) btnOwnerRebuildStats.addEventListener('click', () => executeRebuildStats(btnOwnerRebuildStats, ownerRebuildProgress));
 
@@ -1017,7 +1058,16 @@ function filterAndRenderMarket() {
                 }
             }
         } else {
-            actionCol = `<button class="btn btn-success btn-xs btn-buy" data-name="${p.eaPlayerName}" ${activeLeague && (!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-plus"></i> Fichar</button>`;
+            const bidCount = p.bidCount || 0;
+            const bidCountText = bidCount > 0 ? `${bidCount} ${bidCount === 1 ? 'puja' : 'pujas'}` : 'Sin pujas';
+            actionCol = `
+                <button class="btn btn-success btn-xs btn-open-free-agent-bid" data-name="${p.eaPlayerName}" ${activeLeague && (!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}>
+                    <i class="fa-solid fa-gavel"></i> Pujar
+                </button>
+                <div class="text-center" style="font-size: 0.7rem; color: ${bidCount > 0 ? '#38bdf8' : '#64748b'}; margin-top: 4px; font-weight: 500;">
+                    ${bidCountText}
+                </div>
+            `;
         }
 
         row.innerHTML = `
@@ -1039,6 +1089,20 @@ function filterAndRenderMarket() {
         const buyBtn = row.querySelector('.btn-buy');
         if (buyBtn && activeLeague && activeLeague.marketOpen) {
             buyBtn.addEventListener('click', () => buyPlayer(p));
+        }
+
+        const freeAgentBidBtn = row.querySelector('.btn-open-free-agent-bid');
+        if (freeAgentBidBtn && activeLeague && activeLeague.marketOpen) {
+            freeAgentBidBtn.addEventListener('click', () => {
+                bidPlayerName.textContent = p.eaPlayerName;
+                bidSellerTeamVal.textContent = 'Agente Libre (SYSTEM)';
+                bidAskingPriceVal.textContent = formatCurrency(p.price);
+                bidBalanceVal.textContent = formatCurrency(myTeam.balance);
+                bidAmountInput.value = p.price;
+                bidForm.setAttribute('data-player-name', p.eaPlayerName);
+                bidForm.setAttribute('data-seller-id', 'SYSTEM');
+                bidModal.classList.add('open');
+            });
         }
 
         const clausulazoBtn = row.querySelector('.btn-clausulazo');
@@ -1568,7 +1632,7 @@ async function loadAdminPanelData() {
     adminLeagueMaxParts.value = activeLeague.maxParticipants;
     adminLeagueAllowClauses.value = activeLeague.allowClauses !== false ? 'true' : 'false';
     adminLeagueClauseMultiplier.value = activeLeague.clauseMultiplier || 1.5;
-    adminLeagueInitialBudget.value = activeLeague.initialBudget || 50000000;
+    adminLeagueInitialBudget.value = activeLeague.initialBudget || 100000000;
     
     // Hide/show delete card for helpers
     const deleteCard = btnAdminDeleteLeague ? btnAdminDeleteLeague.closest('.action-card') : null;
@@ -2105,6 +2169,41 @@ async function handleAdminResetBasePoints() {
     }
 }
 
+// Admin Reset All Squads and Free Agent Market
+async function handleAdminResetAllSquads() {
+    if (!confirm('¿Estás seguro de que quieres REHACER las plantillas de TODOS los participantes de esta liga y regenerar el mercado de agentes libres? Se eliminarán todas las pujas actuales con sus reembolsos correspondientes, y todos los equipos recibirán una plantilla aleatoria nueva de Once + 4 suplentes por valor aproximado de 100M €. Esta acción no se puede deshacer.')) {
+        return;
+    }
+    
+    const btn = document.getElementById('btn-admin-reset-all-squads');
+    const originalText = btn ? btn.innerText : 'Rehacer Todo';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = 'Procesando...';
+    }
+    
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/reset-all-squads`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al restablecer plantillas y mercado.');
+        
+        showToast(data.message || 'Plantillas y mercado restablecidos correctamente.', 'success');
+        // Refresh league data
+        await enterLeague(currentLeagueId, true);
+    } catch (e) {
+        console.error(e);
+        showToast(e.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = originalText;
+        }
+    }
+}
+
 // Admin Kick Manager
 async function handleKickManager(teamId, managerName) {
     const confirmKick = confirm(`¿Estás seguro de que quieres expulsar a "${managerName}" de esta liga?`);
@@ -2349,8 +2448,13 @@ async function handleBidSubmit(e) {
         showToast('El precio ofertado debe ser mayor que 0.', 'error');
         return;
     }
-    if (myTeam.balance < amount) {
-        showToast('Saldo insuficiente para enviar esta puja.', 'error');
+    // Lookup if we already have a pending bid for this player
+    const existingBid = mySentBids.find(b => b.eaPlayerName.toLowerCase() === playerName.toLowerCase() && b.status === 'pending');
+    const oldBidAmount = existingBid ? existingBid.bidAmount : 0;
+    const diff = amount - oldBidAmount;
+
+    if (myTeam.balance < diff) {
+        showToast(`Saldo insuficiente. Esta puja requiere un incremento de ${formatCurrency(diff)} en tu balance, y tu saldo actual es ${formatCurrency(myTeam.balance)}.`, 'error');
         return;
     }
 
@@ -2439,6 +2543,7 @@ async function loadMarketBids() {
         const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/market/bids`);
         if (!res.ok) throw new Error('No se pudieron obtener las ofertas.');
         const { received, sent } = await res.json();
+        mySentBids = sent;
 
         // Update badge count
         if (received.length > 0) {
@@ -2497,8 +2602,10 @@ async function loadMarketBids() {
                 const p = b.playerInfo;
                 const row = document.createElement('tr');
                 let statusBadge = '';
+                let retractBtnHtml = '';
                 if (b.status === 'pending') {
                     statusBadge = `<span class="badge" style="background: #eab308; color: #1e293b; border: none; font-size: 0.75rem; border-radius: 4px; padding: 2px 6px;">Pendiente</span>`;
+                    retractBtnHtml = `<button class="btn btn-danger btn-xs btn-retract-bid" style="margin-left: 8px;"><i class="fa-solid fa-trash-can"></i> Retirar</button>`;
                 } else if (b.status === 'accepted') {
                     statusBadge = `<span class="badge" style="background: #22c55e; color: #ffffff; border: none; font-size: 0.75rem; border-radius: 4px; padding: 2px 6px;">Aceptada</span>`;
                 } else if (b.status === 'rejected') {
@@ -2520,8 +2627,13 @@ async function loadMarketBids() {
                     </td>
                     <td class="text-right price-text col-hide-sm">${formatCurrency(p.price)}</td>
                     <td class="text-right price-text text-blue" style="font-weight: 700;">${formatCurrency(b.bidAmount)}</td>
-                    <td class="text-center">${statusBadge}</td>
+                    <td class="text-center">${statusBadge}${retractBtnHtml}</td>
                 `;
+
+                const retractBtn = row.querySelector('.btn-retract-bid');
+                if (retractBtn) {
+                    retractBtn.addEventListener('click', () => cancelBid(b._id));
+                }
                 bidsSentList.appendChild(row);
             });
         }
@@ -2543,7 +2655,27 @@ async function respondBid(bidId, responseType) {
         });
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Error al responder a la puja.');
+        if (!res.ok) throw new Error(data.error || 'Error al responder a la oferta.');
+
+        showToast(data.message, 'success');
+        await enterLeague(currentLeagueId, true);
+        await loadMarketBids();
+    } catch (e) {
+        console.error(e);
+        showToast(e.message, 'error');
+    }
+}
+
+async function cancelBid(bidId) {
+    if (!confirm('¿Estás seguro de que deseas retirar esta puja? Se reembolsará el importe a tu balance de inmediato.')) return;
+
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/market/bids/${bidId}/cancel`, {
+            method: 'POST'
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al retirar la puja.');
 
         showToast(data.message, 'success');
         await enterLeague(currentLeagueId, true);
@@ -2814,7 +2946,7 @@ async function loadCreationVpgLeagues() {
             const title = matched ? (matched.title || slug) : slug;
             html += `
                 <label>
-                    <input type="checkbox" value="${slug}" checked onchange="updateSelectedVpgCount()">
+                    <input type="checkbox" value="${slug}" onchange="updateSelectedVpgCount()">
                     <span>${title}</span>
                 </label>
             `;

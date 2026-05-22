@@ -76,14 +76,20 @@ export function calculatePlayerPointsAndPrice(p) {
 
     // 1. Calcular precio (usar manualPrice si está definido, si no, dinámico)
     let price;
+    const posUpper = (p.lastPosition || '').toUpperCase();
+    const isGk = posUpper === 'POR' || posUpper === 'GK';
+
     if (p.manualPrice !== undefined && p.manualPrice !== null) {
         price = p.manualPrice;
+        if (isGk) {
+            price *= 2;
+        }
+        price *= 5.33333333;
     } else {
         price = 1000000;
         price += (stats.goals || 0) * 250000;
         price += (stats.assists || 0) * 200000;
-        const posUpper = (p.lastPosition || '').toUpperCase();
-        const isDefOrGk = ['POR', 'DFC', 'LD', 'LI', 'CAD', 'CAI', 'CARR'].includes(posUpper);
+        const isDefOrGk = ['POR', 'DFC', 'LD', 'LI', 'CAD', 'CAI', 'CARR', 'GK'].includes(posUpper);
         if (isDefOrGk) price += (stats.cleanSheets || 0) * 150000;
         
         // Ajustes por victorias/derrotas de equipo en el valor
@@ -91,9 +97,20 @@ export function calculatePlayerPointsAndPrice(p) {
         price -= (stats.losses || 0) * 25000;
 
         if (avgRating > 6.0) price *= (1 + (avgRating - 6.0) * 0.5);
-        price = Math.min(15000000, Math.max(500000, price));
-        price = Math.round(price / 10000) * 10000;
+
+        // Doblar precio si es portero (x2)
+        if (isGk) {
+            price *= 2;
+        }
+
+        // Multiplicador de escala de presupuesto (factor x5.33333333)
+        price *= 5.33333333;
     }
+
+    // Límites y Redondeo
+    price = Math.min(80000000, Math.max(2600000, price));
+    price = Math.round(price / 50000) * 50000;
+
 
     // 2. Usar los puntos oficiales de VPG directamente
     let points = vpgPoints;
@@ -451,9 +468,7 @@ export async function syncFantasyWithVpg() {
                 const updateDoc = { $set: { points: totalPoints } };
 
                 if (deltaPoints > 0) {
-                    const budget = league.initialBudget || 50000000;
-                    // Factor de recompensa: 0.005% del presupuesto inicial por punto ganado
-                    rewardAmount = deltaPoints * Math.round(budget * 0.00005);
+                    rewardAmount = deltaPoints * 80000;
                     if (rewardAmount > 0) {
                         updateDoc.$inc = { balance: rewardAmount };
                     }
@@ -473,6 +488,28 @@ export async function syncFantasyWithVpg() {
             await processLeagueMarketOffers(db);
         } catch (e) {
             console.error('[VPG SYNC] Error al procesar ofertas de la liga:', e);
+        }
+
+        // 6. Procesar y adjudicar pujas a ciegas de agentes libres
+        try {
+            updateRebuildStatus({ progress: 'Resolviendo pujas de agentes libres...' });
+            const leaguesList = await db.collection('fantasy_leagues').find().toArray();
+            for (const lDoc of leaguesList) {
+                await resolveFreeAgentBids(db, lDoc);
+            }
+        } catch (e) {
+            console.error('[VPG SYNC] Error al resolver pujas de agentes libres:', e);
+        }
+
+        // 7. Regenerar el mercado de agentes libres de la liga para el día siguiente
+        try {
+            updateRebuildStatus({ progress: 'Regenerando mercado de agentes libres...' });
+            const leaguesList = await db.collection('fantasy_leagues').find().toArray();
+            for (const lDoc of leaguesList) {
+                await generateMarketFreeAgentsPool(db, lDoc);
+            }
+        } catch (e) {
+            console.error('[VPG SYNC] Error al regenerar mercado de agentes libres:', e);
         }
 
         updateRebuildStatus({
@@ -577,3 +614,414 @@ export async function processLeagueMarketOffers(db) {
     }
 }
 
+
+// ========== FANTASY RANDOM SQUAD & MARKET GENERATION ==========
+
+export const FORMATION_STARTERS = {
+    '4-3-3': { POR: 1, DFC: 4, MC: 3, DC: 3 },
+    '4-4-2': { POR: 1, DFC: 4, MC: 4, DC: 2 },
+    '4-5-1': { POR: 1, DFC: 4, MC: 5, DC: 1 },
+    '5-3-2': { POR: 1, DFC: 5, MC: 3, DC: 2 },
+    '5-4-1': { POR: 1, DFC: 5, MC: 4, DC: 1 },
+    '3-5-2': { POR: 1, DFC: 3, MC: 5, DC: 2 },
+    '3-4-3': { POR: 1, DFC: 3, MC: 4, DC: 3 },
+    '3-1-4-2': { POR: 1, DFC: 3, MC: 5, DC: 2 }
+};
+
+export function mapPositionToMain(pos) {
+    const posUpper = (pos || '').toUpperCase().trim();
+    if (['POR', 'GK'].includes(posUpper)) return 'POR';
+    if (['DFC', 'LD', 'LI', 'CARR', 'CAD', 'CAI'].includes(posUpper)) return 'DFC';
+    if (['MC', 'MCD', 'MCO', 'MD', 'MI'].includes(posUpper)) return 'MC';
+    if (['DC', 'ED', 'EI', 'MP'].includes(posUpper)) return 'DC';
+    return 'MC'; // default
+}
+
+/**
+ * Genera una plantilla aleatoria completa de 11 titulares + 4 suplentes
+ * respetando la formación, individual < 40M y coste total ~100M
+ */
+export async function generateRandomSquadForTeam(db, leagueId, teamId) {
+    // 1. Fetch league and team
+    const leagueDoc = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+    if (!leagueDoc) throw new Error('Liga no encontrada');
+
+    const team = await db.collection('fantasy_teams').findOne({ _id: new ObjectId(teamId) });
+    if (!team) throw new Error('Equipo no encontrado');
+
+    const formation = team.formation || '4-3-3';
+    const startersConf = FORMATION_STARTERS[formation] || FORMATION_STARTERS['4-3-3'];
+    
+    // Total needed per position (11 starters + 4 subs, 1 sub of each main line)
+    const requiredCounts = {
+        POR: startersConf.POR + 1,
+        DFC: startersConf.DFC + 1,
+        MC: startersConf.MC + 1,
+        DC: startersConf.DC + 1
+    };
+
+    // 2. Fetch all eligible players
+    const vpgLeagues = leagueDoc.vpgLeagues || [];
+    const rawPlayers = await db.collection('player_profiles').find({
+        vpgLeagueSlug: { $in: vpgLeagues }
+    }).toArray();
+
+    // Calculate price for all eligible players
+    const allEligiblePlayers = rawPlayers.map(p => {
+        const { price } = calculatePlayerPointsAndPrice(p);
+        return {
+            eaPlayerName: p.eaPlayerName,
+            lastPosition: p.lastPosition || 'MC',
+            price
+        };
+    });
+
+    // 3. Filter out players already owned in this league (except by this team, if it's a reset)
+    const otherTeams = await db.collection('fantasy_teams').find({
+        leagueId: leagueId.toString(),
+        _id: { $ne: new ObjectId(teamId) }
+    }).toArray();
+    const ownedPlayerNames = new Set();
+    otherTeams.forEach(t => {
+        (t.players || []).forEach(pName => ownedPlayerNames.add(pName.toLowerCase()));
+    });
+
+    const pool = allEligiblePlayers.filter(p => {
+        if (ownedPlayerNames.has(p.eaPlayerName.toLowerCase())) return false;
+        // Individual player price must not exceed 40M
+        if (p.price > 40000000) return false;
+        return true;
+    });
+
+    // Group available pool by main position
+    const playersByPosition = { POR: [], DFC: [], MC: [], DC: [] };
+    pool.forEach(p => {
+        const mainPos = mapPositionToMain(p.lastPosition);
+        playersByPosition[mainPos].push(p);
+    });
+
+    // 4. Randomized selection targeting total squad cost around 100M (range: 90M to 110M)
+    // We can do a fast Monte Carlo search (up to 2000 iterations)
+    let selectedSquad = null;
+    let closestSquad = null;
+    let closestDiff = Infinity;
+
+    for (let iter = 0; iter < 2000; iter++) {
+        const currentSquad = [];
+        let totalCost = 0;
+        let valid = true;
+
+        for (const pos of ['POR', 'DFC', 'MC', 'DC']) {
+            const needed = requiredCounts[pos];
+            const available = playersByPosition[pos];
+            if (available.length < needed) {
+                valid = false;
+                break;
+            }
+            // Shuffle and pick
+            const shuffled = [...available].sort(() => 0.5 - Math.random());
+            const picked = shuffled.slice(0, needed);
+            currentSquad.push(...picked);
+            totalCost += picked.reduce((acc, p) => acc + p.price, 0);
+        }
+
+        if (!valid) continue;
+
+        const diff = Math.abs(totalCost - 100000000);
+        if (diff < closestDiff) {
+            closestDiff = diff;
+            closestSquad = { players: currentSquad, totalCost };
+        }
+
+        // Accept immediately if total cost is between 90M and 110M
+        if (totalCost >= 90000000 && totalCost <= 110000000) {
+            selectedSquad = { players: currentSquad, totalCost };
+            break;
+        }
+    }
+
+    const squadToUse = selectedSquad || closestSquad;
+    if (!squadToUse) {
+        throw new Error('No hay suficientes jugadores en la base de datos para generar una plantilla.');
+    }
+
+    // 5. Build lineup
+    const playersList = squadToUse.players.map(p => p.eaPlayerName);
+    
+    // Group squad players by position to allocate lineup
+    const squadByPos = { POR: [], DFC: [], MC: [], DC: [] };
+    squadToUse.players.forEach(p => {
+        const mainPos = mapPositionToMain(p.lastPosition);
+        squadByPos[mainPos].push(p.eaPlayerName);
+    });
+
+    // Allocate starters
+    const lineup = {
+        POR: squadByPos.POR[0] || null,
+        DFC: squadByPos.DFC.slice(0, startersConf.DFC),
+        MC: squadByPos.MC.slice(0, startersConf.MC),
+        DC: squadByPos.DC.slice(0, startersConf.DC),
+    };
+
+    // Calculate initial clauses for squad players (using player.price * clauseMultiplier)
+    const clauseMultiplier = leagueDoc.clauseMultiplier || 1.5;
+    const clauses = {};
+    const clausesProtectedUntil = {};
+    
+    // Initial protection for 2 days
+    const protectionExpiry = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+
+    squadToUse.players.forEach(p => {
+        clauses[p.eaPlayerName] = Math.round(p.price * clauseMultiplier);
+        clausesProtectedUntil[p.eaPlayerName] = protectionExpiry;
+    });
+
+    // 6. Save back to the team in DB
+    await db.collection('fantasy_teams').updateOne(
+        { _id: new ObjectId(teamId) },
+        {
+            $set: {
+                players: playersList,
+                lineup,
+                clauses,
+                clausesProtectedUntil,
+                balance: leagueDoc.initialBudget
+            }
+        }
+    );
+
+    return squadToUse;
+}
+
+/**
+ * Genera el abanico de 30 agentes libres diarios para la liga
+ * Asegura un abanico de calidad y min 5 jugadores por posición
+ */
+export async function generateMarketFreeAgentsPool(db, leagueDoc) {
+    const leagueId = leagueDoc._id.toString();
+
+    // 1. Get owned players in the league
+    const teams = await db.collection('fantasy_teams').find({ leagueId }).toArray();
+    const ownedPlayerNames = new Set();
+    teams.forEach(t => {
+        (t.players || []).forEach(pName => ownedPlayerNames.add(pName.toLowerCase()));
+    });
+
+    // 2. Get all eligible players in the VPG leagues
+    const vpgLeagues = leagueDoc.vpgLeagues || [];
+    const rawPlayers = await db.collection('player_profiles').find({
+        vpgLeagueSlug: { $in: vpgLeagues }
+    }).toArray();
+
+    // Calculate price for all players
+    const allEligiblePlayers = rawPlayers.map(p => {
+        const { price } = calculatePlayerPointsAndPrice(p);
+        return {
+            eaPlayerName: p.eaPlayerName,
+            lastPosition: p.lastPosition || 'MC',
+            price
+        };
+    });
+
+    // Filter to get free agents (not owned)
+    const freeAgents = allEligiblePlayers.filter(p => !ownedPlayerNames.has(p.eaPlayerName.toLowerCase()));
+
+    // Group free agents by position
+    const freeAgentsByPos = { POR: [], DFC: [], MC: [], DC: [] };
+    freeAgents.forEach(p => {
+        const mainPos = mapPositionToMain(p.lastPosition);
+        freeAgentsByPos[mainPos].push(p);
+    });
+
+    const previousPool = new Set((leagueDoc.marketFreeAgents || []).map(n => n.toLowerCase()));
+
+    // Selection helper function
+    const selectForPosition = (pos, count) => {
+        const posPool = freeAgentsByPos[pos] || [];
+        if (posPool.length === 0) return [];
+
+        const freshPool = posPool.filter(p => !previousPool.has(p.eaPlayerName.toLowerCase()));
+        const repeatPool = posPool.filter(p => previousPool.has(p.eaPlayerName.toLowerCase()));
+
+        const sortByPrice = (arr) => arr.sort((a, b) => b.price - a.price);
+        
+        const sortedFresh = sortByPrice(freshPool);
+        const sortedRepeat = sortByPrice(repeatPool);
+
+        const pickBalanced = (sourceArr, numToPick) => {
+            if (sourceArr.length <= numToPick) return [...sourceArr];
+            const tierSize = Math.ceil(sourceArr.length / 3);
+            const tierGood = sourceArr.slice(0, tierSize);
+            const tierMedium = sourceArr.slice(tierSize, tierSize * 2);
+            const tierBad = sourceArr.slice(tierSize * 2);
+
+            const picked = [];
+            const targetGood = Math.ceil(numToPick * 0.3);
+            const targetBad = Math.ceil(numToPick * 0.3);
+            const targetMedium = numToPick - targetGood - targetBad;
+
+            const pickRandomFromArr = (arr, num) => {
+                const shuffled = [...arr].sort(() => 0.5 - Math.random());
+                return shuffled.slice(0, num);
+            };
+
+            picked.push(...pickRandomFromArr(tierGood, targetGood));
+            picked.push(...pickRandomFromArr(tierMedium, targetMedium));
+            picked.push(...pickRandomFromArr(tierBad, targetBad));
+
+            if (picked.length < numToPick) {
+                const pickedNames = new Set(picked.map(p => p.eaPlayerName));
+                const remaining = sourceArr.filter(p => !pickedNames.has(p.eaPlayerName));
+                const shuffledRemaining = remaining.sort(() => 0.5 - Math.random());
+                picked.push(...shuffledRemaining.slice(0, numToPick - picked.length));
+            }
+
+            return picked;
+        };
+
+        let selected = pickBalanced(sortedFresh, count);
+        if (selected.length < count) {
+            const needed = count - selected.length;
+            const repeated = pickBalanced(sortedRepeat, needed);
+            selected.push(...repeated);
+        }
+
+        return selected;
+    };
+
+    // Select at least 5 from each position (POR, DFC, MC, DC) -> 20 players total
+    const finalSelection = [];
+    const minCounts = { POR: 5, DFC: 5, MC: 5, DC: 5 };
+    
+    for (const pos of ['POR', 'DFC', 'MC', 'DC']) {
+        const picked = selectForPosition(pos, minCounts[pos]);
+        finalSelection.push(...picked);
+    }
+
+    // Pick 10 more to reach exactly 30 players
+    const selectedNames = new Set(finalSelection.map(p => p.eaPlayerName.toLowerCase()));
+    const remainingPool = freeAgents.filter(p => !selectedNames.has(p.eaPlayerName.toLowerCase()));
+
+    const remainingByPos = { POR: [], DFC: [], MC: [], DC: [] };
+    remainingPool.forEach(p => {
+        const mainPos = mapPositionToMain(p.lastPosition);
+        remainingByPos[mainPos].push(p);
+    });
+
+    const extraDistribution = { POR: 2, DFC: 3, MC: 3, DC: 2 };
+    for (const pos of ['POR', 'DFC', 'MC', 'DC']) {
+        const needed = extraDistribution[pos];
+        const posPool = remainingByPos[pos] || [];
+        const picked = posPool.sort(() => 0.5 - Math.random()).slice(0, needed);
+        finalSelection.push(...picked);
+    }
+
+    if (finalSelection.length < 30) {
+        const currentSelectedNames = new Set(finalSelection.map(p => p.eaPlayerName.toLowerCase()));
+        const absoluteRemaining = freeAgents.filter(p => !currentSelectedNames.has(p.eaPlayerName.toLowerCase()));
+        const extraPicks = absoluteRemaining.sort(() => 0.5 - Math.random()).slice(0, 30 - finalSelection.length);
+        finalSelection.push(...extraPicks);
+    }
+
+    const finalNames = finalSelection.map(p => p.eaPlayerName);
+    await db.collection('fantasy_leagues').updateOne(
+        { _id: leagueDoc._id },
+        { $set: { marketFreeAgents: finalNames } }
+    );
+
+    console.log(`[MARKET] Generados 30 agentes libres para la liga ${leagueDoc.name}:`, finalNames);
+    return finalNames;
+}
+
+/**
+ * Resuelve las pujas a ciegas por agentes libres.
+ * Se adjudican a las pujas más altas en caso de que tengan hueco en la plantilla.
+ * En caso de empate, gana la puja más antigua.
+ * Se reembolsa de inmediato el saldo a los perdedores.
+ */
+export async function resolveFreeAgentBids(db, leagueDoc) {
+    const leagueId = leagueDoc._id.toString();
+    const bids = await db.collection('fantasy_market_bids').find({
+        leagueId,
+        sellerDiscordId: 'SYSTEM',
+        status: 'pending'
+    }).toArray();
+
+    if (bids.length === 0) {
+        console.log(`[BIDS RESOLUTION] No hay pujas de agentes libres pendientes para la liga ${leagueDoc.name}`);
+        return;
+    }
+
+    // Agrupar pujas por jugador
+    const bidsByPlayer = {};
+    bids.forEach(b => {
+        if (!bidsByPlayer[b.eaPlayerName]) {
+            bidsByPlayer[b.eaPlayerName] = [];
+        }
+        bidsByPlayer[b.eaPlayerName].push(b);
+    });
+
+    for (const playerName of Object.keys(bidsByPlayer)) {
+        const playerBids = bidsByPlayer[playerName];
+        // Ordenar de mayor a menor importe, y por fecha (más antigua gana)
+        playerBids.sort((a, b) => {
+            if (b.bidAmount !== a.bidAmount) {
+                return b.bidAmount - a.bidAmount;
+            }
+            return new Date(a.createdAt) - new Date(b.createdAt);
+        });
+
+        let winnerBid = null;
+        for (const bid of playerBids) {
+            const team = await db.collection('fantasy_teams').findOne({ discordId: bid.bidderDiscordId, leagueId });
+            if (team && team.approved && (team.players || []).length < (leagueDoc.maxSquadSize || 15)) {
+                winnerBid = bid;
+                break;
+            }
+        }
+
+        if (winnerBid) {
+            // El ganador ya pagó la puja al hacerla, no restamos balance.
+            // Conseguir datos de precio del jugador para establecer la cláusula inicial
+            const playerDoc = await db.collection('player_profiles').findOne({ eaPlayerName: winnerBid.eaPlayerName });
+            const price = playerDoc ? calculatePlayerPointsAndPrice(playerDoc).price : winnerBid.bidAmount;
+            const clauseMultiplier = leagueDoc.clauseMultiplier || 1.5;
+            const buyerInitialClause = Math.round(price * clauseMultiplier);
+            const protectionExpiry = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // Protección de 2 días
+
+            // Asignar jugador al ganador
+            await db.collection('fantasy_teams').updateOne(
+                { discordId: winnerBid.bidderDiscordId, leagueId },
+                {
+                    $push: { players: winnerBid.eaPlayerName },
+                    $set: {
+                        [`clauses.${winnerBid.eaPlayerName}`]: buyerInitialClause,
+                        [`clausesProtectedUntil.${winnerBid.eaPlayerName}`]: protectionExpiry
+                    }
+                }
+            );
+
+            // Marcar puja ganadora como aceptada
+            await db.collection('fantasy_market_bids').updateOne(
+                { _id: winnerBid._id },
+                { $set: { status: 'accepted' } }
+            );
+
+            console.log(`[BIDS RESOLUTION] Puja GANADA: ${winnerBid.bidderTeamName} ha fichado a ${winnerBid.eaPlayerName} por ${winnerBid.bidAmount.toLocaleString('es-ES')} €.`);
+        }
+
+        // Reembolsar y rechazar las demás pujas
+        const loserBids = playerBids.filter(b => !winnerBid || b._id.toString() !== winnerBid._id.toString());
+        for (const lb of loserBids) {
+            await db.collection('fantasy_teams').updateOne(
+                { discordId: lb.bidderDiscordId, leagueId },
+                { $inc: { balance: lb.bidAmount } }
+            );
+            await db.collection('fantasy_market_bids').updateOne(
+                { _id: lb._id },
+                { $set: { status: 'rejected' } }
+            );
+            console.log(`[BIDS RESOLUTION] Puja RECHAZADA (reembolso): ${lb.bidderTeamName} ofertó ${lb.bidAmount.toLocaleString('es-ES')} € por ${lb.eaPlayerName}.`);
+        }
+    }
+}

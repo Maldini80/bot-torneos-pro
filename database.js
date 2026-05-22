@@ -21,6 +21,8 @@ export async function connectDb() {
         await ensureIndexes();
         // ELO: Migración automática de campos ELO en equipos
         await migrateEloFields();
+        // NUEVO: Migración de precios manuales para la economía Fantasy
+        await migrateManualPrices();
     } catch (err) { // --- CORRECCIÓN CRÍTICA --- Se añadieron las llaves {}
         console.error('[DATABASE] ERROR FATAL AL CONECTAR CON MONGODB:', err);
         process.exit(1);
@@ -232,4 +234,53 @@ export async function updateBotSettings(newSettings) {
     const settingsCollection = db.collection('bot_settings');
     // Usamos $set para no sobreescribir todo el documento, solo los campos que cambiamos.
     return settingsCollection.updateOne({ _id: 'global_config' }, { $set: newSettings });
+}
+
+/**
+ * Migra los precios manuales de los jugadores a la nueva escala de economía (x5.33333333, x2 para porteros, límites y redondeo a 50k).
+ * Se ejecuta una sola vez.
+ */
+export async function migrateManualPrices() {
+    try {
+        if (!db) {
+            console.warn('[DATABASE] No se pueden migrar precios manuales: DB no conectada');
+            return;
+        }
+        const configCol = db.collection('fantasy_config');
+        const flag = await configCol.findOne({ key: "manual_prices_scaled" });
+        if (flag && flag.value === true) {
+            console.log('[DATABASE] Precios manuales ya migrados anteriormente. Sin cambios.');
+            return;
+        }
+
+        const playersCol = db.collection('player_profiles');
+        const players = await playersCol.find({ manualPrice: { $exists: true, $ne: null } }).toArray();
+        if (players.length > 0) {
+            console.log(`[DATABASE] Migrando ${players.length} precios manuales a la nueva economía...`);
+            for (const p of players) {
+                const posUpper = (p.lastPosition || '').toUpperCase();
+                const isGk = posUpper === 'POR' || posUpper === 'GK';
+                let price = p.manualPrice * 5.33333333;
+                if (isGk) {
+                    price *= 2;
+                }
+                price = Math.min(80000000, Math.max(2600000, price));
+                price = Math.round(price / 50000) * 50000;
+
+                await playersCol.updateOne(
+                    { _id: p._id },
+                    { $set: { manualPrice: price } }
+                );
+            }
+            console.log('[DATABASE] Migración de precios manuales finalizada.');
+        }
+
+        await configCol.updateOne(
+            { key: "manual_prices_scaled" },
+            { $set: { value: true } },
+            { upsert: true }
+        );
+    } catch (error) {
+        console.error('[DATABASE] Error en la migración de precios manuales:', error.message);
+    }
 }
