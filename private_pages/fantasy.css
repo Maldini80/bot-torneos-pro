@@ -1303,8 +1303,58 @@ body {
     .col-hide-md {
         display: none !important;
     }
+    .mobile-only-details {
+        display: block !important;
+    }
+    .mobile-only-inline-block {
+        display: inline-block !important;
+    }
+    .fantasy-table th, .fantasy-table td {
+        padding: 8px 6px !important;
+        font-size: 0.75rem !important;
+    }
+    /* Buttons in table cells stack vertically */
+    .fantasy-table td div {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 6px !important;
+    }
+    .fantasy-table td div button, .fantasy-table td div span {
+        width: 100% !important;
+        margin: 0 !important;
+        box-sizing: border-box;
+    }
+    /* Stack form row */
+    .form-row {
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+    /* Stack quick actions cards */
+    .admin-actions-col {
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 12px !important;
+    }
+    .action-card {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+        text-align: center !important;
+    }
+    .action-card button {
+        width: 100% !important;
+    }
+    /* Header action alignment */
+    .user-profile {
+        width: 100% !important;
+        justify-content: space-between !important;
+    }
+    .user-profile button {
+        flex: 1 !important;
+        text-align: center !important;
+    }
 }
-@media (max-width: 480px) {
+@media (max-width: 600px) {
     .col-hide-sm {
         display: none !important;
     }

@@ -6254,6 +6254,39 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
+    // Leave League (user resigning/abandoning league)
+    app.post('/api/fantasy/leagues/:id/leave', isAuthenticated, isFantasyEnabled, async (req, res) => {
+        try {
+            const db = getDb();
+            const discordId = req.user.id;
+            const leagueId = req.params.id;
+
+            // Find the user's team
+            const team = await db.collection('fantasy_teams').findOne({ discordId, leagueId });
+            if (!team) return res.status(404).json({ error: 'No tienes un equipo en esta liga.' });
+
+            // Delete team
+            await db.collection('fantasy_teams').deleteOne({ _id: team._id });
+
+            // Clean up user's listings in this league
+            await db.collection('fantasy_market_listings').deleteMany({ leagueId, sellerDiscordId: discordId });
+
+            // Clean up bids placed by or sent to this user in this league
+            await db.collection('fantasy_market_bids').deleteMany({
+                leagueId,
+                $or: [
+                    { bidderDiscordId: discordId },
+                    { sellerDiscordId: discordId }
+                ]
+            });
+
+            res.json({ success: true, message: 'Has abandonado la liga correctamente.' });
+        } catch (e) {
+            console.error('[API Fantasy Leave] Error:', e);
+            res.status(500).json({ error: 'Error al abandonar la liga.' });
+        }
+    });
+
     // Get leaderboard for a league (public within fantasy)
     app.get('/api/fantasy/leagues/:id/leaderboard', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {

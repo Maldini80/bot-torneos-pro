@@ -176,9 +176,9 @@
                         <thead>
                             <tr>
                                 <th>Jugador</th>
-                                <th>Club</th>
+                                <th class="col-hide-md">Club</th>
                                 <th>Posición</th>
-                                <th class="text-center">Puntos VPG</th>
+                                <th class="text-center col-hide-sm">Puntos VPG</th>
                                 <th class="text-right">Precio Actual</th>
                                 <th class="text-center">Precio Manual (€)</th>
                                 <th class="text-center">Acciones</th>
@@ -220,8 +220,9 @@
                     <span class="stat-value text-yellow" id="total-points">0 pts</span>
                 </div>
             </div>
-            <div class="user-profile">
-                <button id="btn-change-league" class="btn btn-secondary btn-sm"><i class="fa-solid fa-right-from-bracket"></i> Salir de Liga</button>
+            <div class="user-profile" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <button id="btn-change-league" class="btn btn-secondary btn-sm"><i class="fa-solid fa-house"></i> Ir al Dashboard</button>
+                <button id="btn-leave-league" class="btn btn-danger btn-sm"><i class="fa-solid fa-right-from-bracket"></i> Abandonar Liga</button>
             </div>
         </header>
 
@@ -339,7 +340,7 @@
                                             <th>Jugador</th>
                                             <th class="col-hide-md">Club</th>
                                             <th>Pos</th>
-                                            <th class="text-center">Puntos VPG</th>
+                                            <th class="text-center col-hide-sm">Puntos VPG</th>
                                             <th class="text-right">Precio / Cláusula</th>
                                             <th class="text-center">Acción</th>
                                         </tr>
@@ -362,9 +363,9 @@
                                     <thead>
                                         <tr>
                                             <th>Jugador</th>
-                                            <th>Dueño (Equipo)</th>
+                                            <th class="col-hide-md">Dueño (Equipo)</th>
                                             <th>Pos</th>
-                                            <th class="text-right">Valor Mercado</th>
+                                            <th class="text-right col-hide-sm">Valor Mercado</th>
                                             <th class="text-right">Precio Salida</th>
                                             <th class="text-center">Acción</th>
                                         </tr>
@@ -388,8 +389,8 @@
                                         <thead>
                                             <tr>
                                                 <th>Jugador</th>
-                                                <th>Comprador</th>
-                                                <th class="text-right">Valor Mercado</th>
+                                                <th class="col-hide-md">Comprador</th>
+                                                <th class="text-right col-hide-sm">Valor Mercado</th>
                                                 <th class="text-right">Oferta</th>
                                                 <th class="text-center">Responder</th>
                                             </tr>
@@ -411,8 +412,8 @@
                                         <thead>
                                             <tr>
                                                 <th>Jugador</th>
-                                                <th>Vendedor (Equipo)</th>
-                                                <th class="text-right">Valor Mercado</th>
+                                                <th class="col-hide-md">Vendedor (Equipo)</th>
+                                                <th class="text-right col-hide-sm">Valor Mercado</th>
                                                 <th class="text-right">Tu Puja</th>
                                                 <th class="text-center">Estado</th>
                                             </tr>
@@ -437,10 +438,10 @@
                                         <th>Jugador</th>
                                         <th class="col-hide-md">Club</th>
                                         <th>Pos</th>
-                                        <th class="text-center">Puntos VPG</th>
-                                        <th class="text-center">Estado</th>
+                                        <th class="text-center col-hide-sm">Puntos VPG</th>
+                                        <th class="text-center col-hide-sm">Estado</th>
                                         <th class="text-right">Cláusula</th>
-                                        <th class="text-right">Valor</th>
+                                        <th class="text-right col-hide-sm">Valor</th>
                                         <th class="text-center">Acciones</th>
                                     </tr>
                                 </thead>
@@ -595,8 +596,8 @@
                                 <thead>
                                     <tr>
                                         <th>Mánager</th>
-                                        <th>Nombre del Equipo</th>
-                                        <th class="text-center">Fecha Solicitud</th>
+                                        <th class="col-hide-md">Nombre del Equipo</th>
+                                        <th class="text-center col-hide-sm">Fecha Solicitud</th>
                                         <th class="text-center">Acción</th>
                                     </tr>
                                 </thead>
@@ -617,10 +618,10 @@
                                 <thead>
                                     <tr>
                                         <th>Mánager</th>
-                                        <th>Equipo</th>
-                                        <th class="text-center">Miembros Plantilla</th>
-                                        <th class="text-right">Presupuesto Restante</th>
-                                        <th class="text-right">Puntos</th>
+                                        <th class="col-hide-md">Equipo</th>
+                                        <th class="text-center col-hide-sm">Miembros Plantilla</th>
+                                        <th class="text-right col-hide-sm">Presupuesto Restante</th>
+                                        <th class="text-right col-hide-sm">Puntos</th>
                                         <th class="text-center">Acción</th>
                                     </tr>
                                 </thead>

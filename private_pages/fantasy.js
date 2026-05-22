@@ -103,6 +103,7 @@ let globalActiveLeagues = [];
 let globalAllLeagues = [];
 let currentLeagueId = sessionStorage.getItem('selected_league_id') || null;
 let activeLeague = null;
+let autoRefreshInterval = null;
 let myTeam = {
     balance: 50000000,
     players: [],
@@ -159,6 +160,7 @@ let allowUserLeagueCreation = false;
 const activeLeagueName = document.getElementById('active-league-name');
 const activeTeamNameBadge = document.getElementById('active-team-name-badge');
 const btnChangeLeague = document.getElementById('btn-change-league');
+const btnLeaveLeague = document.getElementById('btn-leave-league');
 const userBalanceEl = document.getElementById('user-balance');
 const squadValueEl = document.getElementById('squad-value');
 const totalPointsEl = document.getElementById('total-points');
@@ -344,8 +346,38 @@ function setupEventHandlers() {
         sessionStorage.removeItem('selected_league_id');
         currentLeagueId = null;
         activeLeague = null;
+        stopAutoRefresh();
         showLeagueSelector();
     });
+
+    if (btnLeaveLeague) {
+        btnLeaveLeague.addEventListener('click', async () => {
+            if (!confirm('¿Estás seguro de que quieres abandonar esta liga? Perderás tu equipo, tus jugadores y todas tus ofertas.')) {
+                return;
+            }
+            if (!confirm('¿De verdad quieres borrar tu equipo y abandonar la liga por completo? Esta acción es irreversible.')) {
+                return;
+            }
+            
+            try {
+                const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/leave`, {
+                    method: 'POST'
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Error al abandonar la liga.');
+                
+                showToast(data.message || 'Has abandonado la liga.', 'success');
+                sessionStorage.removeItem('selected_league_id');
+                currentLeagueId = null;
+                activeLeague = null;
+                stopAutoRefresh();
+                showLeagueSelector();
+            } catch (e) {
+                console.error(e);
+                showToast(e.message, 'error');
+            }
+        });
+    }
 
     // Pending Approval View handlers
     btnPendingRefresh.addEventListener('click', () => {
@@ -358,6 +390,7 @@ function setupEventHandlers() {
         sessionStorage.removeItem('selected_league_id');
         currentLeagueId = null;
         activeLeague = null;
+        stopAutoRefresh();
         showLeagueSelector();
     });
 
@@ -548,6 +581,7 @@ function setupEventHandlers() {
 
 // VIEW 1: Show Selector and Fetch All Leagues
 async function showLeagueSelector() {
+    stopAutoRefresh();
     leagueDashboardView.style.display = 'none';
     leagueSelectorView.style.display = 'block';
     
@@ -868,6 +902,7 @@ async function enterLeague(leagueId, keepCurrentTab = false) {
                 await loadMarketBids();
             }
         }
+        startAutoRefresh();
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
@@ -988,10 +1023,13 @@ function filterAndRenderMarket() {
         row.innerHTML = `
             <td>
                 <div style="font-weight: 700; color: #f8fafc;">${p.eaPlayerName}</div>
+                <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                    ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${formatPlayerPoints(p)} pts</span>
+                </div>
             </td>
             <td class="text-muted col-hide-md">${p.lastClub}</td>
             <td><span class="position-badge pos-${p.lastPosition.toLowerCase()}">${p.lastPosition}</span></td>
-            <td class="text-center text-yellow" style="font-weight: 700;">${formatPlayerPoints(p)}</td>
+            <td class="text-center text-yellow col-hide-sm" style="font-weight: 700;">${formatPlayerPoints(p)}</td>
             <td class="text-right price-text">${priceCol}</td>
             <td class="text-center">
                 ${actionCol}
@@ -1049,11 +1087,21 @@ function renderSquadList() {
         }
 
         row.innerHTML = `
-            <td><div style="font-weight: 700; color: #f8fafc;">${p.eaPlayerName}</div></td>
+            <td>
+                <div style="font-weight: 700; color: #f8fafc;">
+                    ${p.eaPlayerName}
+                    <span class="mobile-only-inline-block badge ${isAligned ? 'btn-success' : 'text-muted'}" style="display: none; border: none; font-size: 0.65rem; padding: 2px 4px; margin-left: 4px;">
+                        ${isAligned ? 'Alineado' : 'Banquillo'}
+                    </span>
+                </div>
+                <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                    ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${formatPlayerPoints(p)} pts</span> • <span>Valor: ${formatCurrency(p.price)}</span>
+                </div>
+            </td>
             <td class="text-muted col-hide-md">${p.lastClub}</td>
             <td><span class="position-badge pos-${p.lastPosition.toLowerCase()}">${p.lastPosition}</span></td>
-            <td class="text-center text-yellow" style="font-weight: 700;">${formatPlayerPoints(p)}</td>
-            <td class="text-center">
+            <td class="text-center text-yellow col-hide-sm" style="font-weight: 700;">${formatPlayerPoints(p)}</td>
+            <td class="text-center col-hide-sm">
                 <span class="badge ${isAligned ? 'btn-success' : 'text-muted'}" style="border: none;">
                     ${isAligned ? 'Alineado' : 'Banquillo'}
                 </span>
@@ -1062,7 +1110,7 @@ function renderSquadList() {
                 <div>${formatCurrency(playerClause)}</div>
                 ${protectionHtml}
             </td>
-            <td class="text-right price-text">${formatCurrency(p.price)}</td>
+            <td class="text-right price-text col-hide-sm">${formatCurrency(p.price)}</td>
             <td class="text-center">
                 <div style="display: flex; gap: 4px; justify-content: center;">
                     <button class="btn btn-danger btn-xs btn-sell" data-name="${p.eaPlayerName}" ${activeLeague && (!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-dollar-sign"></i> Vender (80%)</button>
@@ -1578,11 +1626,14 @@ async function loadAdminPanelData() {
                     <td>
                         <div style="font-weight: 600; color: #fff;">${team.discordUsername}${roleBadge}</div>
                         <div style="font-size: 0.75rem; color: #64748b;">ID: ${team.discordId}</div>
+                        <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                            <span>Equipo: ${team.teamName}</span> • <span>${(team.players || []).length} jug.</span> • <span class="text-yellow" style="font-weight: 600;">${team.points} pts</span> • <span>Presupuesto: ${formatCurrency(team.balance)}</span>
+                        </div>
                     </td>
-                    <td><div style="font-weight: 600;">${team.teamName}</div></td>
-                    <td class="text-center">${(team.players || []).length} jugadores</td>
-                    <td class="text-right price-text">${formatCurrency(team.balance)}</td>
-                    <td class="text-right text-yellow" style="font-weight: 700;">${team.points} pts</td>
+                    <td class="col-hide-md"><div style="font-weight: 600;">${team.teamName}</div></td>
+                    <td class="text-center col-hide-sm">${(team.players || []).length} jugadores</td>
+                    <td class="text-right price-text col-hide-sm">${formatCurrency(team.balance)}</td>
+                    <td class="text-right text-yellow col-hide-sm" style="font-weight: 700;">${team.points} pts</td>
                     <td class="text-center">
                         <div style="display: flex; gap: 4px; justify-content: center; align-items: center; flex-wrap: wrap;">
                             <button class="btn btn-warning btn-xs btn-adjust-budget" data-team-id="${team._id}"><i class="fa-solid fa-coins"></i> Presupuesto</button>
@@ -1640,9 +1691,12 @@ async function loadAdminPanelData() {
                     <td>
                         <div style="font-weight: 600; color: #fff;">${team.discordUsername}</div>
                         <div style="font-size: 0.75rem; color: #64748b;">ID: ${team.discordId}</div>
+                        <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                            <span>Equipo: ${team.teamName}</span> • <span>Fecha: ${reqDate}</span>
+                        </div>
                     </td>
-                    <td><div style="font-weight: 600;">${team.teamName}</div></td>
-                    <td class="text-center">${reqDate}</td>
+                    <td class="col-hide-md"><div style="font-weight: 600;">${team.teamName}</div></td>
+                    <td class="text-center col-hide-sm">${reqDate}</td>
                     <td class="text-center">
                         <button class="btn btn-primary btn-xs btn-approve-manager" style="margin-right: 5px;"><i class="fa-solid fa-check"></i> Aprobar</button>
                         <button class="btn btn-danger btn-xs btn-reject-manager"><i class="fa-solid fa-xmark"></i> Rechazar</button>
@@ -2341,15 +2395,18 @@ async function loadUserMarket() {
             row.innerHTML = `
                 <td>
                     <div style="font-weight: 700; color: #f8fafc;">${l.eaPlayerName}</div>
+                    <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                        <span style="color: #38bdf8;">${l.sellerTeamName}</span> • <span>Valor: ${formatCurrency(p.price)}</span>
+                    </div>
                 </td>
-                <td>
+                <td class="col-hide-md">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <img src="${l.sellerAvatar ? `https://cdn.discordapp.com/avatars/${l.sellerDiscordId}/${l.sellerAvatar}.png?size=32` : 'https://cdn.discordapp.com/embed/avatars/0.png'}" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" class="team-shield">
                         <span>${l.sellerTeamName}</span>
                     </div>
                 </td>
                 <td><span class="position-badge pos-${p.lastPosition.toLowerCase()}">${p.lastPosition}</span></td>
-                <td class="text-right price-text">${formatCurrency(p.price)}</td>
+                <td class="text-right price-text col-hide-sm">${formatCurrency(p.price)}</td>
                 <td class="text-right price-text text-yellow" style="font-weight: 700;">${formatCurrency(l.askingPrice)}</td>
                 <td class="text-center">
                     <button class="btn btn-warning btn-xs btn-open-bid" data-name="${l.eaPlayerName}" data-seller="${l.sellerTeamName}" data-asking="${l.askingPrice}" data-value="${p.price}" ${activeLeague && (!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-gavel"></i> Pujar</button>
@@ -2402,8 +2459,11 @@ async function loadMarketBids() {
                 row.innerHTML = `
                     <td>
                         <div style="font-weight: 700; color: #f8fafc;">${b.eaPlayerName}</div>
+                        <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                            <span style="color: #38bdf8;">${b.bidderDiscordId === 'liga' ? 'La Liga' : b.bidderTeamName}</span> • <span>Valor: ${formatCurrency(p.price)}</span>
+                        </div>
                     </td>
-                    <td>
+                    <td class="col-hide-md">
                         ${b.bidderDiscordId === 'liga' 
                             ? `<span class="badge" style="background: linear-gradient(135deg, #4f46e5, #06b6d4); color: white; border: none; font-size: 0.75rem; border-radius: 4px; padding: 3px 6px; font-weight: 600; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.3);">La Liga (Oferta Auto)</span>` 
                             : `
@@ -2414,7 +2474,7 @@ async function loadMarketBids() {
                             `
                         }
                     </td>
-                    <td class="text-right price-text">${formatCurrency(p.price)}</td>
+                    <td class="text-right price-text col-hide-sm">${formatCurrency(p.price)}</td>
                     <td class="text-right price-text text-yellow" style="font-weight: 700;">${formatCurrency(b.bidAmount)}</td>
                     <td class="text-center">
                         <button class="btn btn-success btn-xs btn-accept-bid" data-id="${b._id}" style="margin-right: 4px;" ${activeLeague && activeLeague.status === 'closed' ? 'disabled' : ''}><i class="fa-solid fa-check"></i> Aceptar</button>
@@ -2448,14 +2508,17 @@ async function loadMarketBids() {
                 row.innerHTML = `
                     <td>
                         <div style="font-weight: 700; color: #f8fafc;">${b.eaPlayerName}</div>
+                        <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                            <span style="color: #38bdf8;">${b.sellerTeamName}</span> • <span>Valor: ${formatCurrency(p.price)}</span>
+                        </div>
                     </td>
-                    <td>
+                    <td class="col-hide-md">
                         <div style="display: flex; align-items: center; gap: 8px;">
                             <img src="${b.sellerAvatar ? `https://cdn.discordapp.com/avatars/${b.sellerDiscordId}/${b.sellerAvatar}.png?size=32` : 'https://cdn.discordapp.com/embed/avatars/0.png'}" onerror="this.src='https://cdn.discordapp.com/embed/avatars/0.png'" class="team-shield">
                             <span>${b.sellerTeamName}</span>
                         </div>
                     </td>
-                    <td class="text-right price-text">${formatCurrency(p.price)}</td>
+                    <td class="text-right price-text col-hide-sm">${formatCurrency(p.price)}</td>
                     <td class="text-right price-text text-blue" style="font-weight: 700;">${formatCurrency(b.bidAmount)}</td>
                     <td class="text-center">${statusBadge}</td>
                 `;
@@ -2526,10 +2589,13 @@ async function handleAdminPlayerSearch() {
             row.innerHTML = `
                 <td>
                     <div style="font-weight: 600; color: #fff;">${p.eaPlayerName}</div>
+                    <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                        ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${p.points} pts</span>
+                    </div>
                 </td>
-                <td><div>${p.lastClub}</div></td>
+                <td class="col-hide-md"><div>${p.lastClub}</div></td>
                 <td><span class="badge position-badge">${p.lastPosition}</span></td>
-                <td class="text-center" style="font-weight: 600;">${p.points}</td>
+                <td class="text-center col-hide-sm" style="font-weight: 600;">${p.points}</td>
                 <td class="text-right ${isManual ? 'text-yellow' : 'price-text'}" style="font-weight: 600;">
                     ${priceText} ${isManual ? '<i class="fa-solid fa-hand-holding-dollar" title="Precio manual establecido"></i>' : ''}
                 </td>
@@ -2759,6 +2825,37 @@ async function loadCreationVpgLeagues() {
     } catch (e) {
         console.error('Error al cargar ligas VPG para creación:', e);
         container.innerHTML = '<span class="text-red" style="font-size: 0.8rem; padding: 8px; display: block;">Error al cargar ligas VPG.</span>';
+    }
+}
+
+function startAutoRefresh() {
+    if (autoRefreshInterval) return;
+    autoRefreshInterval = setInterval(async () => {
+        if (!currentLeagueId) return;
+        
+        // Don't auto refresh if user is focusing or typing in any input element to avoid losing focus/state
+        const active = document.activeElement;
+        if (active) {
+            const tagName = active.tagName.toLowerCase();
+            const isEditable = active.hasAttribute('contenteditable') || active.getAttribute('contenteditable') === 'true';
+            if (tagName === 'input' || tagName === 'textarea' || tagName === 'select' || isEditable) {
+                // User is actively editing or selecting, skip this tick
+                return;
+            }
+        }
+        
+        try {
+            await enterLeague(currentLeagueId, true);
+        } catch (e) {
+            console.error('Auto refresh error:', e);
+        }
+    }, 20000);
+}
+
+function stopAutoRefresh() {
+    if (autoRefreshInterval) {
+        clearInterval(autoRefreshInterval);
+        autoRefreshInterval = null;
     }
 }
 
