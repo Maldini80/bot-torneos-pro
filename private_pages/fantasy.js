@@ -1661,6 +1661,10 @@ function renderField() {
 
 // Open modal selection
 function openPositionSelector(posKey, idx) {
+    if (isLineupLocked()) {
+        showToast('No puedes modificar tu alineación de lunes a jueves entre las 20:30 y las 23:59 (hora de Madrid).', 'error');
+        return;
+    }
     selectedSlotPos = posKey;
     selectedSlotIdx = idx;
 
@@ -1743,6 +1747,7 @@ function alignPlayerToSlot(playerName, posKey, idx) {
         myTeam.lineup[posKey][idx] = playerName;
     }
     showToast(`${playerName} alineado.`, 'success');
+    saveLineupToServer(true);
 }
 
 function removePlayerFromSlot(posKey, idx) {
@@ -1754,6 +1759,7 @@ function removePlayerFromSlot(posKey, idx) {
         }
     }
     showToast('Jugador desalineado.', 'success');
+    saveLineupToServer(true);
 }
 
 function adjustLineupToNewFormation(oldF, newF) {
@@ -1876,10 +1882,13 @@ async function sellPlayer(player) {
 }
 
 // Save Current Lineup Setup to Database
-async function saveLineupToServer() {
+async function saveLineupToServer(silent = false) {
+    const isSilent = silent === true;
     if (myTeam.isSpectator) return;
     if (isLineupLocked()) {
-        showToast('No puedes modificar tu alineación de lunes a jueves entre las 20:30 y las 23:59 (hora de Madrid).', 'error');
+        if (!isSilent) {
+            showToast('No puedes modificar tu alineación de lunes a jueves entre las 20:30 y las 23:59 (hora de Madrid).', 'error');
+        }
         return;
     }
     try {
@@ -1895,7 +1904,9 @@ async function saveLineupToServer() {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Error al guardar alineación.');
 
-        showToast(data.message, 'success');
+        if (!isSilent) {
+            showToast(data.message, 'success');
+        }
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');

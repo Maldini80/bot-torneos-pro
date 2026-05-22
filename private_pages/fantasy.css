@@ -1199,6 +1199,14 @@ body {
     gap: 16px;
 }
 
+.action-card-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+}
+
 .action-card h4 {
     font-size: 0.95rem;
     font-weight: 600;
@@ -1342,6 +1350,15 @@ body {
         text-align: center !important;
     }
     .action-card button {
+        width: 100% !important;
+    }
+    .action-card-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 12px !important;
+        text-align: center !important;
+    }
+    .action-card-row button {
         width: 100% !important;
     }
     /* Header action alignment */
