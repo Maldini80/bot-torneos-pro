@@ -1092,9 +1092,24 @@ async function enterLeague(leagueId, keepCurrentTab = false, password = null, op
             totalPointsEl.textContent = `${myTeam.points} pts`;
             if (formationSelect) {
                 formationSelect.value = myTeam.formation;
-                formationSelect.disabled = false;
+                formationSelect.disabled = isLineupLocked();
             }
-            if (btnSaveLineup) btnSaveLineup.style.display = 'inline-block';
+            if (btnSaveLineup) {
+                btnSaveLineup.style.display = 'inline-block';
+                if (isLineupLocked()) {
+                    btnSaveLineup.disabled = true;
+                    btnSaveLineup.innerHTML = '<i class="fa-solid fa-lock"></i> Bloqueado';
+                    btnSaveLineup.title = 'Alineaciones bloqueadas de lunes a jueves de 20:30 a 23:59 (hora de Madrid)';
+                    btnSaveLineup.style.opacity = '0.6';
+                    btnSaveLineup.style.cursor = 'not-allowed';
+                } else {
+                    btnSaveLineup.disabled = false;
+                    btnSaveLineup.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar Once';
+                    btnSaveLineup.title = '';
+                    btnSaveLineup.style.opacity = '1';
+                    btnSaveLineup.style.cursor = 'pointer';
+                }
+            }
             if (btnJoinLeagueSpectator) btnJoinLeagueSpectator.style.display = 'none';
             if (btnLeaveLeague) btnLeaveLeague.style.display = 'inline-block';
         }
@@ -1349,7 +1364,11 @@ function filterAndRenderMarket() {
                     <div class="text-yellow" style="font-weight: 700;">${formatCurrency(clauseVal)}</div>
                 `;
                 if (activeLeague && activeLeague.allowClauses !== false) {
-                    actionCol = `<button class="btn btn-warning btn-xs btn-clausulazo" data-name="${p.eaPlayerName}" data-clause="${clauseVal}" data-owner="${p.owner}" ${(!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-bolt"></i> Clausulazo</button>`;
+                    if (isBuyoutLocked()) {
+                        actionCol = `<button class="btn btn-warning btn-xs btn-clausulazo" disabled style="opacity: 0.6; cursor: not-allowed;" title="Clausulazos bloqueados de lunes a jueves de 18:30 a 23:59 (hora de Madrid)"><i class="fa-solid fa-lock"></i> Lock</button>`;
+                    } else {
+                        actionCol = `<button class="btn btn-warning btn-xs btn-clausulazo" data-name="${p.eaPlayerName}" data-clause="${clauseVal}" data-owner="${p.owner}" ${(!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-bolt"></i> Clausulazo</button>`;
+                    }
                 } else {
                     actionCol = `<span class="badge badge-info text-xs" style="font-size: 0.75rem; border: none; padding: 4px 8px; border-radius: 4px; display: inline-block;"><i class="fa-solid fa-user-lock"></i> ${p.owner}</span>`;
                 }
@@ -1859,6 +1878,10 @@ async function sellPlayer(player) {
 // Save Current Lineup Setup to Database
 async function saveLineupToServer() {
     if (myTeam.isSpectator) return;
+    if (isLineupLocked()) {
+        showToast('No puedes modificar tu alineación de lunes a jueves entre las 20:30 y las 23:59 (hora de Madrid).', 'error');
+        return;
+    }
     try {
         const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/lineup`, {
             method: 'POST',
@@ -2066,6 +2089,8 @@ async function showRivalTeam(discordId, teamName) {
                         if (activeLeague && activeLeague.allowClauses !== false) {
                             if (isProtected) {
                                 clauseButton = `<button class="btn btn-warning btn-xs btn-rival-clausulazo" disabled style="opacity: 0.6; cursor: not-allowed; padding: 3px 8px; font-size: 0.7rem; font-weight: 600;" title="Protegido durante ${timeStr}"><i class="fa-solid fa-lock"></i> Lock</button>`;
+                            } else if (isBuyoutLocked()) {
+                                clauseButton = `<button class="btn btn-warning btn-xs btn-rival-clausulazo" disabled style="opacity: 0.6; cursor: not-allowed; padding: 3px 8px; font-size: 0.7rem; font-weight: 600;" title="Clausulazos bloqueados de lunes a jueves de 18:30 a 23:59 (hora de Madrid)"><i class="fa-solid fa-lock"></i> Lock</button>`;
                             } else {
                                 clauseButton = `<button class="btn btn-warning btn-xs btn-rival-clausulazo" data-name="${p.eaPlayerName}" data-clause="${clauseVal}" style="padding: 3px 8px; font-size: 0.7rem; font-weight: 600;"><i class="fa-solid fa-bolt"></i> Robo</button>`;
                             }
@@ -2864,6 +2889,62 @@ async function handleAdjustBudget(teamId, managerName, currentBalance) {
     }
 }
 
+function getMadridTime() {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Europe/Madrid',
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        hour12: false
+    });
+    const parts = formatter.formatToParts(now);
+    const dateParts = {};
+    for (const p of parts) {
+        dateParts[p.type] = p.value;
+    }
+    const year = parseInt(dateParts.year, 10);
+    const month = parseInt(dateParts.month, 10) - 1;
+    const day = parseInt(dateParts.day, 10);
+    const hour = parseInt(dateParts.hour, 10);
+    const minute = parseInt(dateParts.minute, 10);
+    const second = parseInt(dateParts.second, 10);
+    
+    const localMadrid = new Date(year, month, day, hour, minute, second);
+    return {
+        day: localMadrid.getDay(),
+        hours: localMadrid.getHours(),
+        minutes: localMadrid.getMinutes()
+    };
+}
+
+function isLineupLocked() {
+    const { day, hours, minutes } = getMadridTime();
+    if (day >= 1 && day <= 4) { // Monday to Thursday
+        const totalMinutes = hours * 60 + minutes;
+        // 20:30 is 1230 minutes. 23:59 is 1439 minutes.
+        if (totalMinutes >= 1230 && totalMinutes <= 1439) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function isBuyoutLocked() {
+    const { day, hours, minutes } = getMadridTime();
+    if (day >= 1 && day <= 4) { // Monday to Thursday
+        const totalMinutes = hours * 60 + minutes;
+        // 18:30 is 1110 minutes. 23:59 is 1439 minutes.
+        if (totalMinutes >= 1110 && totalMinutes <= 1439) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // Utility Helpers
 function formatCurrency(val) {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(val);
@@ -2902,6 +2983,11 @@ function showToast(msg, type = 'success') {
 // --- MARKET ADVANCED OPERATIONS ---
 
 async function executeClausulazo(player, clauseAmount) {
+    if (isBuyoutLocked()) {
+        showToast('No se permiten clausulazos de lunes a jueves entre las 18:30 y las 23:59 (hora de Madrid).', 'error');
+        return;
+    }
+
     if (myTeam.balance < clauseAmount) {
         showToast('Saldo insuficiente para ejecutar el clausulazo.', 'error');
         return;

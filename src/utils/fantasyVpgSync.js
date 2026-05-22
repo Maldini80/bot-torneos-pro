@@ -166,6 +166,36 @@ export async function syncFantasyWithVpg() {
         let totalPlayersUpdated = 0;
         let totalClubsUpdated = 0;
 
+        // B. Cargar clausulazos activos para reatribución de puntos
+        let unprocessedBuyouts = [];
+        const attributionOverrides = new Map();
+        try {
+            unprocessedBuyouts = await db.collection('fantasy_buyouts').find({ processed: false }).toArray();
+            console.log(`[VPG SYNC] Cargados ${unprocessedBuyouts.length} clausulazos activos.`);
+            
+            // Agrupar por liga y jugador (casing insensible)
+            const playerBuyoutsMap = new Map();
+            for (const b of unprocessedBuyouts) {
+                const key = `${b.leagueId}_${b.eaPlayerName.toLowerCase()}`;
+                if (!playerBuyoutsMap.has(key)) {
+                    playerBuyoutsMap.set(key, []);
+                }
+                playerBuyoutsMap.get(key).push(b);
+            }
+            
+            // Resolver cadena de traspasos por robo
+            for (const [key, bList] of playerBuyoutsMap.entries()) {
+                bList.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                const originalSeller = bList[0].sellerDiscordId;
+                const finalBuyer = bList[bList.length - 1].buyerDiscordId;
+                const eaPlayerName = bList[0].eaPlayerName;
+                const leagueId = bList[0].leagueId;
+                attributionOverrides.set(key, { originalSeller, finalBuyer, eaPlayerName, leagueId });
+            }
+        } catch (e) {
+            console.error('[VPG SYNC] Error inicializando overrides de clausulazos:', e);
+        }
+
         // B. Calcular puntos previos de los equipos de Fantasy antes de que cambien los stats de los jugadores
         console.log('[VPG SYNC] Calculando puntos previos de los equipos de Fantasy...');
         const teamOldPoints = {};
@@ -179,7 +209,28 @@ export async function syncFantasyWithVpg() {
             for (const fTeam of fantasyTeamsList) {
                 let oldTeamPoints = 0;
                 const league = leaguesMap[fTeam.leagueId];
-                for (const playerName of (fTeam.players || [])) {
+                
+                // Construir lista efectiva de jugadores aplicando reatribución por robo
+                const effectivePlayers = [];
+                for (const pName of (fTeam.players || [])) {
+                    const key = `${fTeam.leagueId}_${pName.toLowerCase()}`;
+                    if (attributionOverrides.has(key)) {
+                        const override = attributionOverrides.get(key);
+                        if (override.finalBuyer === fTeam.discordId) {
+                            continue; // Excluir del comprador final
+                        }
+                    }
+                    effectivePlayers.push(pName);
+                }
+                for (const [key, override] of attributionOverrides.entries()) {
+                    if (override.leagueId === fTeam.leagueId && override.originalSeller === fTeam.discordId) {
+                        if (!effectivePlayers.includes(override.eaPlayerName)) {
+                            effectivePlayers.push(override.eaPlayerName); // Añadir al vendedor original
+                        }
+                    }
+                }
+
+                for (const playerName of effectivePlayers) {
                     const player = await playerColl.findOne({ 
                         eaPlayerName: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } 
                     });
@@ -432,7 +483,28 @@ export async function syncFantasyWithVpg() {
             const fantasyTeams = await db.collection('fantasy_teams').find({ leagueId: league._id.toString() }).toArray();
             for (const fTeam of fantasyTeams) {
                 let totalPoints = 0;
-                for (const playerName of (fTeam.players || [])) {
+
+                // Construir lista efectiva de jugadores aplicando reatribución por robo
+                const effectivePlayers = [];
+                for (const pName of (fTeam.players || [])) {
+                    const key = `${fTeam.leagueId}_${pName.toLowerCase()}`;
+                    if (attributionOverrides.has(key)) {
+                        const override = attributionOverrides.get(key);
+                        if (override.finalBuyer === fTeam.discordId) {
+                            continue; // Excluir del comprador final
+                        }
+                    }
+                    effectivePlayers.push(pName);
+                }
+                for (const [key, override] of attributionOverrides.entries()) {
+                    if (override.leagueId === fTeam.leagueId && override.originalSeller === fTeam.discordId) {
+                        if (!effectivePlayers.includes(override.eaPlayerName)) {
+                            effectivePlayers.push(override.eaPlayerName); // Añadir al vendedor original
+                        }
+                    }
+                }
+
+                for (const playerName of effectivePlayers) {
                     const player = await playerColl.findOne({ 
                         eaPlayerName: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } 
                     });
@@ -476,6 +548,19 @@ export async function syncFantasyWithVpg() {
                     console.log(`[VPG SYNC] El equipo ${fTeam.teamName} ha ganado ${rewardAmount.toLocaleString('es-ES')} € por ${deltaPoints} puntos en esta jornada.`);
                 }
             }
+        }
+
+        // Marcar los clausulazos procesados para que en la siguiente actualización puntúen normalmente
+        try {
+            if (unprocessedBuyouts.length > 0) {
+                await db.collection('fantasy_buyouts').updateMany(
+                    { _id: { $in: unprocessedBuyouts.map(b => b._id) } },
+                    { $set: { processed: true, processedAt: new Date() } }
+                );
+                console.log(`[VPG SYNC] Se marcaron ${unprocessedBuyouts.length} clausulazos como procesados.`);
+            }
+        } catch (e) {
+            console.error('[VPG SYNC] Error al marcar clausulazos como procesados:', e);
         }
 
         // 5. Procesar ofertas de compra de la liga para jugadores transferibles

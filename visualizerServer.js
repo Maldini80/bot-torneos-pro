@@ -6727,11 +6727,72 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
+    function getMadridTime() {
+        const now = new Date();
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Europe/Madrid',
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            second: 'numeric',
+            hour12: false
+        });
+        const parts = formatter.formatToParts(now);
+        const dateParts = {};
+        for (const p of parts) {
+            dateParts[p.type] = p.value;
+        }
+        const year = parseInt(dateParts.year, 10);
+        const month = parseInt(dateParts.month, 10) - 1;
+        const day = parseInt(dateParts.day, 10);
+        const hour = parseInt(dateParts.hour, 10);
+        const minute = parseInt(dateParts.minute, 10);
+        const second = parseInt(dateParts.second, 10);
+        
+        const localMadrid = new Date(year, month, day, hour, minute, second);
+        return {
+            day: localMadrid.getDay(),
+            hours: localMadrid.getHours(),
+            minutes: localMadrid.getMinutes()
+        };
+    }
+
+    function isLineupLocked() {
+        const { day, hours, minutes } = getMadridTime();
+        if (day >= 1 && day <= 4) { // Monday to Thursday
+            const totalMinutes = hours * 60 + minutes;
+            // 20:30 is 1230 minutes. 23:59 is 1439 minutes.
+            if (totalMinutes >= 1230 && totalMinutes <= 1439) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    function isBuyoutLocked() {
+        const { day, hours, minutes } = getMadridTime();
+        if (day >= 1 && day <= 4) { // Monday to Thursday
+            const totalMinutes = hours * 60 + minutes;
+            // 18:30 is 1110 minutes. 23:59 is 1439 minutes.
+            if (totalMinutes >= 1110 && totalMinutes <= 1439) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Buy a player (within a league)
     app.post('/api/fantasy/leagues/:id/buy', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
             const { eaPlayerName } = req.body;
             if (!eaPlayerName) return res.status(400).json({ error: 'Falta eaPlayerName' });
+
+            if (isBuyoutLocked()) {
+                return res.status(400).json({ error: 'No se permiten clausulazos de lunes a jueves entre las 18:30 y las 23:59 (hora de Madrid).' });
+            }
+
             const db = getDb();
             const discordId = req.user.id;
             const leagueId = req.params.id;
@@ -6832,6 +6893,16 @@ export async function startVisualizerServer(discordClient) {
                 
                 // Refund and reject all pending bids for this player
                 await refundPendingBidsForPlayer(db, leagueId, eaPlayerName);
+
+                // Record the buyout (clausulazo) so point attribution is overridden in the next daily sync
+                await db.collection('fantasy_buyouts').insertOne({
+                    leagueId,
+                    eaPlayerName,
+                    buyerDiscordId: discordId,
+                    sellerDiscordId: ownerTeam.discordId,
+                    timestamp: new Date(),
+                    processed: false
+                });
 
                 return res.json({
                     success: true,
@@ -6973,7 +7044,11 @@ export async function startVisualizerServer(discordClient) {
         try {
             const { lineup, formation } = req.body;
             if (!lineup || !formation) return res.status(400).json({ error: 'Faltan lineup o formation' });
-            
+
+            if (isLineupLocked()) {
+                return res.status(400).json({ error: 'No puedes modificar tu alineación de lunes a jueves entre las 20:30 y las 23:59 (hora de Madrid).' });
+            }
+
             const db = getDb();
             const discordId = req.user.id;
             const leagueId = req.params.id;
