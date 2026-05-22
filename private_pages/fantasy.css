@@ -1798,6 +1798,11 @@ body {
     position: absolute;
     top: 18px;
     right: 18px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 1.4rem;
     color: rgba(229, 192, 96, 0.85);
     z-index: 2;
