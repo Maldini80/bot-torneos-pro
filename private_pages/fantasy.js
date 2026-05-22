@@ -139,6 +139,7 @@ const FORMATIONS = {
 let currentUser = null;
 let globalActiveLeagues = [];
 let globalAllLeagues = [];
+let activeFantasyLeagues = [];
 let currentLeagueId = sessionStorage.getItem('selected_league_id') || null;
 let activeLeague = null;
 let autoRefreshInterval = null;
@@ -547,6 +548,14 @@ function setupEventHandlers() {
     marketPosFilter.addEventListener('change', filterAndRenderMarket);
     marketSort.addEventListener('change', filterAndRenderMarket);
 
+    // League search input listener
+    const leagueSearchInput = document.getElementById('league-search-input');
+    if (leagueSearchInput) {
+        leagueSearchInput.addEventListener('input', (e) => {
+            renderLeaguesList(e.target.value);
+        });
+    }
+
     // Market Subtabs
     const marketSubBtns = document.querySelectorAll('.market-sub-btn');
     marketSubBtns.forEach(btn => {
@@ -708,6 +717,9 @@ async function showLeagueSelector() {
     leagueDashboardView.style.display = 'none';
     leagueSelectorView.style.display = 'block';
     
+    const leagueSearchInput = document.getElementById('league-search-input');
+    if (leagueSearchInput) leagueSearchInput.value = '';
+    
     leaguesGrid.innerHTML = `<div class="loading-state"><i class="fa-solid fa-spinner fa-spin"></i> Cargando ligas...</div>`;
     
     // Load VPG leagues for the creation form dropdown
@@ -717,77 +729,10 @@ async function showLeagueSelector() {
         const res = await fetch('/api/fantasy/leagues');
         if (!res.ok) throw new Error('No se pudieron obtener las ligas.');
         const data = await res.json();
-        const leagues = data.leagues || [];
+        activeFantasyLeagues = data.leagues || [];
         
-        leaguesGrid.innerHTML = '';
+        renderLeaguesList('');
         
-        if (leagues.length === 0) {
-            leaguesGrid.innerHTML = `<div class="text-center py-4 text-muted w-100"><i class="fa-solid fa-folder-open"></i> No hay ligas creadas todavía.</div>`;
-            return;
-        }
-        
-        leagues.forEach(league => {
-            const card = document.createElement('div');
-            card.className = 'league-card';
-            
-            let statusBadge = '';
-            if (league.status === 'open') statusBadge = '<span class="badge badge-success">Abierta</span>';
-            else if (league.status === 'active') statusBadge = '<span class="badge badge-info">En Curso</span>';
-            else statusBadge = '<span class="badge badge-danger">Finalizada</span>';
-            
-            const lockIcon = league.privacy === 'private' ? ' <i class="fa-solid fa-lock text-yellow" title="Liga Privada" style="font-size: 0.95rem; margin-left: 5px;"></i>' : '';
-            
-            let buttonsHtml = '';
-            if (league.isJoined) {
-                if (league.isApproved) {
-                    buttonsHtml = `<button class="btn btn-success btn-block btn-enter-league" data-id="${league._id}"><i class="fa-solid fa-right-to-bracket"></i> Entrar a la Liga</button>`;
-                } else {
-                    buttonsHtml = `<button class="btn btn-warning btn-block btn-enter-league" data-id="${league._id}"><i class="fa-solid fa-clock"></i> Ver Liga (Inscripción Pendiente)</button>`;
-                }
-            } else {
-                const canJoin = league.status === 'open' && (league.participantCount < league.maxParticipants);
-                if (canJoin) {
-                    buttonsHtml = `
-                        <div style="display: flex; gap: 8px; margin-top: 12px; width: 100%;">
-                            <button class="btn btn-secondary btn-enter-league" data-id="${league._id}" style="flex: 1; margin-top: 0; padding: 10px 4px; font-size: 0.85rem;"><i class="fa-solid fa-eye"></i> Ver (Lectura)</button>
-                            <button class="btn btn-success btn-join-league" data-id="${league._id}" style="flex: 1; margin-top: 0; padding: 10px 4px; font-size: 0.85rem;"><i class="fa-solid fa-plus-circle"></i> Unirse</button>
-                        </div>
-                    `;
-                } else {
-                    buttonsHtml = `<button class="btn btn-secondary btn-block btn-enter-league" data-id="${league._id}"><i class="fa-solid fa-eye"></i> Ver Liga (Modo Lectura)</button>`;
-                }
-            }
-
-            card.innerHTML = `
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h3>${league.name}${lockIcon}</h3>
-                    ${statusBadge}
-                </div>
-                <div class="league-meta">
-                    <div><i class="fa-solid fa-users"></i> <span>Mánagers: ${league.participantCount} / ${league.maxParticipants}</span></div>
-                    <div><i class="fa-solid fa-wallet"></i> <span>Presupuesto: ${formatCurrency(league.initialBudget)}</span></div>
-                    <div><i class="fa-solid fa-store"></i> <span>Mercado: ${league.marketOpen ? 'Abierto' : 'Cerrado'}</span></div>
-                </div>
-                ${buttonsHtml}
-            `;
-            
-            const enterBtn = card.querySelector('.btn-enter-league');
-            if (enterBtn) {
-                enterBtn.addEventListener('click', () => {
-                    enterLeague(league._id);
-                });
-            }
-            
-            const joinBtn = card.querySelector('.btn-join-league');
-            if (joinBtn) {
-                joinBtn.addEventListener('click', () => {
-                    enterLeague(league._id, false, null, true);
-                });
-            }
-            
-            leaguesGrid.appendChild(card);
-        });
-
         // Load pending league requests for admins
         if (currentUser && currentUser.isAdmin) {
             await loadPendingLeagueRequests();
@@ -796,6 +741,87 @@ async function showLeagueSelector() {
         console.error(e);
         leaguesGrid.innerHTML = `<div class="text-center py-4 text-red"><i class="fa-solid fa-triangle-exclamation"></i> Error al cargar las ligas.</div>`;
     }
+}
+
+// Render the leagues grid with optional name filtering
+function renderLeaguesList(filterText = '') {
+    leaguesGrid.innerHTML = '';
+    
+    const query = filterText.toLowerCase().trim();
+    const filteredLeagues = activeFantasyLeagues.filter(league => 
+        league.name.toLowerCase().includes(query)
+    );
+    
+    if (filteredLeagues.length === 0) {
+        if (activeFantasyLeagues.length === 0) {
+            leaguesGrid.innerHTML = `<div class="text-center py-4 text-muted w-100"><i class="fa-solid fa-folder-open"></i> No hay ligas creadas todavía.</div>`;
+        } else {
+            leaguesGrid.innerHTML = `<div class="text-center py-4 text-muted w-100"><i class="fa-solid fa-magnifying-glass"></i> No se encontraron ligas que coincidan con "${filterText}".</div>`;
+        }
+        return;
+    }
+    
+    filteredLeagues.forEach(league => {
+        const card = document.createElement('div');
+        card.className = 'league-card';
+        
+        let statusBadge = '';
+        if (league.status === 'open') statusBadge = '<span class="badge badge-success">Abierta</span>';
+        else if (league.status === 'active') statusBadge = '<span class="badge badge-info">En Curso</span>';
+        else statusBadge = '<span class="badge badge-danger">Finalizada</span>';
+        
+        const lockIcon = league.privacy === 'private' ? ' <i class="fa-solid fa-lock text-yellow" title="Liga Privada" style="font-size: 0.95rem; margin-left: 5px;"></i>' : '';
+        
+        let buttonsHtml = '';
+        if (league.isJoined) {
+            if (league.isApproved) {
+                buttonsHtml = `<button class="btn btn-success btn-block btn-enter-league" data-id="${league._id}"><i class="fa-solid fa-right-to-bracket"></i> Entrar a la Liga</button>`;
+            } else {
+                buttonsHtml = `<button class="btn btn-warning btn-block btn-enter-league" data-id="${league._id}"><i class="fa-solid fa-clock"></i> Ver Liga (Inscripción Pendiente)</button>`;
+            }
+        } else {
+            const canJoin = league.status === 'open' && (league.participantCount < league.maxParticipants);
+            if (canJoin) {
+                buttonsHtml = `
+                    <div style="display: flex; gap: 8px; margin-top: 12px; width: 100%;">
+                        <button class="btn btn-secondary btn-enter-league" data-id="${league._id}" style="flex: 1; margin-top: 0; padding: 10px 4px; font-size: 0.85rem;"><i class="fa-solid fa-eye"></i> Ver (Lectura)</button>
+                        <button class="btn btn-success btn-join-league" data-id="${league._id}" style="flex: 1; margin-top: 0; padding: 10px 4px; font-size: 0.85rem;"><i class="fa-solid fa-plus-circle"></i> Unirse</button>
+                    </div>
+                `;
+            } else {
+                buttonsHtml = `<button class="btn btn-secondary btn-block btn-enter-league" data-id="${league._id}"><i class="fa-solid fa-eye"></i> Ver Liga (Modo Lectura)</button>`;
+            }
+        }
+
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <h3>${league.name}${lockIcon}</h3>
+                ${statusBadge}
+            </div>
+            <div class="league-meta">
+                <div><i class="fa-solid fa-users"></i> <span>Mánagers: ${league.participantCount} / ${league.maxParticipants}</span></div>
+                <div><i class="fa-solid fa-wallet"></i> <span>Presupuesto: ${formatCurrency(league.initialBudget)}</span></div>
+                <div><i class="fa-solid fa-store"></i> <span>Mercado: ${league.marketOpen ? 'Abierto' : 'Cerrado'}</span></div>
+            </div>
+            ${buttonsHtml}
+        `;
+        
+        const enterBtn = card.querySelector('.btn-enter-league');
+        if (enterBtn) {
+            enterBtn.addEventListener('click', () => {
+                enterLeague(league._id);
+            });
+        }
+        
+        const joinBtn = card.querySelector('.btn-join-league');
+        if (joinBtn) {
+            joinBtn.addEventListener('click', () => {
+                enterLeague(league._id, false, null, true);
+            });
+        }
+        
+        leaguesGrid.appendChild(card);
+    });
 }
 
 // Load pending league requests for admin sidebar
