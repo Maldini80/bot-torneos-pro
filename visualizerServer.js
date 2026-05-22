@@ -61,7 +61,7 @@ export function calculatePlayerPointsAndPrice(p) {
 
     // 1. Calcular precio (usar manualPrice si está definido, si no, dinámico)
     let price;
-    const posUpper = (p.lastPosition || '').toUpperCase();
+    const posUpper = (p.manualPosition || p.lastPosition || '').toUpperCase();
     const isGk = posUpper === 'POR' || posUpper === 'GK';
 
     if (p.manualPrice !== undefined && p.manualPrice !== null) {
@@ -6701,7 +6701,7 @@ export async function startVisualizerServer(discordClient) {
                 return {
                     eaPlayerName: p.eaPlayerName,
                     lastClub: displayClub,
-                    lastPosition: p.lastPosition || 'MC',
+                    lastPosition: p.manualPosition || p.lastPosition || 'MC',
                     matchesPlayed: stats.matchesPlayed || 0,
                     goals: stats.goals || 0,
                     assists: stats.assists || 0,
@@ -7403,7 +7403,7 @@ export async function startVisualizerServer(discordClient) {
                     basePointsValue = base;
                 }
                 playerMap[p.eaPlayerName] = {
-                    lastPosition: p.lastPosition,
+                    lastPosition: p.manualPosition || p.lastPosition,
                     lastClub: p.lastClub,
                     avgRating: avgRating,
                     points: points,
@@ -7565,7 +7565,7 @@ export async function startVisualizerServer(discordClient) {
             profiles.forEach(p => {
                 const stats = calculatePlayerPointsAndPrice(p);
                 playerMap[p.eaPlayerName] = {
-                    lastPosition: p.lastPosition,
+                    lastPosition: p.manualPosition || p.lastPosition,
                     lastClub: p.lastClub,
                     price: stats.price
                 };
@@ -7905,7 +7905,8 @@ export async function startVisualizerServer(discordClient) {
                     price,
                     points,
                     avgRating: parseFloat(avgRating.toFixed(2)),
-                    manualPrice: p.manualPrice || null
+                    manualPrice: p.manualPrice || null,
+                    manualPosition: p.manualPosition || null
                 };
             });
 
@@ -7945,6 +7946,93 @@ export async function startVisualizerServer(discordClient) {
         } catch (e) {
             console.error('[API Admin Update Player Price] Error:', e);
             res.status(500).json({ error: 'Error al actualizar precio.' });
+        }
+    });
+
+    // Update manual position for a player
+    app.post('/api/fantasy/admin/players/position', isAuthenticated, isFantasyAdmin, async (req, res) => {
+        try {
+            const { eaPlayerName, position } = req.body;
+            if (!eaPlayerName) {
+                return res.status(400).json({ error: 'Nombre de jugador es requerido.' });
+            }
+
+            const db = getDb();
+
+            let manualPosition = null;
+            if (position !== undefined && position !== null && position !== '') {
+                manualPosition = String(position).toUpperCase().trim();
+                const validPositions = ['POR', 'DFC', 'LD', 'LI', 'CARR', 'MC', 'MCD', 'MCO', 'MI', 'MD', 'DC', 'ED', 'EI', 'MP'];
+                if (!validPositions.includes(manualPosition)) {
+                    return res.status(400).json({ error: 'Posición no válida.' });
+                }
+            }
+
+            await db.collection('player_profiles').updateOne(
+                { eaPlayerName },
+                manualPosition !== null
+                    ? { $set: { manualPosition } }
+                    : { $unset: { manualPosition: "" } }
+            );
+
+            res.json({ success: true, message: `Posición de ${eaPlayerName} actualizada correctamente.` });
+        } catch (e) {
+            console.error('[API Admin Update Player Position] Error:', e);
+            res.status(500).json({ error: 'Error al actualizar posición.' });
+        }
+    });
+
+    // Update manual price and/or position for a player (unified endpoint)
+    app.post('/api/fantasy/admin/players/update', isAuthenticated, isFantasyAdmin, async (req, res) => {
+        try {
+            const { eaPlayerName, price, position } = req.body;
+            if (!eaPlayerName) {
+                return res.status(400).json({ error: 'Nombre de jugador es requerido.' });
+            }
+
+            const db = getDb();
+            const updateDoc = {};
+            const unsetDoc = {};
+
+            // 1. Process manualPrice
+            if (price !== undefined) {
+                if (price === null || price === '') {
+                    unsetDoc.manualPrice = "";
+                } else {
+                    const manualPrice = parseInt(price);
+                    if (isNaN(manualPrice) || manualPrice < 0) {
+                        return res.status(400).json({ error: 'Precio no válido.' });
+                    }
+                    updateDoc.manualPrice = manualPrice;
+                }
+            }
+
+            // 2. Process manualPosition
+            if (position !== undefined) {
+                if (position === null || position === '') {
+                    unsetDoc.manualPosition = "";
+                } else {
+                    const manualPosition = String(position).toUpperCase().trim();
+                    const validPositions = ['POR', 'DFC', 'LD', 'LI', 'CARR', 'MC', 'MCD', 'MCO', 'MI', 'MD', 'DC', 'ED', 'EI', 'MP'];
+                    if (!validPositions.includes(manualPosition)) {
+                        return res.status(400).json({ error: 'Posición no válida.' });
+                    }
+                    updateDoc.manualPosition = manualPosition;
+                }
+            }
+
+            const updateOperations = {};
+            if (Object.keys(updateDoc).length > 0) updateOperations.$set = updateDoc;
+            if (Object.keys(unsetDoc).length > 0) updateOperations.$unset = unsetDoc;
+
+            if (Object.keys(updateOperations).length > 0) {
+                await db.collection('player_profiles').updateOne({ eaPlayerName }, updateOperations);
+            }
+
+            res.json({ success: true, message: `Configuración de ${eaPlayerName} actualizada correctamente.` });
+        } catch (e) {
+            console.error('[API Admin Update Player Unified] Error:', e);
+            res.status(500).json({ error: 'Error al actualizar jugador.' });
         }
     });
 

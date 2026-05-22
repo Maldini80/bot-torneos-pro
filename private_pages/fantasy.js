@@ -3863,8 +3863,18 @@ async function handleAdminPlayerSearch() {
         
         players.forEach(p => {
             const row = document.createElement('tr');
-            const isManual = p.manualPrice !== null;
+            const isManual = p.manualPrice !== null || p.manualPosition !== null;
+            const hasManualPrice = p.manualPrice !== null;
+            const hasManualPosition = p.manualPosition !== null;
             const priceText = formatCurrency(p.price);
+
+            // Build options for position select
+            const positionsList = ['POR', 'DFC', 'LD', 'LI', 'CARR', 'MC', 'MCD', 'MCO', 'MI', 'MD', 'DC', 'ED', 'EI', 'MP'];
+            let selectOptionsHtml = `<option value="">Por defecto (${p.lastPosition})</option>`;
+            positionsList.forEach(pos => {
+                const isSelected = p.manualPosition === pos;
+                selectOptionsHtml += `<option value="${pos}" ${isSelected ? 'selected' : ''}>${pos}</option>`;
+            });
             
             row.innerHTML = `
                 <td>
@@ -3874,13 +3884,17 @@ async function handleAdminPlayerSearch() {
                     </div>
                 </td>
                 <td class="col-hide-md"><div>${p.lastClub}</div></td>
-                <td><span class="badge position-badge">${p.lastPosition}</span></td>
+                <td>
+                    <select class="manual-pos-select" data-player-name="${p.eaPlayerName}" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 4px; padding: 4px; width: 90px; box-sizing: border-box; font-size: 0.8rem; cursor: pointer; ${hasManualPosition ? 'border-color: #f59e0b; color: #f59e0b; font-weight: 600;' : ''}">
+                        ${selectOptionsHtml}
+                    </select>
+                </td>
                 <td class="text-center col-hide-sm" style="font-weight: 600;">${p.points}</td>
-                <td class="text-right ${isManual ? 'text-yellow' : 'price-text'}" style="font-weight: 600;">
-                    ${priceText} ${isManual ? '<i class="fa-solid fa-hand-holding-dollar" title="Precio manual establecido"></i>' : ''}
+                <td class="text-right ${hasManualPrice ? 'text-yellow' : 'price-text'}" style="font-weight: 600;">
+                    ${priceText} ${hasManualPrice ? '<i class="fa-solid fa-hand-holding-dollar" title="Precio manual establecido"></i>' : ''}
                 </td>
                 <td class="text-center">
-                    <input type="number" class="manual-price-input" data-player-name="${p.eaPlayerName}" value="${p.manualPrice !== null ? p.manualPrice : ''}" placeholder="Ej. 1500000" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 4px; padding: 4px 8px; width: 120px; box-sizing: border-box;">
+                    <input type="number" class="manual-price-input" data-player-name="${p.eaPlayerName}" value="${p.manualPrice !== null ? p.manualPrice : ''}" placeholder="Ej. 1500000" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 4px; padding: 4px 8px; width: 120px; box-sizing: border-box; ${hasManualPrice ? 'border-color: #f59e0b; color: #f59e0b; font-weight: 600;' : ''}">
                 </td>
                 <td class="text-center">
                     <div style="display: flex; gap: 4px; justify-content: center;">
@@ -3893,18 +3907,17 @@ async function handleAdminPlayerSearch() {
             const saveBtn = row.querySelector('.btn-save-manual-price');
             saveBtn.addEventListener('click', async () => {
                 const input = row.querySelector('.manual-price-input');
+                const select = row.querySelector('.manual-pos-select');
                 const priceVal = input.value.trim();
-                if (priceVal === '') {
-                    alert('Por favor, introduce un precio válido o usa Restablecer para volver a automático.');
-                    return;
-                }
-                await handleUpdatePlayerPrice(p.eaPlayerName, priceVal);
+                const posVal = select.value;
+                
+                await handleUpdatePlayer(p.eaPlayerName, priceVal || null, posVal || null);
             });
             
             if (isManual) {
                 const resetBtn = row.querySelector('.btn-reset-manual-price');
                 resetBtn.addEventListener('click', async () => {
-                    await handleUpdatePlayerPrice(p.eaPlayerName, null);
+                    await handleUpdatePlayer(p.eaPlayerName, null, null);
                 });
             }
             
@@ -3916,25 +3929,24 @@ async function handleAdminPlayerSearch() {
     }
 }
 
-async function handleUpdatePlayerPrice(eaPlayerName, price) {
+async function handleUpdatePlayer(eaPlayerName, price, position) {
     try {
-        const res = await fetch('/api/fantasy/admin/players/price', {
+        const res = await fetch('/api/fantasy/admin/players/update', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ eaPlayerName, price })
+            body: JSON.stringify({ eaPlayerName, price, position })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Error al guardar precio manual.');
+        if (!res.ok) throw new Error(data.error || 'Error al actualizar jugador.');
         
-        // Mostrar mensaje de éxito
-        alert(data.message || 'Precio actualizado correctamente.');
+        showToast(data.message || 'Jugador actualizado correctamente.', 'success');
         
         // Volver a buscar para reflejar el estado actual
         await handleAdminPlayerSearch();
         
         // Refrescar los jugadores y el mercado si está cargada una liga
         if (currentLeagueId) {
-            const playersRes = await fetch(`/api/fantasy/players?leagueId=\${currentLeagueId}`);
+            const playersRes = await fetch(`/api/fantasy/players?leagueId=${currentLeagueId}`);
             if (playersRes.ok) {
                 const playersData = await playersRes.json();
                 allPlayers = playersData.players || [];
@@ -3945,7 +3957,7 @@ async function handleUpdatePlayerPrice(eaPlayerName, price) {
         }
     } catch (e) {
         console.error(e);
-        alert('Error: ' + e.message);
+        showToast('Error: ' + e.message, 'error');
     }
 }
 

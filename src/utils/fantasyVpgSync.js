@@ -76,7 +76,7 @@ export function calculatePlayerPointsAndPrice(p) {
 
     // 1. Calcular precio (usar manualPrice si está definido, si no, dinámico)
     let price;
-    const posUpper = (p.lastPosition || '').toUpperCase();
+    const posUpper = (p.manualPosition || p.lastPosition || '').toUpperCase();
     const isGk = posUpper === 'POR' || posUpper === 'GK';
 
     if (p.manualPrice !== undefined && p.manualPrice !== null) {
@@ -872,7 +872,7 @@ function allocateLineup(squadPlayers, formation) {
         for (const player of squadPlayers) {
             if (used.has(player.eaPlayerName)) continue;
 
-            if (isPlayerEligibleForSlot(player.lastPosition, slot.key, formation, slot.index)) {
+            if (isPlayerEligibleForSlot(player.manualPosition || player.lastPosition, slot.key, formation, slot.index)) {
                 assigned[slotIdx] = player.eaPlayerName;
                 used.add(player.eaPlayerName);
 
@@ -937,7 +937,7 @@ export async function generateRandomSquadForTeam(db, leagueId, teamId) {
         const { price } = calculatePlayerPointsAndPrice(p);
         return {
             eaPlayerName: p.eaPlayerName,
-            lastPosition: p.lastPosition || 'MC',
+            lastPosition: p.manualPosition || p.lastPosition || 'MC',
             price
         };
     });
@@ -1117,7 +1117,7 @@ export async function generateMarketFreeAgentsPool(db, leagueDoc) {
         const { price } = calculatePlayerPointsAndPrice(p);
         return {
             eaPlayerName: p.eaPlayerName,
-            lastPosition: p.lastPosition || 'MC',
+            lastPosition: p.manualPosition || p.lastPosition || 'MC',
             price
         };
     });
