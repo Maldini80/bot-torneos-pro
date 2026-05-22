@@ -184,11 +184,12 @@ export async function syncFantasyWithVpg() {
                                     base = league.basePoints[foundKey];
                                 }
                             }
-                            playerPoints = Math.max(0, rawPoints - base);
+                            playerPoints = Math.max(0, Math.round((rawPoints - base) * 10) / 10);
                         }
                         oldTeamPoints += playerPoints;
                     }
                 }
+                oldTeamPoints = Math.round(oldTeamPoints * 10) / 10;
                 teamOldPoints[fTeam._id.toString()] = oldTeamPoints;
             }
             console.log('[VPG SYNC] Puntos previos calculados exitosamente.');
@@ -436,11 +437,12 @@ export async function syncFantasyWithVpg() {
                                     base = league.basePoints[foundKey];
                                 }
                             }
-                            playerPoints = Math.max(0, rawPoints - base);
+                            playerPoints = Math.max(0, Math.round((rawPoints - base) * 10) / 10);
                         }
                         totalPoints += playerPoints;
                     }
                 }
+                totalPoints = Math.round(totalPoints * 10) / 10;
 
                 // Calcular ganancias para el mánager por la jornada
                 const oldPoints = teamOldPoints[fTeam._id.toString()] !== undefined ? teamOldPoints[fTeam._id.toString()] : totalPoints;

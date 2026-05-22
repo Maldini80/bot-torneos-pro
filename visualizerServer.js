@@ -6103,11 +6103,12 @@ export async function startVisualizerServer(discordClient) {
                                     base = league.basePoints[foundKey];
                                 }
                             }
-                            playerPoints = Math.max(0, rawPoints - base);
+                            playerPoints = Math.max(0, Math.round((rawPoints - base) * 10) / 10);
                         }
                         totalPoints += playerPoints;
                     }
                 }
+                totalPoints = Math.round(totalPoints * 10) / 10;
                 await db.collection('fantasy_teams').updateOne({ _id: team._id }, { $set: { points: totalPoints } });
                 updated++;
             }
@@ -6115,6 +6116,62 @@ export async function startVisualizerServer(discordClient) {
         } catch (e) {
             console.error('[API Fantasy Recalculate] Error:', e);
             res.status(500).json({ error: 'Error al recalcular puntos.' });
+        }
+    });
+
+    // Reset base points to current VPG points (admin only, ZERO points mode only)
+    app.post('/api/fantasy/leagues/:id/reset-base-points', isAuthenticated, canAdminLeague, async (req, res) => {
+        try {
+            const db = getDb();
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(req.params.id) });
+            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+            if (league.pointsMode !== 'zero') {
+                return res.status(400).json({ error: 'El reseteo de puntos iniciales solo está disponible en ligas de modo ZERO.' });
+            }
+
+            const players = await db.collection('player_profiles').find({ "stats.vpgPoints": { $exists: true } }).toArray();
+            const newBasePoints = {};
+            for (const p of players) {
+                if (p.eaPlayerName) {
+                    newBasePoints[p.eaPlayerName] = p.stats.vpgPoints || 0;
+                }
+            }
+
+            await db.collection('fantasy_leagues').updateOne(
+                { _id: league._id },
+                { $set: { basePoints: newBasePoints } }
+            );
+
+            // Now recalculate all teams' points to reflect the new base points
+            const teams = await db.collection('fantasy_teams').find({ leagueId: req.params.id }).toArray();
+            let updated = 0;
+            for (const team of teams) {
+                let totalPoints = 0;
+                for (const playerName of (team.players || [])) {
+                    const player = await db.collection('player_profiles').findOne({ eaPlayerName: playerName });
+                    if (player) {
+                        const { points: rawPoints } = calculatePlayerPointsAndPrice(player);
+                        let base = newBasePoints[player.eaPlayerName] || 0;
+                        if (newBasePoints[player.eaPlayerName] === undefined) {
+                            const playerNameLower = player.eaPlayerName.toLowerCase();
+                            const foundKey = Object.keys(newBasePoints).find(k => k.toLowerCase() === playerNameLower);
+                            if (foundKey) {
+                                base = newBasePoints[foundKey];
+                            }
+                        }
+                        const playerPoints = Math.max(0, Math.round((rawPoints - base) * 10) / 10);
+                        totalPoints += playerPoints;
+                    }
+                }
+                totalPoints = Math.round(totalPoints * 10) / 10;
+                await db.collection('fantasy_teams').updateOne({ _id: team._id }, { $set: { points: totalPoints } });
+                updated++;
+            }
+
+            res.json({ success: true, message: `Puntos iniciales actualizados y recalculados para ${updated} equipos.` });
+        } catch (e) {
+            console.error('[API Fantasy Reset Base Points] Error:', e);
+            res.status(500).json({ error: 'Error al resetear los puntos iniciales.' });
         }
     });
 
@@ -6309,7 +6366,7 @@ export async function startVisualizerServer(discordClient) {
                             base = leagueDoc.basePoints[foundKey];
                         }
                     }
-                    points = Math.max(0, rawPoints - base);
+                    points = Math.max(0, Math.round((rawPoints - base) * 10) / 10);
                     basePointsValue = base;
                 }
                 const displayClub = (p.lastClub && p.lastClub.toLowerCase() === 'black hawks') ? 'Thunder Gaming' : p.lastClub;
@@ -6755,7 +6812,7 @@ export async function startVisualizerServer(discordClient) {
                             base = league.basePoints[foundKey];
                         }
                     }
-                    points = Math.max(0, rawPoints - base);
+                    points = Math.max(0, Math.round((rawPoints - base) * 10) / 10);
                     basePointsValue = base;
                 }
                 playerMap[p.eaPlayerName] = {

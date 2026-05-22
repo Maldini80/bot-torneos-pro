@@ -200,6 +200,8 @@ const btnAdminToggleMarket = document.getElementById('btn-admin-toggle-market');
 const btnAdminToggleStatus = document.getElementById('btn-admin-toggle-status');
 const adminLeagueStatusText = document.getElementById('admin-league-status-text');
 const btnAdminDeleteLeague = document.getElementById('btn-admin-delete-league');
+const btnAdminResetBasePoints = document.getElementById('btn-admin-reset-base-points');
+const adminResetBasePointsContainer = document.getElementById('admin-reset-base-points-container');
 const btnAdminRebuildStats = null; // Removed from league admin panel
 const rebuildStatsProgress = null; // Removed from league admin panel
 const btnOwnerRebuildStats = document.getElementById('btn-owner-rebuild-stats');
@@ -475,6 +477,7 @@ function setupEventHandlers() {
     btnAdminToggleMarket.addEventListener('click', handleAdminToggleMarket);
     if (btnAdminToggleStatus) btnAdminToggleStatus.addEventListener('click', handleAdminToggleStatus);
     btnAdminDeleteLeague.addEventListener('click', handleAdminDeleteLeague);
+    if (btnAdminResetBasePoints) btnAdminResetBasePoints.addEventListener('click', handleAdminResetBasePoints);
     if (btnAdminRebuildStats) btnAdminRebuildStats.addEventListener('click', () => executeRebuildStats(btnAdminRebuildStats, rebuildStatsProgress));
     if (btnOwnerRebuildStats) btnOwnerRebuildStats.addEventListener('click', () => executeRebuildStats(btnOwnerRebuildStats, ownerRebuildProgress));
 
@@ -1525,6 +1528,10 @@ async function loadAdminPanelData() {
     if (deleteCard) {
         deleteCard.style.display = isOwnerOrCreator ? '' : 'none';
     }
+
+    if (adminResetBasePointsContainer) {
+        adminResetBasePointsContainer.style.display = (activeLeague && activeLeague.pointsMode === 'zero') ? '' : 'none';
+    }
     
     // Set market toggle text
     updateMarketToggleButton(activeLeague.marketOpen);
@@ -2021,6 +2028,29 @@ async function handleAdminDeleteLeague() {
     }
 }
 
+// Admin Reset Base Points
+async function handleAdminResetBasePoints() {
+    if (!confirm('¿Estás seguro de que quieres resetear los puntos iniciales a los puntos actuales de VPG? Esto reiniciará a 0 los puntos de todos los jugadores y equipos en esta liga. Esta acción no se puede deshacer.')) {
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/reset-base-points`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al resetear puntos iniciales.');
+        
+        showToast(data.message || 'Puntos iniciales reseteados correctamente.', 'success');
+        // Refresh league data
+        await enterLeague(currentLeagueId, true);
+    } catch (e) {
+        console.error(e);
+        showToast(e.message, 'error');
+    }
+}
+
 // Admin Kick Manager
 async function handleKickManager(teamId, managerName) {
     const confirmKick = confirm(`¿Estás seguro de que quieres expulsar a "${managerName}" de esta liga?`);
@@ -2088,12 +2118,13 @@ function formatCurrency(val) {
 }
 
 function formatPlayerPoints(p) {
-    if (!activeLeague) return p.points;
+    if (!activeLeague) return Math.round((p.points || 0) * 10) / 10;
     if (activeLeague.pointsMode === 'zero') {
-        const base = p.basePoints || 0;
-        return `${p.points} <span class="points-base-label">(+${base}<span class="hide-mobile"> iniciales</span>)</span>`;
+        const base = Math.round((p.basePoints || 0) * 10) / 10;
+        const pts = Math.round((p.points || 0) * 10) / 10;
+        return `${pts} <span class="points-base-label">(+${base}<span class="hide-mobile"> iniciales</span>)</span>`;
     }
-    return p.points;
+    return Math.round((p.points || 0) * 10) / 10;
 }
 
 function showToast(msg, type = 'success') {
