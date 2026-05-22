@@ -1940,16 +1940,11 @@ function populatePlayerListElements(listEl, matchingPlayers, alignedPlayer) {
             row.style.pointerEvents = 'none';
         }
 
-        const avatarUrl = p.avatar ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${p.avatar}/smThumb` : null;
-        const avatarHtml = avatarUrl ? `<img src="${avatarUrl}" alt="" class="modal-player-row-avatar">` : `<div class="modal-player-row-avatar-fallback"><i class="fa-solid fa-user"></i></div>`;
-        const clubLogoHtml = p.clubLogo ? `<img src="${p.clubLogo}" alt="" class="modal-player-row-club-logo">` : `<div class="modal-player-row-club-logo-fallback"><i class="fa-solid fa-shield-halved"></i></div>`;
+        const tableCardHtml = getTableCardHtml(p);
 
         row.innerHTML = `
             <div style="display: flex; align-items: center; gap: 12px;">
-                <div class="modal-player-row-left">
-                    ${avatarHtml}
-                    ${clubLogoHtml}
-                </div>
+                ${tableCardHtml}
                 <div class="modal-player-info">
                     <div class="modal-player-name">${name} ${isUsed ? '(Ya alineado)' : ''}</div>
                     <div class="modal-player-club">${p.lastClub} | Puntos VPG: ${formatPlayerPoints(p)}</div>
