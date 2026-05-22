@@ -461,6 +461,16 @@ app.get('/api/user', (req, res) => {
     }
 });
 
+function saveUserSession(req) {
+    if (req.session && req.session.passport) {
+        req.session.passport.user = req.user;
+        req.session.passport = { ...req.session.passport, user: req.user };
+        req.session.save(err => {
+            if (err) console.error('[Session] Error saving session:', err);
+        });
+    }
+}
+
 // ===============================================
 // === ENDPOINTS ELO ===
 // ===============================================
@@ -1241,6 +1251,7 @@ app.get('/api/check-membership', async (req, res) => {
         const db = getDb(); // FIX: Usuarios en tournamentBotDb
         const userId = req.user.id;
 
+        let modified = false;
         // 1. Verificar estado de verificación en DB si no está en sesión
         if (req.user.isVerified === undefined) {
             const userDoc = await db.collection('verified_users').findOne({ discordId: userId });
@@ -1249,6 +1260,7 @@ app.get('/api/check-membership', async (req, res) => {
                 req.user.psnId = userDoc.psnId;
                 req.user.platform = userDoc.platform;
             }
+            modified = true;
         }
 
         // 2. Verificar roles si no están en sesión (Fallback)
@@ -1266,7 +1278,12 @@ app.get('/api/check-membership', async (req, res) => {
                 } else if (response.status === 404) {
                     req.user.isMember = false;
                 }
+                modified = true;
             } catch (e) { console.error('Error fetching member fallback:', e); }
+        }
+
+        if (modified) {
+            saveUserSession(req);
         }
 
         res.json({
@@ -1703,6 +1720,7 @@ app.post('/api/tournaments/:tournamentId/register', async (req, res) => {
 
         // VALIDACIÓN CRÍTICA: Usuario DEBE ser miembro del servidor Discord
         let isMember = req.user.isMember;
+        let isMemberModified = false;
 
         // Si no está en sesión o está marcado como false, verificar con Discord API
         if (isMember !== true) {
@@ -1712,10 +1730,15 @@ app.post('/api/tournaments/:tournamentId/register', async (req, res) => {
                 });
                 isMember = response.ok;
                 req.user.isMember = isMember;
+                isMemberModified = true;
             } catch (e) {
                 console.error('Error verificando membresía:', e);
                 isMember = false;
             }
+        }
+
+        if (isMemberModified) {
+            saveUserSession(req);
         }
 
         if (!isMember) {
@@ -1885,6 +1908,7 @@ app.get('/api/draft/:draftId/pre-check', async (req, res) => {
 
         // 3. Membresía Discord
         let isMember = req.user.isMember;
+        let isMemberModified = false;
         if (isMember !== true) {
             try {
                 const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${userId}`, {
@@ -1892,10 +1916,15 @@ app.get('/api/draft/:draftId/pre-check', async (req, res) => {
                 });
                 isMember = response.ok;
                 req.user.isMember = isMember;
+                isMemberModified = true;
             } catch (e) {
                 console.error('Error verificando membresía en pre-check:', e);
                 isMember = false;
             }
+        }
+
+        if (isMemberModified) {
+            saveUserSession(req);
         }
 
         // 4. Estado del draft
@@ -1959,6 +1988,7 @@ app.post('/api/draft/:draftId/register', async (req, res) => {
 
         // --- VALIDACIÓN 3: Membresía Discord ---
         let isMember = req.user.isMember;
+        let isMemberModified = false;
         if (isMember !== true) {
             try {
                 const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${userId}`, {
@@ -1966,10 +1996,14 @@ app.post('/api/draft/:draftId/register', async (req, res) => {
                 });
                 isMember = response.ok;
                 req.user.isMember = isMember;
+                isMemberModified = true;
             } catch (e) {
                 console.error('Error verificando membresía:', e);
                 isMember = false;
             }
+        }
+        if (isMemberModified) {
+            saveUserSession(req);
         }
         if (!isMember) {
             return res.status(403).json({
@@ -4447,6 +4481,7 @@ export async function startVisualizerServer(discordClient) {
 
             // Verify Discord membership
             let isMember = req.user.isMember;
+            let isMemberModified = false;
             if (isMember !== true) {
                 try {
                     const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${req.user.id}`, {
@@ -4454,7 +4489,11 @@ export async function startVisualizerServer(discordClient) {
                     });
                     isMember = response.ok;
                     req.user.isMember = isMember;
+                    isMemberModified = true;
                 } catch (e) { isMember = false; }
+            }
+            if (isMemberModified) {
+                saveUserSession(req);
             }
             if (!isMember) return res.status(403).json({ error: 'Debes ser miembro del servidor Discord.' });
 
@@ -5411,6 +5450,7 @@ export async function startVisualizerServer(discordClient) {
     async function isFantasyEnabled(req, res, next) {
         if (!req.user) return res.status(401).json({ error: 'Debes iniciar sesión con Discord.' });
         let isMember = req.user.isMember;
+        let isMemberModified = false;
         if (isMember !== true) {
             try {
                 const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${req.user.id}`, {
@@ -5418,7 +5458,11 @@ export async function startVisualizerServer(discordClient) {
                 });
                 isMember = response.ok;
                 req.user.isMember = isMember;
+                isMemberModified = true;
             } catch (e) { isMember = false; }
+        }
+        if (isMemberModified) {
+            saveUserSession(req);
         }
         if (!isMember) {
             return res.status(403).json({ error: 'Debes ser miembro del servidor Discord.' });
@@ -5625,6 +5669,7 @@ export async function startVisualizerServer(discordClient) {
     app.get('/fantasy', async (req, res) => {
         if (!req.user) return res.redirect('/login?returnTo=/fantasy');
         let isMember = req.user.isMember;
+        let isMemberModified = false;
         if (isMember !== true) {
             try {
                 const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${req.user.id}`, {
@@ -5632,7 +5677,11 @@ export async function startVisualizerServer(discordClient) {
                 });
                 isMember = response.ok;
                 req.user.isMember = isMember;
+                isMemberModified = true;
             } catch (e) { isMember = false; }
+        }
+        if (isMemberModified) {
+            saveUserSession(req);
         }
         if (!isMember) {
             return res.redirect('/dashboard.html?notMember=true');
