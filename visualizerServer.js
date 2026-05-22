@@ -48,7 +48,16 @@ export function calculatePlayerPointsAndPrice(p) {
     const stats = p.stats || {};
     const vpgPoints = stats.vpgPoints || 0;
     const matchesPlayed = stats.matchesPlayed || 0;
-    const avgRating = matchesPlayed > 0 ? (vpgPoints / matchesPlayed / 2.5) : 6.0;
+    
+    let avgRating = 6.0;
+    if (matchesPlayed > 0) {
+        if (Array.isArray(stats.ratings) && stats.ratings.length > 0) {
+            const sum = stats.ratings.reduce((acc, r) => acc + (parseFloat(r) || 0), 0);
+            avgRating = sum / matchesPlayed;
+        } else {
+            avgRating = 6.0;
+        }
+    }
 
     // 1. Calcular precio (usar manualPrice si está definido, si no, dinámico)
     let price;

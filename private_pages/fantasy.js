@@ -173,6 +173,7 @@ const marketList = document.getElementById('market-list');
 const squadList = document.getElementById('squad-list');
 const marketSearch = document.getElementById('market-search');
 const marketPosFilter = document.getElementById('market-pos-filter');
+const marketSort = document.getElementById('market-sort');
 const bidsCountBadge = document.getElementById('bids-count-badge');
 const userMarketList = document.getElementById('user-market-list');
 const bidsReceivedList = document.getElementById('bids-received-list');
@@ -404,6 +405,7 @@ function setupEventHandlers() {
     // Search and filters for market
     marketSearch.addEventListener('input', filterAndRenderMarket);
     marketPosFilter.addEventListener('change', filterAndRenderMarket);
+    marketSort.addEventListener('change', filterAndRenderMarket);
 
     // Market Subtabs
     const marketSubBtns = document.querySelectorAll('.market-sub-btn');
@@ -900,6 +902,7 @@ async function handleJoinLeagueSubmit(e) {
 function filterAndRenderMarket() {
     const searchVal = marketSearch.value.toLowerCase().trim();
     const posVal = marketPosFilter.value;
+    const sortVal = marketSort.value;
 
     currentFilteredPlayers = allPlayers.filter(p => {
         const matchesSearch = !searchVal || 
@@ -909,8 +912,16 @@ function filterAndRenderMarket() {
         return matchesSearch && matchesPos;
     });
 
-    // Sort: highest points first
-    currentFilteredPlayers.sort((a, b) => b.points - a.points);
+    // Sort based on selection
+    if (sortVal === 'points-asc') {
+        currentFilteredPlayers.sort((a, b) => a.points - b.points);
+    } else if (sortVal === 'price-desc') {
+        currentFilteredPlayers.sort((a, b) => b.price - a.price);
+    } else if (sortVal === 'price-asc') {
+        currentFilteredPlayers.sort((a, b) => a.price - b.price);
+    } else { // 'points-desc' or default
+        currentFilteredPlayers.sort((a, b) => b.points - a.points);
+    }
 
     marketList.innerHTML = '';
     
