@@ -1323,16 +1323,7 @@ function filterAndRenderMarket() {
         const isOwned = myTeam.players.includes(p.eaPlayerName);
         const row = document.createElement('tr');
         
-        const pRating = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
-        const tierClass = getCardTierClass(pRating);
-        const displayedPoints = p ? Math.round(p.points * 10) / 10 : 0;
-        const microCardHtml = `
-            <div class="micro-fut-card ${tierClass}">
-                <div class="micro-fut-card-inner">
-                    <span class="micro-fut-card-rating">${displayedPoints}</span>
-                </div>
-            </div>
-        `;
+        const tableCardHtml = getTableCardHtml(p);
 
         let priceCol = `<span style="font-weight: 600;">${formatCurrency(p.price)}</span>`;
         let actionCol = '';
@@ -1402,7 +1393,7 @@ function filterAndRenderMarket() {
         row.innerHTML = `
             <td>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    ${microCardHtml}
+                    ${tableCardHtml}
                     <div>
                         <div style="font-weight: 700; color: #f8fafc;">${p.eaPlayerName}</div>
                         <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
@@ -1496,21 +1487,12 @@ function renderSquadList() {
             }
         }
 
-        const pRating = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
-        const tierClass = getCardTierClass(pRating);
-        const displayedPoints = p ? Math.round(p.points * 10) / 10 : 0;
-        const microCardHtml = `
-            <div class="micro-fut-card ${tierClass}">
-                <div class="micro-fut-card-inner">
-                    <span class="micro-fut-card-rating">${displayedPoints}</span>
-                </div>
-            </div>
-        `;
+        const tableCardHtml = getTableCardHtml(p);
 
         row.innerHTML = `
             <td>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                    ${microCardHtml}
+                    ${tableCardHtml}
                     <div>
                         <div style="font-weight: 700; color: #f8fafc;">
                             ${p.eaPlayerName}
@@ -1612,6 +1594,59 @@ function getCardTierClass(points) {
     return 'burgundy';
 }
 
+function getTableCardHtml(p) {
+    if (!p) return '';
+    const tierPoints = Math.round((p.points + (p.basePoints || 0)) * 10) / 10;
+    const tierClass = getCardTierClass(tierPoints);
+    const displayedPoints = Math.round(p.points * 10) / 10;
+    const lastName = p.eaPlayerName.split(' ').pop();
+    
+    // Dynamic sizing for long names to avoid truncation
+    const nameLength = lastName.length;
+    let nameStyle = '';
+    if (nameLength > 12) {
+        nameStyle = 'style="font-size: 0.34rem; letter-spacing: -0.05em;"';
+    } else if (nameLength > 10) {
+        nameStyle = 'style="font-size: 0.38rem; letter-spacing: -0.04em;"';
+    } else if (nameLength > 8) {
+        nameStyle = 'style="font-size: 0.42rem; letter-spacing: -0.03em;"';
+    } else if (nameLength > 6) {
+        nameStyle = 'style="font-size: 0.46rem; letter-spacing: -0.02em;"';
+    } else if (nameLength > 5) {
+        nameStyle = 'style="font-size: 0.5rem; letter-spacing: -0.01em;"';
+    }
+    
+    const hasAvatar = !!p.avatar;
+    const avatarHtml = hasAvatar ? 
+        `<img src="https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${p.avatar}/smThumb" alt="" class="player-avatar-img">` : 
+        `<i class="fa-solid fa-shield-halved avatar-shield-back"></i><i class="fa-solid fa-user"></i>`;
+    const avatarClass = hasAvatar ? 'player-card-ut-avatar' : 'player-card-ut-avatar no-avatar';
+    const logoHtml = p.clubLogo ? 
+        `<img src="${p.clubLogo}" alt="" class="player-club-logo-img">` : 
+        `<i class="fa-solid fa-shield-halved"></i>`;
+    const posLabel = p.lastPosition ? p.lastPosition.split(' ')[0] : 'MC';
+
+    return `
+        <div class="table-player-card-wrapper">
+            <div class="player-card-ut occupied ${tierClass} table-player-card">
+                <div class="player-card-ut-inner">
+                    <div class="player-card-ut-rating-pos">
+                        <span class="player-card-ut-rating">${displayedPoints}</span>
+                        <span class="player-card-ut-position">${posLabel}</span>
+                    </div>
+                    <div class="player-card-ut-club-logo">
+                        ${logoHtml}
+                    </div>
+                    <div class="${avatarClass}">
+                        ${avatarHtml}
+                    </div>
+                    <div class="player-card-ut-name" ${nameStyle}>${lastName}</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
 // Render Soccer pitch
 function renderField() {
     const markingsHtml = `
@@ -1682,24 +1717,28 @@ function renderField() {
                 const tierPoints = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
                 const lastName = alignedPlayer.split(' ').pop();
 
+
                 // Dynamic sizing for long names to avoid truncation
                 const nameLength = lastName.length;
                 let nameStyle = '';
                 if (nameLength > 12) {
-                    nameStyle = 'style="font-size: 0.38rem; letter-spacing: -0.04em;"';
+                    nameStyle = 'style="font-size: 0.34rem; letter-spacing: -0.05em;"';
                 } else if (nameLength > 10) {
-                    nameStyle = 'style="font-size: 0.42rem; letter-spacing: -0.03em;"';
+                    nameStyle = 'style="font-size: 0.38rem; letter-spacing: -0.04em;"';
                 } else if (nameLength > 8) {
-                    nameStyle = 'style="font-size: 0.46rem; letter-spacing: -0.02rem;"';
+                    nameStyle = 'style="font-size: 0.42rem; letter-spacing: -0.03em;"';
                 } else if (nameLength > 6) {
+                    nameStyle = 'style="font-size: 0.46rem; letter-spacing: -0.02em;"';
+                } else if (nameLength > 5) {
                     nameStyle = 'style="font-size: 0.5rem; letter-spacing: -0.01em;"';
                 }
 
                 const hasAvatar = p && p.avatar;
                 const avatarHtml = hasAvatar ? 
                     `<img src="https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${p.avatar}/smThumb" alt="" class="player-avatar-img">` : 
-                    `<i class="fa-solid fa-user"></i>`;
+                    `<i class="fa-solid fa-shield-halved avatar-shield-back"></i><i class="fa-solid fa-user"></i>`;
                 const avatarClass = hasAvatar ? 'player-card-ut-avatar' : 'player-card-ut-avatar no-avatar';
+
                 const logoHtml = p && p.clubLogo ? 
                     `<img src="${p.clubLogo}" alt="" class="player-club-logo-img">` : 
                     `<i class="fa-solid fa-shield-halved"></i>`;
@@ -2381,24 +2420,28 @@ async function showRivalTeam(discordId, teamName) {
                         const tierPoints = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
                         const lastName = alignedPlayer.split(' ').pop();
 
+
                         // Dynamic sizing for long names to avoid truncation
                         const nameLength = lastName.length;
                         let nameStyle = '';
                         if (nameLength > 12) {
-                            nameStyle = 'style="font-size: 0.38rem; letter-spacing: -0.04em;"';
+                            nameStyle = 'style="font-size: 0.34rem; letter-spacing: -0.05em;"';
                         } else if (nameLength > 10) {
-                            nameStyle = 'style="font-size: 0.42rem; letter-spacing: -0.03em;"';
+                            nameStyle = 'style="font-size: 0.38rem; letter-spacing: -0.04em;"';
                         } else if (nameLength > 8) {
-                            nameStyle = 'style="font-size: 0.46rem; letter-spacing: -0.02rem;"';
+                            nameStyle = 'style="font-size: 0.42rem; letter-spacing: -0.03em;"';
                         } else if (nameLength > 6) {
+                            nameStyle = 'style="font-size: 0.46rem; letter-spacing: -0.02em;"';
+                        } else if (nameLength > 5) {
                             nameStyle = 'style="font-size: 0.5rem; letter-spacing: -0.01em;"';
                         }
 
                         const hasAvatar = p && p.avatar;
                         const avatarHtml = hasAvatar ? 
                             `<img src="https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${p.avatar}/smThumb" alt="" class="player-avatar-img">` : 
-                            `<i class="fa-solid fa-user"></i>`;
+                            `<i class="fa-solid fa-shield-halved avatar-shield-back"></i><i class="fa-solid fa-user"></i>`;
                         const avatarClass = hasAvatar ? 'player-card-ut-avatar' : 'player-card-ut-avatar no-avatar';
+
                         const logoHtml = p && p.clubLogo ? 
                             `<img src="${p.clubLogo}" alt="" class="player-club-logo-img">` : 
                             `<i class="fa-solid fa-shield-halved"></i>`;
