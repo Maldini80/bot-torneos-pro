@@ -5799,7 +5799,12 @@ export async function startVisualizerServer(discordClient) {
                     league.isApproved = false;
                 }
                 
-                delete league.password;
+                // Allow league creators, co-admins, and global admins to view the password
+                const isGlobalAdmin = discordId === process.env.OWNER_DISCORD_ID || (Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183'));
+                const isLeagueAdmin = league.createdBy === discordId || league.coAdmin === discordId;
+                if (!isGlobalAdmin && !isLeagueAdmin) {
+                    delete league.password;
+                }
             }
             res.json({ leagues });
         } catch (e) {
@@ -5974,7 +5979,7 @@ export async function startVisualizerServer(discordClient) {
     // Update league (admin only)
     app.put('/api/fantasy/leagues/:id', isAuthenticated, canAdminLeague, async (req, res) => {
         try {
-            const { name, status, maxParticipants, allowClauses, clauseMultiplier, initialBudget } = req.body;
+            const { name, status, maxParticipants, allowClauses, clauseMultiplier, initialBudget, privacy, password } = req.body;
             const db = getDb();
             const updateFields = {};
             if (name) updateFields.name = name.trim();
@@ -5995,6 +6000,21 @@ export async function startVisualizerServer(discordClient) {
             if (initialBudget !== undefined) updateFields.initialBudget = parseInt(initialBudget);
             if (req.body.vpgLeagues !== undefined) {
                 updateFields.vpgLeagues = Array.isArray(req.body.vpgLeagues) ? req.body.vpgLeagues : null;
+            }
+            if (privacy !== undefined) {
+                updateFields.privacy = privacy === 'private' ? 'private' : 'public';
+                if (updateFields.privacy === 'private') {
+                    if (password && password.trim() !== '') {
+                        updateFields.password = password.trim();
+                    } else {
+                        const existingLeague = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(req.params.id) });
+                        if (!existingLeague || (!existingLeague.password && (!password || password.trim() === ''))) {
+                            return res.status(400).json({ error: 'Debes configurar una contraseña para una liga privada.' });
+                        }
+                    }
+                } else {
+                    updateFields.password = null;
+                }
             }
             await db.collection('fantasy_leagues').updateOne({ _id: new ObjectId(req.params.id) }, { $set: updateFields });
             res.json({ success: true, message: 'Liga actualizada.' });

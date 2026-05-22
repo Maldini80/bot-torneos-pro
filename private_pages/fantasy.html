@@ -544,6 +544,22 @@
                                 </div>
                                 <div class="form-row">
                                     <div class="form-group col">
+                                        <label for="admin-league-privacy">Privacidad de Liga</label>
+                                        <select id="admin-league-privacy" class="form-select">
+                                            <option value="public">Pública (Sin contraseña)</option>
+                                            <option value="private">Privada (Requiere contraseña)</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group col" id="admin-league-password-group" style="display: none;">
+                                        <label for="admin-league-password">Contraseña de Liga</label>
+                                        <div style="position: relative; display: flex; align-items: center;">
+                                            <input type="password" id="admin-league-password" placeholder="Establecer contraseña..." autocomplete="new-password" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; padding-right: 40px; width: 100%; box-sizing: border-box;">
+                                            <i id="toggle-admin-password-visibility" class="fa-solid fa-eye-slash" style="position: absolute; right: 12px; cursor: pointer; color: #94a3b8; font-size: 1.1rem;"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group col">
                                         <label for="admin-league-allow-clauses">Permitir Clausulazos</label>
                                         <select id="admin-league-allow-clauses" class="form-select">
                                             <option value="true">Sí (Habilitado)</option>

@@ -300,6 +300,10 @@ const adminUpdateLeagueForm = document.getElementById('admin-update-league-form'
 const adminLeagueName = document.getElementById('admin-league-name');
 const adminLeagueStatus = document.getElementById('admin-league-status');
 const adminLeagueMaxParts = document.getElementById('admin-league-max-parts');
+const adminLeaguePrivacy = document.getElementById('admin-league-privacy');
+const adminLeaguePasswordGroup = document.getElementById('admin-league-password-group');
+const adminLeaguePassword = document.getElementById('admin-league-password');
+const toggleAdminPasswordVisibility = document.getElementById('toggle-admin-password-visibility');
 const adminLeagueAllowClauses = document.getElementById('admin-league-allow-clauses');
 const adminLeagueClauseMultiplier = document.getElementById('admin-league-clause-multiplier');
 const adminLeagueInitialBudget = document.getElementById('admin-league-initial-budget');
@@ -633,6 +637,27 @@ function setupEventHandlers() {
     createLeagueForm.addEventListener('submit', handleCreateLeague);
     joinLeagueForm.addEventListener('submit', handleJoinLeagueSubmit);
     adminUpdateLeagueForm.addEventListener('submit', handleUpdateLeagueSubmit);
+    
+    // Admin Privacy / Password listeners
+    if (adminLeaguePrivacy && adminLeaguePasswordGroup) {
+        adminLeaguePrivacy.addEventListener('change', () => {
+            if (adminLeaguePrivacy.value === 'private') {
+                adminLeaguePasswordGroup.style.display = '';
+            } else {
+                adminLeaguePasswordGroup.style.display = 'none';
+            }
+        });
+    }
+
+    if (toggleAdminPasswordVisibility && adminLeaguePassword) {
+        toggleAdminPasswordVisibility.addEventListener('click', () => {
+            const isPassword = adminLeaguePassword.getAttribute('type') === 'password';
+            adminLeaguePassword.setAttribute('type', isPassword ? 'text' : 'password');
+            toggleAdminPasswordVisibility.classList.toggle('fa-eye', isPassword);
+            toggleAdminPasswordVisibility.classList.toggle('fa-eye-slash', !isPassword);
+        });
+    }
+    
     clauseForm.addEventListener('submit', handleClauseSubmit);
     listMarketForm.addEventListener('submit', handleListMarketSubmit);
     bidForm.addEventListener('submit', handleBidSubmit);
@@ -1974,6 +1999,24 @@ async function loadAdminPanelData() {
     adminLeagueName.value = activeLeague.name;
     adminLeagueStatus.value = activeLeague.status;
     adminLeagueMaxParts.value = activeLeague.maxParticipants;
+    if (adminLeaguePrivacy) {
+        adminLeaguePrivacy.value = activeLeague.privacy || 'public';
+    }
+    if (adminLeaguePasswordGroup && adminLeaguePassword) {
+        if (activeLeague.privacy === 'private') {
+            adminLeaguePasswordGroup.style.display = '';
+            adminLeaguePassword.value = activeLeague.password || '';
+        } else {
+            adminLeaguePasswordGroup.style.display = 'none';
+            adminLeaguePassword.value = '';
+        }
+        // Always reset type to password and set class back to fa-eye-slash when loading
+        adminLeaguePassword.setAttribute('type', 'password');
+        if (toggleAdminPasswordVisibility) {
+            toggleAdminPasswordVisibility.classList.add('fa-eye-slash');
+            toggleAdminPasswordVisibility.classList.remove('fa-eye');
+        }
+    }
     adminLeagueAllowClauses.value = activeLeague.allowClauses !== false ? 'true' : 'false';
     adminLeagueClauseMultiplier.value = activeLeague.clauseMultiplier || 1.5;
     adminLeagueInitialBudget.value = activeLeague.initialBudget || 100000000;
@@ -2169,10 +2212,17 @@ async function handleUpdateLeagueSubmit(e) {
     const allowClauses = adminLeagueAllowClauses.value === 'true';
     const clauseMultiplier = parseFloat(adminLeagueClauseMultiplier.value);
     const initialBudget = parseInt(adminLeagueInitialBudget.value);
+    const privacy = adminLeaguePrivacy ? adminLeaguePrivacy.value : 'public';
+    const password = adminLeaguePassword ? adminLeaguePassword.value : '';
     
     const maxVal = parseInt(maxParticipants);
     if (isNaN(maxVal) || maxVal < 2 || maxVal > 14) {
         showToast('El número máximo de participantes permitido es de 2 a 14.', 'error');
+        return;
+    }
+
+    if (privacy === 'private' && (!password || password.trim() === '') && (!activeLeague || !activeLeague.password)) {
+        showToast('Debes configurar una contraseña para una liga privada.', 'error');
         return;
     }
     
@@ -2180,7 +2230,7 @@ async function handleUpdateLeagueSubmit(e) {
         const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, status, maxParticipants, allowClauses, clauseMultiplier, initialBudget })
+            body: JSON.stringify({ name, status, maxParticipants, allowClauses, clauseMultiplier, initialBudget, privacy, password })
         });
         
         const data = await res.json();
@@ -2195,7 +2245,17 @@ async function handleUpdateLeagueSubmit(e) {
         activeLeague.allowClauses = allowClauses;
         activeLeague.clauseMultiplier = clauseMultiplier;
         activeLeague.initialBudget = initialBudget;
-        activeLeagueName.textContent = name;
+        activeLeague.privacy = privacy;
+        if (privacy === 'private') {
+            if (password && password.trim() !== '') {
+                activeLeague.password = password.trim();
+            }
+        } else {
+            activeLeague.password = null;
+        }
+
+        const lockIcon = activeLeague.privacy === 'private' ? ' <i class="fa-solid fa-lock text-yellow" title="Liga Privada" style="font-size: 0.95rem; margin-left: 5px;"></i>' : '';
+        activeLeagueName.innerHTML = name + lockIcon;
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
