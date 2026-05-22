@@ -2351,12 +2351,19 @@ async function showRivalTeam(discordId, teamName) {
                         actionCol = `<div style="display: flex; gap: 5px; justify-content: center; align-items: center;">${bidButton}${clauseButton}</div>`;
                     }
 
+                    const tableCardHtml = getTableCardHtml(p);
+
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td>
-                            <div style="font-weight: 700; color: #f8fafc;">${p.eaPlayerName}</div>
-                            <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
-                                ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${formatPlayerPoints(p)} pts</span>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                ${tableCardHtml}
+                                <div>
+                                    <div style="font-weight: 700; color: #f8fafc;">${p.eaPlayerName}</div>
+                                    <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                                        ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${formatPlayerPoints(p)} pts</span>
+                                    </div>
+                                </div>
                             </div>
                         </td>
                         <td class="text-muted col-hide-md">${p.lastClub}</td>

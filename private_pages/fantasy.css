@@ -1532,10 +1532,17 @@ body {
 }
 
 .mini-field .soccer-field {
-    height: 380px;
+    height: 440px;
     background: radial-gradient(circle, #14532d, #052e16);
     border-radius: 10px;
     border-color: rgba(255, 255, 255, 0.1);
+}
+
+.mini-field .field-player-node {
+    transform: translate(-50%, -50%) scale(0.76) !important;
+}
+.mini-field .field-player-node:hover {
+    transform: translate(-50%, -50%) scale(0.76) !important;
 }
 
 .mini-field .field-player-node .player-circle {
