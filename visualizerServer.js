@@ -1704,13 +1704,14 @@ app.post('/api/tournaments/:tournamentId/register', async (req, res) => {
         // VALIDACIÓN CRÍTICA: Usuario DEBE ser miembro del servidor Discord
         let isMember = req.user.isMember;
 
-        // Si no está en sesión, verificar con Discord API
-        if (isMember === undefined) {
+        // Si no está en sesión o está marcado como false, verificar con Discord API
+        if (isMember !== true) {
             try {
                 const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${userId}`, {
                     headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` }
                 });
                 isMember = response.ok;
+                req.user.isMember = isMember;
             } catch (e) {
                 console.error('Error verificando membresía:', e);
                 isMember = false;
@@ -1884,7 +1885,7 @@ app.get('/api/draft/:draftId/pre-check', async (req, res) => {
 
         // 3. Membresía Discord
         let isMember = req.user.isMember;
-        if (isMember === undefined) {
+        if (isMember !== true) {
             try {
                 const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${userId}`, {
                     headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` }
@@ -1958,12 +1959,13 @@ app.post('/api/draft/:draftId/register', async (req, res) => {
 
         // --- VALIDACIÓN 3: Membresía Discord ---
         let isMember = req.user.isMember;
-        if (isMember === undefined) {
+        if (isMember !== true) {
             try {
                 const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${userId}`, {
                     headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` }
                 });
                 isMember = response.ok;
+                req.user.isMember = isMember;
             } catch (e) {
                 console.error('Error verificando membresía:', e);
                 isMember = false;
@@ -4445,12 +4447,13 @@ export async function startVisualizerServer(discordClient) {
 
             // Verify Discord membership
             let isMember = req.user.isMember;
-            if (isMember === undefined) {
+            if (isMember !== true) {
                 try {
                     const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${req.user.id}`, {
                         headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` }
                     });
                     isMember = response.ok;
+                    req.user.isMember = isMember;
                 } catch (e) { isMember = false; }
             }
             if (!isMember) return res.status(403).json({ error: 'Debes ser miembro del servidor Discord.' });
@@ -5408,7 +5411,7 @@ export async function startVisualizerServer(discordClient) {
     async function isFantasyEnabled(req, res, next) {
         if (!req.user) return res.status(401).json({ error: 'Debes iniciar sesión con Discord.' });
         let isMember = req.user.isMember;
-        if (isMember === undefined) {
+        if (isMember !== true) {
             try {
                 const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${req.user.id}`, {
                     headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` }
@@ -5622,7 +5625,7 @@ export async function startVisualizerServer(discordClient) {
     app.get('/fantasy', async (req, res) => {
         if (!req.user) return res.redirect('/login?returnTo=/fantasy');
         let isMember = req.user.isMember;
-        if (isMember === undefined) {
+        if (isMember !== true) {
             try {
                 const response = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${req.user.id}`, {
                     headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` }
