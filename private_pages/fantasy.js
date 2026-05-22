@@ -748,6 +748,12 @@ async function handleCreateLeague(e) {
     const initialBudget = document.getElementById('new-league-budget').value;
     const pointsMode = document.getElementById('new-league-points-mode').value;
     
+    const maxVal = parseInt(maxParticipants);
+    if (isNaN(maxVal) || maxVal < 2 || maxVal > 18) {
+        showToast('El número máximo de participantes permitido es de 2 a 18.', 'error');
+        return;
+    }
+    
     // Get checked VPG leagues
     const checkboxesContainer = document.getElementById('new-league-vpg-checkboxes');
     let vpgLeagues = [];
@@ -1825,6 +1831,12 @@ async function handleUpdateLeagueSubmit(e) {
     const allowClauses = adminLeagueAllowClauses.value === 'true';
     const clauseMultiplier = parseFloat(adminLeagueClauseMultiplier.value);
     const initialBudget = parseInt(adminLeagueInitialBudget.value);
+    
+    const maxVal = parseInt(maxParticipants);
+    if (isNaN(maxVal) || maxVal < 2 || maxVal > 18) {
+        showToast('El número máximo de participantes permitido es de 2 a 18.', 'error');
+        return;
+    }
     
     try {
         const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}`, {

@@ -5760,11 +5760,24 @@ export async function startVisualizerServer(discordClient) {
     app.post('/api/fantasy/leagues/:id/approve-league', isAuthenticated, isFantasyAdmin, async (req, res) => {
         try {
             const db = getDb();
+            const leagueId = req.params.id;
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+
             await db.collection('fantasy_leagues').updateOne(
-                { _id: new ObjectId(req.params.id) },
+                { _id: new ObjectId(leagueId) },
                 { $set: { approved: true } }
             );
-            res.json({ success: true, message: 'Liga aprobada correctamente.' });
+
+            // Generate initial free agent pool upon approval
+            league.approved = true;
+            try {
+                await generateMarketFreeAgentsPool(db, league);
+            } catch (err) {
+                console.error('[API Fantasy Approve League] Error generating free agents pool:', err);
+            }
+
+            res.json({ success: true, message: 'Liga aprobada correctamente y mercado de agentes libres inicializado.' });
         } catch (e) {
             console.error('[API Fantasy Approve League] Error:', e);
             res.status(500).json({ error: 'Error al aprobar la liga.' });
@@ -5841,13 +5854,18 @@ export async function startVisualizerServer(discordClient) {
                 }
             }
 
+            const parsedMaxParticipants = parseInt(maxParticipants) || 18;
+            if (parsedMaxParticipants < 2 || parsedMaxParticipants > 18) {
+                return res.status(400).json({ error: 'El número de participantes debe estar entre 2 y 18.' });
+            }
+
             const league = {
                 name: name.trim(),
                 createdBy: req.user.id,
                 createdByUsername: req.user.global_name || req.user.username,
                 status: 'open',
                 marketOpen: true,
-                maxParticipants: parseInt(maxParticipants) || 20,
+                maxParticipants: parsedMaxParticipants,
                 maxSquadSize: 15,
                 initialBudget: parseInt(initialBudget) || 100000000,
                 pointsMode: modeSelected,
@@ -5861,8 +5879,16 @@ export async function startVisualizerServer(discordClient) {
             const result = await db.collection('fantasy_leagues').insertOne(league);
             league._id = result.insertedId;
             
+            if (league.approved) {
+                try {
+                    await generateMarketFreeAgentsPool(db, league);
+                } catch (err) {
+                    console.error('[API Fantasy Create League] Error generating free agents pool:', err);
+                }
+            }
+            
             const message = isPrivileged
-                ? `Liga "${league.name}" creada.`
+                ? `Liga "${league.name}" creada y mercado de agentes libres inicializado.`
                 : `Solicitud de liga "${league.name}" enviada. Un administrador debe aprobarla.`;
             res.json({ success: true, message, league, needsApproval: !isPrivileged });
         } catch (e) {
@@ -5883,7 +5909,13 @@ export async function startVisualizerServer(discordClient) {
                 if (status === 'active') updateFields.startedAt = new Date();
                 if (status === 'closed') updateFields.endedAt = new Date();
             }
-            if (maxParticipants) updateFields.maxParticipants = parseInt(maxParticipants);
+            if (maxParticipants) {
+                const parsedMax = parseInt(maxParticipants);
+                if (parsedMax < 2 || parsedMax > 18) {
+                    return res.status(400).json({ error: 'El número de participantes debe estar entre 2 y 18.' });
+                }
+                updateFields.maxParticipants = parsedMax;
+            }
             if (allowClauses !== undefined) updateFields.allowClauses = !!allowClauses;
             if (clauseMultiplier !== undefined) updateFields.clauseMultiplier = parseFloat(clauseMultiplier);
             if (initialBudget !== undefined) updateFields.initialBudget = parseInt(initialBudget);
