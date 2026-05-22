@@ -81,10 +81,6 @@ export function calculatePlayerPointsAndPrice(p) {
 
     if (p.manualPrice !== undefined && p.manualPrice !== null) {
         price = p.manualPrice;
-        if (isGk) {
-            price *= 2;
-        }
-        price *= 5.33333333;
     } else {
         price = 1000000;
         price += (stats.goals || 0) * 250000;
