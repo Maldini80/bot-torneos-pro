@@ -169,13 +169,83 @@ function matchPositionCategory(lastPosition, filterCategory) {
     return pos === cat;
 }
 
-function isPlayerEligibleForSlot(playerPosition, slotKey) {
-    if (!playerPosition || !slotKey) return false;
+function isCentralDefender(pos) {
+    return pos === 'DFC';
+}
+
+function isLateral(pos) {
+    return ['LD', 'LI', 'LTD', 'LTI', 'CARR', 'CAD', 'CAI', 'DFD', 'DFI'].includes(pos);
+}
+
+function isMidfielder(pos) {
+    return ['MC', 'MCD', 'MCO', 'MD', 'MI'].includes(pos);
+}
+
+function isForward(pos) {
+    return ['DC', 'ED', 'EI', 'MP'].includes(pos);
+}
+
+function isGoalkeeper(pos) {
+    return ['POR', 'GK'].includes(pos);
+}
+
+function isPlayerEligibleForSlot(playerPosition, slotKey, formation, slotIndex) {
+    if (!playerPosition || !slotKey || !formation) return false;
     const pos = playerPosition.toUpperCase();
     const slot = slotKey.toUpperCase();
-    if (matchPositionCategory(pos, slot)) return true;
-    const isCarrCategory = pos === 'CARR' || pos === 'CAD' || pos === 'CAI';
-    if (isCarrCategory && (slot === 'DFC' || slot === 'MC')) return true;
+    
+    if (slot === 'POR') {
+        return isGoalkeeper(pos);
+    }
+    
+    if (slot === 'DFC') {
+        if (!isCentralDefender(pos) && !isLateral(pos)) {
+            return false;
+        }
+        if (['3-5-2', '3-1-4-2', '3-4-3'].includes(formation)) {
+            return isCentralDefender(pos);
+        }
+        if (['4-4-2', '4-3-3', '4-5-1'].includes(formation)) {
+            if (slotIndex === 1 || slotIndex === 2) {
+                return isCentralDefender(pos);
+            }
+            return true;
+        }
+        if (formation === '5-3-2') {
+            if (slotIndex === 1 || slotIndex === 2 || slotIndex === 3) {
+                return isCentralDefender(pos);
+            }
+            return true;
+        }
+        return true;
+    }
+    
+    if (slot === 'MC') {
+        if (isMidfielder(pos)) {
+            return true;
+        }
+        if (isLateral(pos)) {
+            const layout = FORMATIONS[formation];
+            const slotConfig = layout?.[slotKey]?.[slotIndex];
+            const label = slotConfig?.label?.toUpperCase();
+            return label === 'MD' || label === 'MI';
+        }
+        return false;
+    }
+    
+    if (slot === 'DC') {
+        if (isForward(pos)) {
+            return true;
+        }
+        if (isLateral(pos)) {
+            const layout = FORMATIONS[formation];
+            const slotConfig = layout?.[slotKey]?.[slotIndex];
+            const label = slotConfig?.label?.toUpperCase();
+            return label === 'ED' || label === 'EI';
+        }
+        return false;
+    }
+    
     return false;
 }
  
@@ -749,8 +819,8 @@ async function handleCreateLeague(e) {
     const pointsMode = document.getElementById('new-league-points-mode').value;
     
     const maxVal = parseInt(maxParticipants);
-    if (isNaN(maxVal) || maxVal < 2 || maxVal > 18) {
-        showToast('El número máximo de participantes permitido es de 2 a 18.', 'error');
+    if (isNaN(maxVal) || maxVal < 2 || maxVal > 14) {
+        showToast('El número máximo de participantes permitido es de 2 a 14.', 'error');
         return;
     }
     
@@ -994,6 +1064,11 @@ function filterAndRenderMarket() {
             p.eaPlayerName.toLowerCase().includes(searchVal) || 
             p.lastClub.toLowerCase().includes(searchVal);
         const matchesPos = !posVal || matchPositionCategory(p.lastPosition, posVal);
+        
+        if (!searchVal && p.owner) {
+            return false;
+        }
+        
         return matchesSearch && matchesPos;
     });
 
@@ -1263,8 +1338,7 @@ function renderField() {
             node.style.left = `${pos.left}%`;
             node.style.top = `${pos.top}%`;
 
-            const alignedPlayer = (myTeam.lineup[groupKey] && myTeam.lineup[groupKey][idx]) || 
-                                 (groupKey === 'POR' ? myTeam.lineup.POR : null);
+            const alignedPlayer = groupKey === 'POR' ? myTeam.lineup.POR : (myTeam.lineup[groupKey] && myTeam.lineup[groupKey][idx]);
 
             if (alignedPlayer) {
                 const p = allPlayers.find(x => x.eaPlayerName === alignedPlayer);
@@ -1302,11 +1376,10 @@ function openPositionSelector(posKey, idx) {
     const matchingPlayers = (myTeam.players || []).filter(name => {
         const p = allPlayers.find(x => x.eaPlayerName === name);
         if (!p) return false;
-        return isPlayerEligibleForSlot(p.lastPosition, posKey);
+        return isPlayerEligibleForSlot(p.lastPosition, posKey, myTeam.formation, idx);
     });
 
-    const alignedPlayer = (myTeam.lineup[posKey] && myTeam.lineup[posKey][idx]) || 
-                         (posKey === 'POR' ? myTeam.lineup.POR : null);
+    const alignedPlayer = posKey === 'POR' ? myTeam.lineup.POR : (myTeam.lineup[posKey] && myTeam.lineup[posKey][idx]);
 
     if (alignedPlayer) {
         const removeRow = document.createElement('div');
@@ -1583,8 +1656,7 @@ async function showRivalTeam(discordId, teamName) {
                 node.style.left = `${pos.left}%`;
                 node.style.top = `${pos.top}%`;
 
-                const alignedPlayer = (rivalTeam.lineup[groupKey] && rivalTeam.lineup[groupKey][idx]) || 
-                                     (groupKey === 'POR' ? rivalTeam.lineup.POR : null);
+                const alignedPlayer = groupKey === 'POR' ? rivalTeam.lineup.POR : (rivalTeam.lineup[groupKey] && rivalTeam.lineup[groupKey][idx]);
 
                 if (alignedPlayer) {
                     const p = allPlayers.find(x => x.eaPlayerName === alignedPlayer);
@@ -1594,6 +1666,52 @@ async function showRivalTeam(discordId, teamName) {
                         </div>
                         <div class="player-name-plate">${alignedPlayer}</div>
                     `;
+
+                    if (p) {
+                        node.style.cursor = 'pointer';
+                        node.addEventListener('click', () => {
+                            if (!activeLeague || activeLeague.status === 'closed') {
+                                showToast('La liga no está activa.', 'error');
+                                return;
+                            }
+                            if (!activeLeague.marketOpen) {
+                                showToast('El mercado está cerrado.', 'error');
+                                return;
+                            }
+                            if (activeLeague.allowClauses === false) {
+                                showToast('Los clausulazos no están permitidos en esta liga.', 'error');
+                                return;
+                            }
+                            if (p.owner === currentUser.discordId) {
+                                showToast('Este jugador ya es de tu equipo.', 'info');
+                                return;
+                            }
+
+                            let isProtected = false;
+                            let timeStr = '';
+                            if (p.protectedUntil) {
+                                const protDate = new Date(p.protectedUntil);
+                                if (protDate > new Date()) {
+                                    isProtected = true;
+                                    const diffMs = protDate.getTime() - Date.now();
+                                    const days = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+                                    const hours = Math.floor((diffMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+                                    const mins = Math.max(1, Math.floor((diffMs % (60 * 60 * 1000)) / (60 * 1000)));
+                                    if (days > 0) timeStr += `${days}d `;
+                                    if (hours > 0 || days > 0) timeStr += `${hours}h `;
+                                    timeStr += `${mins}m`;
+                                }
+                            }
+
+                            if (isProtected) {
+                                showToast(`El jugador ${p.eaPlayerName} está protegido de clausulazos por ${timeStr}.`, 'warning');
+                                return;
+                            }
+
+                            const clauseVal = p.clause || Math.round(p.price * (activeLeague.clauseMultiplier || 1.5));
+                            executeClausulazo(p, clauseVal);
+                        });
+                    }
                 } else {
                     node.innerHTML = `
                         <div class="player-circle" style="opacity: 0.3; pointer-events: none; border-style: dotted;">
@@ -1833,8 +1951,8 @@ async function handleUpdateLeagueSubmit(e) {
     const initialBudget = parseInt(adminLeagueInitialBudget.value);
     
     const maxVal = parseInt(maxParticipants);
-    if (isNaN(maxVal) || maxVal < 2 || maxVal > 18) {
-        showToast('El número máximo de participantes permitido es de 2 a 18.', 'error');
+    if (isNaN(maxVal) || maxVal < 2 || maxVal > 14) {
+        showToast('El número máximo de participantes permitido es de 2 a 14.', 'error');
         return;
     }
     

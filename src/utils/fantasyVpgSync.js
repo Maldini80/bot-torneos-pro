@@ -649,8 +649,8 @@ export async function generateRandomSquadForTeam(db, leagueId, teamId) {
     const team = await db.collection('fantasy_teams').findOne({ _id: new ObjectId(teamId) });
     if (!team) throw new Error('Equipo no encontrado');
 
-    const formation = team.formation || '4-3-3';
-    const startersConf = FORMATION_STARTERS[formation] || FORMATION_STARTERS['4-3-3'];
+    const formation = team.formation || '3-1-4-2';
+    const startersConf = FORMATION_STARTERS[formation] || FORMATION_STARTERS['3-1-4-2'];
     
     // Total needed per position (11 starters + 4 subs, 1 sub of each main line)
     const requiredCounts = {
@@ -686,8 +686,16 @@ export async function generateRandomSquadForTeam(db, leagueId, teamId) {
         (t.players || []).forEach(pName => ownedPlayerNames.add(pName.toLowerCase()));
     });
 
+    const marketFreeAgents = new Set(
+        Array.isArray(leagueDoc.marketFreeAgents)
+            ? leagueDoc.marketFreeAgents.map(name => name.toLowerCase())
+            : []
+    );
+
     const pool = allEligiblePlayers.filter(p => {
-        if (ownedPlayerNames.has(p.eaPlayerName.toLowerCase())) return false;
+        const nameLower = p.eaPlayerName.toLowerCase();
+        if (ownedPlayerNames.has(nameLower)) return false;
+        if (marketFreeAgents.has(nameLower)) return false;
         // Individual player price must not exceed 40M
         if (p.price > 40000000) return false;
         return true;

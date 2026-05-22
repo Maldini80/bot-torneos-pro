@@ -5854,9 +5854,9 @@ export async function startVisualizerServer(discordClient) {
                 }
             }
 
-            const parsedMaxParticipants = parseInt(maxParticipants) || 18;
-            if (parsedMaxParticipants < 2 || parsedMaxParticipants > 18) {
-                return res.status(400).json({ error: 'El número de participantes debe estar entre 2 y 18.' });
+            const parsedMaxParticipants = parseInt(maxParticipants) || 14;
+            if (parsedMaxParticipants < 2 || parsedMaxParticipants > 14) {
+                return res.status(400).json({ error: 'El número de participantes debe estar entre 2 y 14.' });
             }
 
             const league = {
@@ -5911,8 +5911,8 @@ export async function startVisualizerServer(discordClient) {
             }
             if (maxParticipants) {
                 const parsedMax = parseInt(maxParticipants);
-                if (parsedMax < 2 || parsedMax > 18) {
-                    return res.status(400).json({ error: 'El número de participantes debe estar entre 2 y 18.' });
+                if (parsedMax < 2 || parsedMax > 14) {
+                    return res.status(400).json({ error: 'El número de participantes debe estar entre 2 y 14.' });
                 }
                 updateFields.maxParticipants = parsedMax;
             }
@@ -6295,7 +6295,7 @@ export async function startVisualizerServer(discordClient) {
                 players: [],
                 clauses: {},
                 lineup: { POR: null, DFC: [], MC: [], DC: [] },
-                formation: '4-3-3',
+                formation: '3-1-4-2',
                 points: 0,
                 approved: isAutoApproved, // Auto-approved if admin or referee
                 joinedAt: new Date()
@@ -6659,6 +6659,131 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
+    const FANTASY_FORMATIONS = {
+        '4-4-2': {
+            POR: [{ label: 'POR' }],
+            DFC: [{ label: 'DFC L' }, { label: 'DFC CL' }, { label: 'DFC CR' }, { label: 'DFC R' }],
+            MC: [{ label: 'MC L' }, { label: 'MC CL' }, { label: 'MC CR' }, { label: 'MC R' }],
+            DC: [{ label: 'DC L' }, { label: 'DC R' }]
+        },
+        '4-3-3': {
+            POR: [{ label: 'POR' }],
+            DFC: [{ label: 'DFC L' }, { label: 'DFC CL' }, { label: 'DFC CR' }, { label: 'DFC R' }],
+            MC: [{ label: 'MC L' }, { label: 'MC C' }, { label: 'MC R' }],
+            DC: [{ label: 'EI' }, { label: 'DC' }, { label: 'ED' }]
+        },
+        '3-5-2': {
+            POR: [{ label: 'POR' }],
+            DFC: [{ label: 'DFC L' }, { label: 'DFC C' }, { label: 'DFC R' }],
+            MC: [{ label: 'MI' }, { label: 'MCD L' }, { label: 'MCO' }, { label: 'MCD R' }, { label: 'MD' }],
+            DC: [{ label: 'DC L' }, { label: 'DC R' }]
+        },
+        '4-5-1': {
+            POR: [{ label: 'POR' }],
+            DFC: [{ label: 'DFC L' }, { label: 'DFC CL' }, { label: 'DFC CR' }, { label: 'DFC R' }],
+            MC: [{ label: 'MI' }, { label: 'MC L' }, { label: 'MCO' }, { label: 'MC R' }, { label: 'MD' }],
+            DC: [{ label: 'DC' }]
+        },
+        '5-3-2': {
+            POR: [{ label: 'POR' }],
+            DFC: [{ label: 'LI' }, { label: 'DFC L' }, { label: 'DFC C' }, { label: 'DFC R' }, { label: 'LD' }],
+            MC: [{ label: 'MC L' }, { label: 'MC C' }, { label: 'MC R' }],
+            DC: [{ label: 'DC L' }, { label: 'DC R' }]
+        },
+        '3-1-4-2': {
+            POR: [{ label: 'POR' }],
+            DFC: [{ label: 'DFC L' }, { label: 'DFC C' }, { label: 'DFC R' }],
+            MC: [{ label: 'MCD' }, { label: 'MI' }, { label: 'MC L' }, { label: 'MC R' }, { label: 'MD' }],
+            DC: [{ label: 'DC L' }, { label: 'DC R' }]
+        },
+        '3-4-3': {
+            POR: [{ label: 'POR' }],
+            DFC: [{ label: 'DFC L' }, { label: 'DFC C' }, { label: 'DFC R' }],
+            MC: [{ label: 'MI' }, { label: 'MC L' }, { label: 'MC R' }, { label: 'MD' }],
+            DC: [{ label: 'EI' }, { label: 'DC' }, { label: 'ED' }]
+        }
+    };
+
+    function isCentralDefender(pos) {
+        return pos === 'DFC';
+    }
+
+    function isLateral(pos) {
+        return ['LD', 'LI', 'LTD', 'LTI', 'CARR', 'CAD', 'CAI', 'DFD', 'DFI'].includes(pos);
+    }
+
+    function isMidfielder(pos) {
+        return ['MC', 'MCD', 'MCO', 'MD', 'MI'].includes(pos);
+    }
+
+    function isForward(pos) {
+        return ['DC', 'ED', 'EI', 'MP'].includes(pos);
+    }
+
+    function isGoalkeeper(pos) {
+        return ['POR', 'GK'].includes(pos);
+    }
+
+    function isPlayerEligibleForSlot(playerPosition, slotKey, formation, slotIndex) {
+        if (!playerPosition || !slotKey || !formation) return false;
+        const pos = playerPosition.toUpperCase();
+        const slot = slotKey.toUpperCase();
+        
+        if (slot === 'POR') {
+            return isGoalkeeper(pos);
+        }
+        
+        if (slot === 'DFC') {
+            if (!isCentralDefender(pos) && !isLateral(pos)) {
+                return false;
+            }
+            if (['3-5-2', '3-1-4-2', '3-4-3'].includes(formation)) {
+                return isCentralDefender(pos);
+            }
+            if (['4-4-2', '4-3-3', '4-5-1'].includes(formation)) {
+                if (slotIndex === 1 || slotIndex === 2) {
+                    return isCentralDefender(pos);
+                }
+                return true;
+            }
+            if (formation === '5-3-2') {
+                if (slotIndex === 1 || slotIndex === 2 || slotIndex === 3) {
+                    return isCentralDefender(pos);
+                }
+                return true;
+            }
+            return true;
+        }
+        
+        if (slot === 'MC') {
+            if (isMidfielder(pos)) {
+                return true;
+            }
+            if (isLateral(pos)) {
+                const layout = FANTASY_FORMATIONS[formation];
+                const slotConfig = layout?.[slotKey]?.[slotIndex];
+                const label = slotConfig?.label?.toUpperCase();
+                return label === 'MD' || label === 'MI';
+            }
+            return false;
+        }
+        
+        if (slot === 'DC') {
+            if (isForward(pos)) {
+                return true;
+            }
+            if (isLateral(pos)) {
+                const layout = FANTASY_FORMATIONS[formation];
+                const slotConfig = layout?.[slotKey]?.[slotIndex];
+                const label = slotConfig?.label?.toUpperCase();
+                return label === 'ED' || label === 'EI';
+            }
+            return false;
+        }
+        
+        return false;
+    }
+
     // Save lineup (within a league)
     app.post('/api/fantasy/leagues/:id/lineup', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
@@ -6705,6 +6830,66 @@ export async function startVisualizerServer(discordClient) {
                 for (const player of lineup.DC) {
                     if (player && !owned.includes(player)) {
                         return res.status(400).json({ error: `No posees al jugador ${player}` });
+                    }
+                }
+            }
+
+            // Validate positions eligibility
+            const uniquePlayerNames = [];
+            if (lineup.POR) uniquePlayerNames.push(lineup.POR);
+            if (Array.isArray(lineup.DFC)) lineup.DFC.forEach(p => p && uniquePlayerNames.push(p));
+            if (Array.isArray(lineup.MC)) lineup.MC.forEach(p => p && uniquePlayerNames.push(p));
+            if (Array.isArray(lineup.DC)) lineup.DC.forEach(p => p && uniquePlayerNames.push(p));
+
+            const playerDocs = await db.collection('player_profiles').find({
+                eaPlayerName: { $in: uniquePlayerNames }
+            }).toArray();
+
+            const playerPositionMap = {};
+            for (const doc of playerDocs) {
+                playerPositionMap[doc.eaPlayerName] = doc.lastPosition || 'MC';
+            }
+
+            // Verify POR
+            if (lineup.POR) {
+                const pos = playerPositionMap[lineup.POR];
+                if (!isPlayerEligibleForSlot(pos, 'POR', formation, 0)) {
+                    return res.status(400).json({ error: `El jugador ${lineup.POR} (${pos}) no es apto para la posición POR.` });
+                }
+            }
+            // Verify DFC
+            if (Array.isArray(lineup.DFC)) {
+                for (let idx = 0; idx < lineup.DFC.length; idx++) {
+                    const player = lineup.DFC[idx];
+                    if (player) {
+                        const pos = playerPositionMap[player];
+                        if (!isPlayerEligibleForSlot(pos, 'DFC', formation, idx)) {
+                            return res.status(400).json({ error: `El jugador ${player} (${pos}) no es apto para la posición DFC en el índice ${idx} con la formación ${formation}.` });
+                        }
+                    }
+                }
+            }
+            // Verify MC
+            if (Array.isArray(lineup.MC)) {
+                for (let idx = 0; idx < lineup.MC.length; idx++) {
+                    const player = lineup.MC[idx];
+                    if (player) {
+                        const pos = playerPositionMap[player];
+                        if (!isPlayerEligibleForSlot(pos, 'MC', formation, idx)) {
+                            return res.status(400).json({ error: `El jugador ${player} (${pos}) no es apto para la posición MC en el índice ${idx} con la formación ${formation}.` });
+                        }
+                    }
+                }
+            }
+            // Verify DC
+            if (Array.isArray(lineup.DC)) {
+                for (let idx = 0; idx < lineup.DC.length; idx++) {
+                    const player = lineup.DC[idx];
+                    if (player) {
+                        const pos = playerPositionMap[player];
+                        if (!isPlayerEligibleForSlot(pos, 'DC', formation, idx)) {
+                            return res.status(400).json({ error: `El jugador ${player} (${pos}) no es apto para la posición DC en el índice ${idx} con la formación ${formation}.` });
+                        }
                     }
                 }
             }
