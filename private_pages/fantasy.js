@@ -2339,10 +2339,10 @@ async function showRivalTeam(discordId, teamName) {
 
                         node.innerHTML = `
                             <div class="player-card-ut occupied ${getCardTierClass(rating)}" style="pointer-events: none;">
-                                <div class="player-card-ut-inner" style="background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);">
+                                <div class="player-card-ut-inner">
                                     <div class="player-card-ut-rating-pos">
-                                        <span class="player-card-ut-rating" style="color: #cbd5e1; text-shadow: none;">${rating}</span>
-                                        <span class="player-card-ut-position" style="color: #94a3b8;">${pos.label.split(' ')[0]}</span>
+                                        <span class="player-card-ut-rating">${rating}</span>
+                                        <span class="player-card-ut-position">${pos.label.split(' ')[0]}</span>
                                     </div>
                                     <div class="player-card-ut-club-logo">
                                         ${logoHtml}
