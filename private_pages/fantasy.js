@@ -375,6 +375,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     setupEventHandlers();
     await checkUserSession();
     
+    if (!currentUser) return;
+    
     if (currentLeagueId) {
         await enterLeague(currentLeagueId);
     } else {
@@ -388,6 +390,7 @@ async function checkUserSession() {
         const res = await fetch('/api/fantasy/me');
         if (!res.ok) {
             selectorUserName.innerHTML = `<span class="text-red">Sesión expirada</span>`;
+            window.location.href = '/login?returnTo=/fantasy';
             return;
         }
         currentUser = await res.json();
@@ -734,6 +737,27 @@ function setupEventHandlers() {
             if (customInput) customInput.value = '';
         });
     }
+
+    // Rival team modal view toggle tabs
+    const tabList = document.getElementById('btn-rival-tab-list');
+    const tabField = document.getElementById('btn-rival-tab-field');
+    const listContainer = document.getElementById('rival-squad-list-container');
+    const fieldContainer = document.getElementById('rival-soccer-field-container');
+    
+    if (tabList && tabField && listContainer && fieldContainer) {
+        tabList.addEventListener('click', () => {
+            tabList.classList.add('active');
+            tabField.classList.remove('active');
+            listContainer.style.display = 'block';
+            fieldContainer.style.display = 'none';
+        });
+        tabField.addEventListener('click', () => {
+            tabField.classList.add('active');
+            tabList.classList.remove('active');
+            listContainer.style.display = 'none';
+            fieldContainer.style.display = 'block';
+        });
+    }
 }
 
 // VIEW 1: Show Selector and Fetch All Leagues
@@ -752,7 +776,13 @@ async function showLeagueSelector() {
     
     try {
         const res = await fetch('/api/fantasy/leagues');
-        if (!res.ok) throw new Error('No se pudieron obtener las ligas.');
+        if (!res.ok) {
+            if (res.status === 401) {
+                window.location.href = '/login?returnTo=/fantasy';
+                return;
+            }
+            throw new Error('No se pudieron obtener las ligas.');
+        }
         const data = await res.json();
         activeFantasyLeagues = data.leagues || [];
         
@@ -774,7 +804,7 @@ function renderLeaguesList(filterText = '') {
     
     const query = filterText.toLowerCase().trim();
     const filteredLeagues = activeFantasyLeagues.filter(league => 
-        league.name.toLowerCase().includes(query)
+        (league.name || '').toLowerCase().includes(query)
     );
     
     if (filteredLeagues.length === 0) {
@@ -969,9 +999,20 @@ async function enterLeague(leagueId, keepCurrentTab = false, password = null, op
         });
 
         if (accessRes.status === 401 || accessRes.status === 403) {
+            const errData = await accessRes.json().catch(() => ({}));
+            if (errData.error === 'Debes iniciar sesión con Discord.') {
+                selectorUserName.innerHTML = `<span class="text-red">Sesión expirada</span>`;
+                window.location.href = '/login?returnTo=/fantasy';
+                return;
+            }
             sessionStorage.removeItem('league_password_' + leagueId);
             const promptPassword = prompt('Esta es una liga privada. Introduce la contraseña para acceder:');
-            if (promptPassword === null) return;
+            if (promptPassword === null) {
+                sessionStorage.removeItem('selected_league_id');
+                currentLeagueId = null;
+                showLeagueSelector();
+                return;
+            }
             return enterLeague(leagueId, keepCurrentTab, promptPassword, openJoinDirectly);
         }
 
@@ -1139,6 +1180,7 @@ async function enterLeague(leagueId, keepCurrentTab = false, password = null, op
                 const bidsRes = await fetch(`/api/fantasy/leagues/${leagueId}/market/bids`);
                 if (bidsRes.ok) {
                     const bidsData = await bidsRes.json();
+                    mySentBids = bidsData.sent || [];
                     const receivedPending = bidsData.received || [];
                     if (receivedPending.length > 0) {
                         bidsCountBadge.textContent = receivedPending.length;
@@ -1180,6 +1222,10 @@ async function enterLeague(leagueId, keepCurrentTab = false, password = null, op
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
+        sessionStorage.removeItem('selected_league_id');
+        sessionStorage.removeItem('league_password_' + leagueId);
+        currentLeagueId = null;
+        showLeagueSelector();
     }
 }
 
@@ -1910,11 +1956,29 @@ async function loadLeaderboard() {
 }
 
 // Show rival Once inicial modal (Read-only)
+// Show rival Once inicial modal (Read-only)
 async function showRivalTeam(discordId, teamName) {
     rivalTeamNameTitle.textContent = teamName;
     rivalPointsVal.textContent = '0 pts';
     rivalFormationVal.textContent = '4-3-3';
     
+    // Reset view tabs to default list view
+    const tabList = document.getElementById('btn-rival-tab-list');
+    const tabField = document.getElementById('btn-rival-tab-field');
+    const listContainer = document.getElementById('rival-squad-list-container');
+    const fieldContainer = document.getElementById('rival-soccer-field-container');
+    if (tabList && tabField && listContainer && fieldContainer) {
+        tabList.classList.add('active');
+        tabField.classList.remove('active');
+        listContainer.style.display = 'block';
+        fieldContainer.style.display = 'none';
+    }
+
+    const listBody = document.getElementById('rival-squad-list');
+    if (listBody) {
+        listBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Cargando jugadores...</td></tr>';
+    }
+
     // Draw empty markings
     const markingsHtml = `
         <div class="field-penalty-area-top"></div>
@@ -1933,45 +1997,170 @@ async function showRivalTeam(discordId, teamName) {
         rivalPointsVal.textContent = `${rivalTeam.points} pts`;
         rivalFormationVal.textContent = rivalTeam.formation || '4-3-3';
         
+        // Render tabular list
+        if (listBody) {
+            listBody.innerHTML = '';
+            if (!rivalTeam.players || rivalTeam.players.length === 0) {
+                listBody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">El rival no tiene jugadores asignados.</td></tr>';
+            } else {
+                rivalTeam.players.forEach(name => {
+                    let p = allPlayers.find(x => x.eaPlayerName.toLowerCase() === name.toLowerCase());
+                    if (!p) {
+                        p = {
+                            eaPlayerName: name,
+                            lastPosition: 'MC',
+                            lastClub: 'Desconocido',
+                            price: 80000,
+                            points: 0
+                        };
+                    }
+                    
+                    const clauseVal = (rivalTeam.clauses && rivalTeam.clauses[p.eaPlayerName]) || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
+                    let isProtected = false;
+                    let timeStr = '';
+                    if (rivalTeam.clausesProtectedUntil && rivalTeam.clausesProtectedUntil[p.eaPlayerName]) {
+                        const protDate = new Date(rivalTeam.clausesProtectedUntil[p.eaPlayerName]);
+                        if (protDate > new Date()) {
+                            isProtected = true;
+                            const diffMs = protDate.getTime() - Date.now();
+                            const days = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+                            const hours = Math.floor((diffMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+                            const mins = Math.max(1, Math.floor((diffMs % (60 * 60 * 1000)) / (60 * 1000)));
+                            if (days > 0) timeStr += `${days}d `;
+                            if (hours > 0 || days > 0) timeStr += `${hours}h `;
+                            timeStr += `${mins}m`;
+                        }
+                    }
+
+                    let priceCol = '';
+                    if (isProtected) {
+                        priceCol = `
+                            <div style="font-size: 0.8rem; color: #64748b; text-decoration: line-through;">${formatCurrency(p.price)}</div>
+                            <div class="text-yellow" style="font-weight: 700; display: flex; align-items: center; justify-content: flex-end; gap: 4px;">
+                                <i class="fa-solid fa-lock" style="color: #ef4444; font-size: 0.85rem;" title="Protección de clausulazo restante: ${timeStr}"></i>
+                                <span>${formatCurrency(clauseVal)}</span>
+                            </div>
+                            <div style="font-size: 0.7rem; color: #ef4444; margin-top: 2px;">Lock: ${timeStr}</div>
+                        `;
+                    } else {
+                        priceCol = `
+                            <div style="font-size: 0.8rem; color: #64748b; text-decoration: line-through;">${formatCurrency(p.price)}</div>
+                            <div class="text-yellow" style="font-weight: 700;">${formatCurrency(clauseVal)}</div>
+                        `;
+                    }
+
+                    const isMyTeam = (discordId === currentUser.discordId);
+                    const canTransact = !myTeam.isSpectator && myTeam.approved && !isMyTeam;
+                    let actionCol = '';
+                    if (!canTransact) {
+                        if (isMyTeam) {
+                            actionCol = `<span class="badge badge-secondary text-xs" style="padding: 4px 8px; border-radius: 4px;"><i class="fa-solid fa-user"></i> Tu equipo</span>`;
+                        } else if (myTeam.isSpectator) {
+                            actionCol = `<span class="text-muted" style="font-size: 0.75rem;"><i class="fa-solid fa-eye"></i> Espectador</span>`;
+                        } else {
+                            actionCol = `<span class="text-muted" style="font-size: 0.75rem;"><i class="fa-solid fa-clock"></i> Pendiente</span>`;
+                        }
+                    } else {
+                        let bidButton = `<button class="btn btn-success btn-xs btn-rival-bid" data-name="${p.eaPlayerName}" style="padding: 3px 8px; font-size: 0.7rem; font-weight: 600;"><i class="fa-solid fa-gavel"></i> Pujar</button>`;
+                        let clauseButton = '';
+                        if (activeLeague && activeLeague.allowClauses !== false) {
+                            if (isProtected) {
+                                clauseButton = `<button class="btn btn-warning btn-xs btn-rival-clausulazo" disabled style="opacity: 0.6; cursor: not-allowed; padding: 3px 8px; font-size: 0.7rem; font-weight: 600;" title="Protegido durante ${timeStr}"><i class="fa-solid fa-lock"></i> Lock</button>`;
+                            } else {
+                                clauseButton = `<button class="btn btn-warning btn-xs btn-rival-clausulazo" data-name="${p.eaPlayerName}" data-clause="${clauseVal}" style="padding: 3px 8px; font-size: 0.7rem; font-weight: 600;"><i class="fa-solid fa-bolt"></i> Robo</button>`;
+                            }
+                        }
+                        actionCol = `<div style="display: flex; gap: 5px; justify-content: center; align-items: center;">${bidButton}${clauseButton}</div>`;
+                    }
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td>
+                            <div style="font-weight: 700; color: #f8fafc;">${p.eaPlayerName}</div>
+                            <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                                ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${formatPlayerPoints(p)} pts</span>
+                            </div>
+                        </td>
+                        <td class="text-muted col-hide-md">${p.lastClub}</td>
+                        <td><span class="position-badge pos-${p.lastPosition.toLowerCase()}">${p.lastPosition}</span></td>
+                        <td class="text-center text-yellow col-hide-sm" style="font-weight: 700;">${formatPlayerPoints(p)}</td>
+                        <td class="text-right price-text">${priceCol}</td>
+                        <td class="text-center">
+                            ${actionCol}
+                        </td>
+                    `;
+
+                    const bidBtn = row.querySelector('.btn-rival-bid');
+                    if (bidBtn) {
+                        const cachedP = p;
+                        bidBtn.addEventListener('click', () => {
+                            bidPlayerName.textContent = cachedP.eaPlayerName;
+                            bidSellerTeamVal.textContent = teamName;
+                            bidAskingPriceVal.textContent = formatCurrency(cachedP.price);
+                            bidBalanceVal.textContent = formatCurrency(myTeam.balance);
+                            bidAmountInput.value = cachedP.price;
+                            bidForm.setAttribute('data-player-name', cachedP.eaPlayerName);
+                            bidForm.setAttribute('data-seller-id', discordId);
+                            bidModal.classList.add('open');
+                        });
+                    }
+
+                    const clauseBtn = row.querySelector('.btn-rival-clausulazo');
+                    if (clauseBtn && !clauseBtn.disabled) {
+                        const cachedP = p;
+                        clauseBtn.addEventListener('click', () => {
+                            const pToBuy = {
+                                eaPlayerName: cachedP.eaPlayerName,
+                                owner: teamName
+                            };
+                            executeClausulazo(pToBuy, clauseVal);
+                        });
+                    }
+
+                    listBody.appendChild(row);
+                });
+            }
+        }
+        
+        // Render tactical field
         const formation = rivalTeam.formation || '4-3-3';
         const layout = FORMATIONS[formation];
-        if (!layout) return;
-        
-        for (const groupKey in layout) {
-            const positions = layout[groupKey];
-            positions.forEach((pos, idx) => {
-                const node = document.createElement('div');
-                node.className = 'field-player-node rival-player-node';
-                node.style.left = `${pos.left}%`;
-                node.style.top = `${pos.top}%`;
+        if (layout) {
+            for (const groupKey in layout) {
+                const positions = layout[groupKey];
+                positions.forEach((pos, idx) => {
+                    const node = document.createElement('div');
+                    node.className = 'field-player-node rival-player-node';
+                    node.style.left = `${pos.left}%`;
+                    node.style.top = `${pos.top}%`;
 
-                const alignedPlayer = groupKey === 'POR' ? rivalTeam.lineup.POR : (rivalTeam.lineup[groupKey] && rivalTeam.lineup[groupKey][idx]);
+                    const alignedPlayer = groupKey === 'POR' ? rivalTeam.lineup.POR : (rivalTeam.lineup[groupKey] && rivalTeam.lineup[groupKey][idx]);
 
-                if (alignedPlayer) {
-                    const p = allPlayers.find(x => x.eaPlayerName === alignedPlayer);
-                    node.innerHTML = `
-                        <div class="player-circle occupied" style="background: linear-gradient(135deg, #1e293b, #0f172a); border-color: rgba(255,255,255,0.2);">
-                            <span class="player-jersey-number" style="color: #cbd5e1;">${p ? p.points : '0'}</span>
-                        </div>
-                        <div class="player-name-plate">${alignedPlayer}</div>
-                    `;
-
-                    // Player circle is static and non-clickable now
-                } else {
-                    node.innerHTML = `
-                        <div class="player-circle" style="opacity: 0.3; pointer-events: none; border-style: dotted;">
-                            <span class="player-role-badge">${pos.label}</span>
-                        </div>
-                        <div class="player-name-plate" style="opacity: 0.4;">Vacio</div>
-                    `;
-                }
-                
-                rivalSoccerField.appendChild(node);
-            });
+                    if (alignedPlayer) {
+                        const p = allPlayers.find(x => x.eaPlayerName === alignedPlayer);
+                        node.innerHTML = `
+                            <div class="player-circle occupied" style="background: linear-gradient(135deg, #1e293b, #0f172a); border-color: rgba(255,255,255,0.2);">
+                                <span class="player-jersey-number" style="color: #cbd5e1;">${p ? p.points : '0'}</span>
+                            </div>
+                            <div class="player-name-plate">${alignedPlayer}</div>
+                        `;
+                    } else {
+                        node.innerHTML = `
+                            <div class="player-circle" style="opacity: 0.3; pointer-events: none; border-style: dotted;">
+                                <span class="player-role-badge">${pos.label}</span>
+                            </div>
+                            <div class="player-name-plate" style="opacity: 0.4;">Vacio</div>
+                        `;
+                    }
+                    
+                    rivalSoccerField.appendChild(node);
+                });
+            }
         }
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
+        rivalTeamModal.classList.remove('open');
     }
 }
 
@@ -3390,6 +3579,8 @@ async function loadCreationVpgLeagues() {
     } catch (e) {
         console.error('Error al cargar ligas VPG para creación:', e);
         container.innerHTML = '<span class="text-red" style="font-size: 0.8rem; padding: 8px; display: block;">Error al cargar ligas VPG.</span>';
+        const countLabel = document.getElementById('selected-vpg-count');
+        if (countLabel) countLabel.innerText = 'Error al cargar';
     }
 }
 

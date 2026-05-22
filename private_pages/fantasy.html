@@ -721,8 +721,36 @@
                         <strong class="value text-blue" id="rival-formation-val">4-3-3</strong>
                     </div>
                 </div>
-                <!-- Mini soccer field just for display -->
-                <div class="soccer-field-container mini-field">
+
+                <!-- Tabs to switch between List and Field views -->
+                <div class="rival-tabs-header" style="display: flex; border-bottom: 1px solid rgba(255,255,255,0.05); margin: 15px 0 10px 0; gap: 10px;">
+                    <button class="tab-btn active" id="btn-rival-tab-list" style="padding: 10px 15px; font-size: 0.85rem; border: none; background: none;"><i class="fa-solid fa-list"></i> Plantilla (Lista)</button>
+                    <button class="tab-btn" id="btn-rival-tab-field" style="padding: 10px 15px; font-size: 0.85rem; border: none; background: none;"><i class="fa-solid fa-futbol"></i> Once Inicial</button>
+                </div>
+
+                <!-- Squad List View (Default) -->
+                <div class="rival-squad-list-container" id="rival-squad-list-container">
+                    <div class="table-scroll-container" style="max-height: 380px;">
+                        <table class="fantasy-table" id="rival-squad-table">
+                            <thead>
+                                <tr>
+                                    <th>Jugador</th>
+                                    <th class="col-hide-md">Club</th>
+                                    <th>Pos</th>
+                                    <th class="text-center col-hide-sm">Pts</th>
+                                    <th class="text-right">Valor / Cláusula</th>
+                                    <th class="text-center" style="width: 170px;">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rival-squad-list">
+                                <!-- Loaded dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Mini soccer field just for display (Hidden by default) -->
+                <div class="soccer-field-container mini-field" id="rival-soccer-field-container" style="display: none;">
                     <div class="soccer-field" id="rival-soccer-field">
                         <div class="field-penalty-area-top"></div>
                         <div class="field-center-circle"></div>
