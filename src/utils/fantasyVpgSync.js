@@ -433,6 +433,7 @@ export async function syncFantasyWithVpg() {
                                 lastPosition: fantasyPos,
                                 vpgLeagueSlug: leagueSlug,
                                 avatar: player.user_avatar || null,
+                                nationality: player.user_nationality || null,
                                 stats: playerStats
                             };
 

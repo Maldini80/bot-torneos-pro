@@ -1720,41 +1720,46 @@ function openPositionSelector(posKey, idx) {
                 <div class="modal-card-column">
                     <div class="fut-card">
                         <div class="fut-card-inner">
-                            <div class="fut-card-badge-col">
-                                <div class="fut-card-rating">${p.points || 0}</div>
-                                <div class="fut-card-pos">${posKey}</div>
-                            </div>
-                            <div class="fut-card-club-badge">
-                                ${clubLogoHtml}
-                            </div>
-                            <div class="fut-card-player-avatar">
-                                ${avatarHtml}
+                            <div class="fut-card-top-section">
+                                <div class="fut-card-left-col">
+                                    <div class="fut-card-rating">${p.points || 0}</div>
+                                    <div class="fut-card-pos">${posKey}</div>
+                                    <div class="fut-card-flag">
+                                        <img src="${getFlagUrl(p.nationality)}" alt="${p.nationality || 'es'}" class="fut-card-flag-img">
+                                    </div>
+                                    <div class="fut-card-club-badge">
+                                        ${clubLogoHtml}
+                                    </div>
+                                </div>
+                                <div class="fut-card-player-avatar-container">
+                                    ${avatarHtml}
+                                </div>
                             </div>
                             <div class="fut-card-player-name">${p.eaPlayerName.split(' ').pop()}</div>
                             <div class="fut-card-stats-grid">
                                 <div class="fut-card-stat-item">
-                                    <span class="fut-card-stat-label">PJ</span>
                                     <span class="fut-card-stat-value">${p.matchesPlayed || 0}</span>
+                                    <span class="fut-card-stat-label">PJ</span>
                                 </div>
                                 <div class="fut-card-stat-item">
-                                    <span class="fut-card-stat-label">RAT</span>
                                     <span class="fut-card-stat-value">${parseFloat(p.avgRating || 0).toFixed(2)}</span>
+                                    <span class="fut-card-stat-label">RAT</span>
                                 </div>
                                 <div class="fut-card-stat-item">
-                                    <span class="fut-card-stat-label">G</span>
                                     <span class="fut-card-stat-value">${p.goals || 0}</span>
+                                    <span class="fut-card-stat-label">G</span>
                                 </div>
                                 <div class="fut-card-stat-item">
-                                    <span class="fut-card-stat-label">A</span>
                                     <span class="fut-card-stat-value">${p.assists || 0}</span>
+                                    <span class="fut-card-stat-label">A</span>
                                 </div>
-                                <div class="fut-card-stat-item" style="grid-column: span 2;">
+                                <div class="fut-card-stat-item">
+                                    <span class="fut-card-stat-value value-highlight">${formatCompactVal(p.price)}</span>
                                     <span class="fut-card-stat-label">VAL</span>
-                                    <span class="fut-card-stat-value value-highlight">${formatCurrency(p.price)}</span>
                                 </div>
-                                <div class="fut-card-stat-item" style="grid-column: span 2;">
+                                <div class="fut-card-stat-item">
+                                    <span class="fut-card-stat-value clause-highlight">${formatCompactVal(clauseVal)}</span>
                                     <span class="fut-card-stat-label">CLA</span>
-                                    <span class="fut-card-stat-value clause-highlight">${formatCurrency(clauseVal)}</span>
                                 </div>
                             </div>
                         </div>
@@ -3122,9 +3127,149 @@ function isBuyoutLocked() {
 }
 
 // Utility Helpers
+function getFlagUrl(nationality) {
+    if (!nationality) return 'https://flagcdn.com/w40/es.png';
+    const clean = nationality.trim().toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, ""); // remove accents
+    
+    // Map of common names to 2-letter codes (or specific codes)
+    const map = {
+        'espana': 'es',
+        'spain': 'es',
+        'espanol': 'es',
+        'spanish': 'es',
+        'portugal': 'pt',
+        'portuguese': 'pt',
+        'francia': 'fr',
+        'france': 'fr',
+        'french': 'fr',
+        'italia': 'it',
+        'italy': 'it',
+        'italian': 'it',
+        'alemania': 'de',
+        'germany': 'de',
+        'german': 'de',
+        'inglaterra': 'gb-eng',
+        'england': 'gb-eng',
+        'united kingdom': 'gb',
+        'uk': 'gb',
+        'reino unido': 'gb',
+        'argentina': 'ar',
+        'argentine': 'ar',
+        'brasil': 'br',
+        'brazil': 'br',
+        'brazilian': 'br',
+        'colombia': 'co',
+        'colombian': 'co',
+        'mexico': 'mx',
+        'mexican': 'mx',
+        'uruguay': 'uy',
+        'uruguayan': 'uy',
+        'marruecos': 'ma',
+        'morocco': 'ma',
+        'moroccan': 'ma',
+        'rumania': 'ro',
+        'romania': 'ro',
+        'romanian': 'ro',
+        'ucrania': 'ua',
+        'ukraine': 'ua',
+        'ukrainian': 'ua',
+        'venezuela': 've',
+        'venezuelan': 've',
+        'belgica': 'be',
+        'belgium': 'be',
+        'belgian': 'be',
+        'paises bajos': 'nl',
+        'netherlands': 'nl',
+        'holanda': 'nl',
+        'dutch': 'nl',
+        'senegal': 'sn',
+        'senegalese': 'sn',
+        'camerun': 'cm',
+        'cameroon': 'cm',
+        'nigeria': 'ng',
+        'nigerian': 'ng',
+        'ghana': 'gh',
+        'ghanaian': 'gh',
+        'croacia': 'hr',
+        'croatia': 'hr',
+        'belarus': 'by',
+        'bielorrusia': 'by',
+        'bulgaria': 'bg',
+        'chile': 'cl',
+        'ecuador': 'ec',
+        'peru': 'pe',
+        'paraguay': 'py',
+        'bolivia': 'bo',
+        'albania': 'al',
+        'andorra': 'ad',
+        'austria': 'at',
+        'argelia': 'dz',
+        'algeria': 'dz',
+        'egipto': 'eg',
+        'egypt': 'eg',
+        'suecia': 'se',
+        'sweden': 'se',
+        'suiza': 'ch',
+        'switzerland': 'ch',
+        'turquia': 'tr',
+        'turkey': 'tr',
+        'rusia': 'ru',
+        'russia': 'ru',
+        'polonia': 'pl',
+        'poland': 'pl',
+        'noruega': 'no',
+        'norway': 'no',
+        'dinamarca': 'dk',
+        'denmark': 'dk',
+        'finlandia': 'fi',
+        'finland': 'fi',
+        'grecia': 'gr',
+        'greece': 'gr',
+        'irlanda': 'ie',
+        'ireland': 'ie',
+        'escocia': 'gb-sct',
+        'scotland': 'gb-sct',
+        'gales': 'gb-wls',
+        'wales': 'gb-wls',
+        'rumano': 'ro',
+        'ucraniano': 'ua',
+        'italiano': 'it',
+        'frances': 'fr',
+        'aleman': 'de',
+        'ingles': 'gb-eng',
+        'portugues': 'pt',
+        'argentino': 'ar',
+        'brasileno': 'br',
+        'colombiano': 'co',
+        'mexicano': 'mx',
+        'uruguayo': 'uy',
+        'venezolano': 've',
+        'belga': 'be',
+        'marroqui': 'ma'
+    };
+
+    const code = map[clean] || (clean.length === 2 ? clean : 'es');
+    return `https://flagcdn.com/w40/${code}.png`;
+}
+
+function formatCompactVal(val) {
+    if (val === null || val === undefined || isNaN(val)) return '0';
+    if (val >= 1000000) {
+        const millions = val / 1000000;
+        return millions.toFixed(1).replace('.', ',').replace(',0', '') + 'M';
+    }
+    if (val >= 1000) {
+        const thousands = val / 1000;
+        return thousands.toFixed(1).replace('.', ',').replace(',0', '') + 'K';
+    }
+    return val.toString();
+}
+
 function formatCurrency(val) {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(val);
 }
+
 
 function formatPlayerPoints(p) {
     if (!activeLeague) return Math.round((p.points || 0) * 10) / 10;

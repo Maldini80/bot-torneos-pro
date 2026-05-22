@@ -1744,7 +1744,7 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 16px 12px 12px 12px;
+    padding: 18px 10px 10px 10px;
     position: relative;
     overflow: hidden;
 }
@@ -1761,78 +1761,124 @@ body {
     pointer-events: none;
 }
 
-/* Rating / Position Column on the top-left */
-.fut-card-badge-col {
-    position: absolute;
-    top: 18px;
-    left: 14px;
+/* Top Section: Left column (rating, pos, flag, badge) + Right column (avatar) */
+.fut-card-top-section {
+    display: flex;
+    width: 100%;
+    height: 110px;
+    position: relative;
+    z-index: 2;
+    margin-bottom: 2px;
+}
+
+.fut-card-left-col {
     display: flex;
     flex-direction: column;
     align-items: center;
-    line-height: 1.1;
-    z-index: 2;
+    justify-content: flex-start;
+    width: 45px;
+    padding-top: 4px;
+    gap: 4px;
+    line-height: 1;
 }
 
 .fut-card-rating {
-    font-size: 1.8rem;
+    font-size: 1.6rem;
     font-weight: 800;
     color: #e5c060;
     font-family: 'Outfit', 'Inter', sans-serif;
     text-shadow: 0 0 5px rgba(229, 192, 96, 0.4);
+    margin: 0;
 }
 
 .fut-card-pos {
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     font-weight: 700;
     color: #cbd5e1;
     text-transform: uppercase;
     background: rgba(255, 255, 255, 0.05);
-    padding: 1px 6px;
-    border-radius: 4px;
+    padding: 1px 5px;
+    border-radius: 3px;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    margin-top: 4px;
+    margin-top: 2px;
 }
 
-/* Club logo or VPG icon on top-right */
+.fut-card-flag {
+    width: 22px;
+    height: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    margin-top: 2px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    border-radius: 1px;
+}
+
+.fut-card-flag-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 .fut-card-club-badge {
-    position: absolute;
-    top: 18px;
-    right: 18px;
-    width: 32px;
-    height: 32px;
+    width: 24px;
+    height: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.4rem;
+    font-size: 1.1rem;
     color: rgba(229, 192, 96, 0.85);
-    z-index: 2;
+    margin-top: 2px;
 }
 
-/* Player Image/Avatar slot */
-.fut-card-player-avatar {
-    margin-top: 10px;
-    width: 80px;
-    height: 80px;
+.fut-card-club-badge img.fut-card-club-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* Avatar Container on the right */
+.fut-card-player-avatar-container {
+    flex: 1;
+    height: 100%;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     justify-content: center;
-    font-size: 3.5rem;
+    position: relative;
+    overflow: hidden;
+    padding-bottom: 2px;
+}
+
+.fut-card-player-avatar-container img.fut-card-player-avatar-img {
+    height: 105px;
+    width: auto;
+    object-fit: contain;
+    max-width: 100%;
+    border-radius: 0;
+    border: none;
+    background: transparent;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6));
+}
+
+.fut-card-player-avatar-container i {
+    font-size: 3.8rem;
     color: #38bdf8;
     filter: drop-shadow(0 0 10px rgba(56, 189, 248, 0.3));
-    z-index: 1;
+    margin-bottom: 5px;
 }
 
 /* Player Name banner */
 .fut-card-player-name {
     width: 100%;
     text-align: center;
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-weight: 800;
     color: #f8fafc;
     text-transform: uppercase;
     border-bottom: 1.5px solid rgba(229, 192, 96, 0.3);
     padding-bottom: 4px;
-    margin-top: 8px;
+    margin-top: 4px;
     letter-spacing: 0.5px;
     white-space: nowrap;
     overflow: hidden;
@@ -1840,34 +1886,49 @@ body {
     z-index: 2;
 }
 
-/* Attributes Grid */
+/* Attributes Grid: 2 columns, 3 rows, vertical divider down the middle */
 .fut-card-stats-grid {
     width: 100%;
-    margin-top: 10px;
+    margin-top: 8px;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 4px 10px;
+    column-gap: 16px;
+    row-gap: 4px;
+    position: relative;
     z-index: 2;
-    font-size: 0.72rem;
     box-sizing: border-box;
+    padding: 0 8px;
+}
+
+.fut-card-stats-grid::before {
+    content: '';
+    position: absolute;
+    top: 5%;
+    bottom: 5%;
+    left: 50%;
+    width: 1px;
+    background: linear-gradient(to bottom, transparent, rgba(229, 192, 96, 0.3), transparent);
+    transform: translateX(-50%);
 }
 
 .fut-card-stat-item {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-    padding-bottom: 3px;
-}
-
-.fut-card-stat-label {
-    color: #64748b;
-    font-weight: 600;
+    gap: 4px;
+    font-size: 0.72rem;
+    line-height: 1.2;
 }
 
 .fut-card-stat-value {
     color: #cbd5e1;
     font-weight: 700;
+}
+
+.fut-card-stat-label {
+    color: #64748b;
+    font-weight: 600;
+    text-transform: uppercase;
 }
 
 /* Style specific to important values */

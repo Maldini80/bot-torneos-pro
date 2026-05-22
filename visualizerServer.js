@@ -6715,7 +6715,8 @@ export async function startVisualizerServer(discordClient) {
                     protectedUntil: protectionMap[p.eaPlayerName] || null,
                     bidCount: bidCountMap[nameLower] || 0,
                     clubLogo: (p.lastClub ? teamLogoMap[p.lastClub.toLowerCase().trim()] : null) || (displayClub ? teamLogoMap[displayClub.toLowerCase().trim()] : null) || null,
-                    avatar: p.avatar || null
+                    avatar: p.avatar || null,
+                    nationality: p.nationality || p.user_nationality || null
                 };
             });
 
