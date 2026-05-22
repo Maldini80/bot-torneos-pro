@@ -65,6 +65,19 @@
                                 <option value="accumulated">Puntos ya acumulados en la temporada</option>
                             </select>
                         </div>
+                        <div class="form-row">
+                            <div class="form-group col">
+                                <label for="new-league-privacy">Privacidad</label>
+                                <select id="new-league-privacy" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; width: 100%; box-sizing: border-box; cursor: pointer;">
+                                    <option value="public" selected>Pública</option>
+                                    <option value="private">Privada</option>
+                                </select>
+                            </div>
+                            <div class="form-group col" id="new-league-password-group" style="display: none;">
+                                <label for="new-league-password">Contraseña</label>
+                                <input type="password" id="new-league-password" placeholder="Contraseña..." autocomplete="new-password" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; width: 100%; box-sizing: border-box;">
+                            </div>
+                        </div>
                         <div class="form-group" style="position: relative;">
                             <label>Ligas VPG a Incluir</label>
                             <div class="custom-multiselect" id="vpg-leagues-multiselect">
@@ -221,7 +234,8 @@
                 </div>
             </div>
             <div class="user-profile" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                <button id="btn-change-league" class="btn btn-secondary btn-sm"><i class="fa-solid fa-house"></i> Ir al Dashboard</button>
+                <button id="btn-change-league" class="btn btn-secondary btn-sm"><i class="fa-solid fa-house"></i> Cambiar de Liga</button>
+                <button id="btn-join-league-spectator" class="btn btn-success btn-sm" style="display: none;"><i class="fa-solid fa-plus"></i> Unirse a la Liga</button>
                 <button id="btn-leave-league" class="btn btn-danger btn-sm"><i class="fa-solid fa-right-from-bracket"></i> Abandonar Liga</button>
             </div>
         </header>
@@ -475,13 +489,14 @@
                                     <th>Mánager / Equipo</th>
                                     <th class="text-center col-hide-sm">Jugadores</th>
                                     <th class="text-center col-hide-md">Formación</th>
+                                    <th class="text-right">Valor 11</th>
                                     <th class="text-right">Puntos</th>
                                     <th class="text-center" style="width: 120px;">Alineación</th>
                                 </tr>
                             </thead>
                             <tbody id="leaderboard-list">
                                 <tr>
-                                    <td colspan="6" class="text-center py-4 text-muted">
+                                    <td colspan="7" class="text-center py-4 text-muted">
                                         <i class="fa-solid fa-spinner fa-spin"></i> Cargando clasificación...
                                     </td>
                                 </tr>

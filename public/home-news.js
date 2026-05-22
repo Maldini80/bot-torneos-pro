@@ -20,6 +20,22 @@ function optimizeCloudinaryUrl(url, type = 'video') {
 const FALLBACK_VIDEO_HOME = `https://res.cloudinary.com/dxqky8j6e/video/upload/q_auto:best,f_auto,vc_auto,${_videoWidth}/v1778836034/home-bg_w45ddj.mp4`;
 
 // ===== DYNAMIC VIDEO LOADING =====
+function getNormalizedVideoUrl(url) {
+    if (!url) return '';
+    if (url.includes('/upload/')) {
+        const uploadIndex = url.indexOf('/upload/');
+        const afterUpload = url.substring(uploadIndex + 8);
+        const match = afterUpload.match(/(?:v\d+\/)?([^\/]+)$/);
+        if (match) return match[1];
+    }
+    try {
+        const path = url.split('?')[0];
+        return path.substring(path.lastIndexOf('/') + 1);
+    } catch (e) {
+        return url;
+    }
+}
+
 async function loadDynamicVideo() {
     try {
         const res = await fetch('/api/settings/videos');
@@ -28,10 +44,14 @@ async function loadDynamicVideo() {
             const video = document.getElementById('hero-video');
             if (video) {
                 const source = video.querySelector('source');
-                if (source && source.src !== data.video_home) {
-                    source.src = optimizeCloudinaryUrl(data.video_home, 'video');
-                    video.load();
-                    video.play().catch(() => {});
+                if (source) {
+                    const currentNorm = getNormalizedVideoUrl(source.src);
+                    const newNorm = getNormalizedVideoUrl(data.video_home);
+                    if (currentNorm !== newNorm) {
+                        source.src = optimizeCloudinaryUrl(data.video_home, 'video');
+                        video.load();
+                        video.play().catch(() => {});
+                    }
                 }
             }
         }

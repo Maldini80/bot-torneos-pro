@@ -220,30 +220,25 @@ function isPlayerEligibleForSlot(playerPosition, slotKey, formation, slotIndex) 
         return true;
     }
     
+    const layout = FORMATIONS[formation];
+    const slotConfig = layout?.[slotKey]?.[slotIndex];
+    if (!slotConfig) return false;
+    const label = slotConfig.label.toUpperCase();
+    
     if (slot === 'MC') {
-        if (isMidfielder(pos)) {
-            return true;
+        if (label === 'MI' || label === 'MD') {
+            return isLateral(pos) || ['MI', 'MD'].includes(pos);
+        } else {
+            return isMidfielder(pos);
         }
-        if (isLateral(pos)) {
-            const layout = FORMATIONS[formation];
-            const slotConfig = layout?.[slotKey]?.[slotIndex];
-            const label = slotConfig?.label?.toUpperCase();
-            return label === 'MD' || label === 'MI';
-        }
-        return false;
     }
     
     if (slot === 'DC') {
-        if (isForward(pos)) {
-            return true;
+        if (label === 'EI' || label === 'ED') {
+            return isLateral(pos) || isForward(pos);
+        } else {
+            return isForward(pos);
         }
-        if (isLateral(pos)) {
-            const layout = FORMATIONS[formation];
-            const slotConfig = layout?.[slotKey]?.[slotIndex];
-            const label = slotConfig?.label?.toUpperCase();
-            return label === 'ED' || label === 'EI';
-        }
-        return false;
     }
     
     return false;
@@ -609,6 +604,23 @@ function setupEventHandlers() {
     });
 
     // Form handlers
+    const newLeaguePrivacySelect = document.getElementById('new-league-privacy');
+    const newLeaguePasswordGroup = document.getElementById('new-league-password-group');
+    if (newLeaguePrivacySelect && newLeaguePasswordGroup) {
+        newLeaguePrivacySelect.addEventListener('change', () => {
+            if (newLeaguePrivacySelect.value === 'private') {
+                newLeaguePasswordGroup.style.display = 'block';
+            } else {
+                newLeaguePasswordGroup.style.display = 'none';
+            }
+        });
+    }
+
+    const btnJoinLeagueSpectator = document.getElementById('btn-join-league-spectator');
+    if (btnJoinLeagueSpectator) {
+        btnJoinLeagueSpectator.addEventListener('click', openJoinModalFromSpectator);
+    }
+
     createLeagueForm.addEventListener('submit', handleCreateLeague);
     joinLeagueForm.addEventListener('submit', handleJoinLeagueSubmit);
     adminUpdateLeagueForm.addEventListener('submit', handleUpdateLeagueSubmit);
@@ -723,9 +735,32 @@ async function showLeagueSelector() {
             else if (league.status === 'active') statusBadge = '<span class="badge badge-info">En Curso</span>';
             else statusBadge = '<span class="badge badge-danger">Finalizada</span>';
             
+            const lockIcon = league.privacy === 'private' ? ' <i class="fa-solid fa-lock text-yellow" title="Liga Privada" style="font-size: 0.95rem; margin-left: 5px;"></i>' : '';
+            
+            let buttonsHtml = '';
+            if (league.isJoined) {
+                if (league.isApproved) {
+                    buttonsHtml = `<button class="btn btn-success btn-block btn-enter-league" data-id="${league._id}"><i class="fa-solid fa-right-to-bracket"></i> Entrar a la Liga</button>`;
+                } else {
+                    buttonsHtml = `<button class="btn btn-warning btn-block btn-enter-league" data-id="${league._id}"><i class="fa-solid fa-clock"></i> Ver Liga (Inscripción Pendiente)</button>`;
+                }
+            } else {
+                const canJoin = league.status === 'open' && (league.participantCount < league.maxParticipants);
+                if (canJoin) {
+                    buttonsHtml = `
+                        <div style="display: flex; gap: 8px; margin-top: 12px; width: 100%;">
+                            <button class="btn btn-secondary btn-enter-league" data-id="${league._id}" style="flex: 1; margin-top: 0; padding: 10px 4px; font-size: 0.85rem;"><i class="fa-solid fa-eye"></i> Ver (Lectura)</button>
+                            <button class="btn btn-success btn-join-league" data-id="${league._id}" style="flex: 1; margin-top: 0; padding: 10px 4px; font-size: 0.85rem;"><i class="fa-solid fa-plus-circle"></i> Unirse</button>
+                        </div>
+                    `;
+                } else {
+                    buttonsHtml = `<button class="btn btn-secondary btn-block btn-enter-league" data-id="${league._id}"><i class="fa-solid fa-eye"></i> Ver Liga (Modo Lectura)</button>`;
+                }
+            }
+
             card.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <h3>${league.name}</h3>
+                    <h3>${league.name}${lockIcon}</h3>
                     ${statusBadge}
                 </div>
                 <div class="league-meta">
@@ -733,12 +768,22 @@ async function showLeagueSelector() {
                     <div><i class="fa-solid fa-wallet"></i> <span>Presupuesto: ${formatCurrency(league.initialBudget)}</span></div>
                     <div><i class="fa-solid fa-store"></i> <span>Mercado: ${league.marketOpen ? 'Abierto' : 'Cerrado'}</span></div>
                 </div>
-                <button class="btn btn-primary btn-block btn-enter-league" data-id="${league._id}" data-name="${league.name}"><i class="fa-solid fa-circle-play"></i> Entrar / Unirse</button>
+                ${buttonsHtml}
             `;
             
-            card.querySelector('.btn-enter-league').addEventListener('click', () => {
-                enterLeague(league._id);
-            });
+            const enterBtn = card.querySelector('.btn-enter-league');
+            if (enterBtn) {
+                enterBtn.addEventListener('click', () => {
+                    enterLeague(league._id);
+                });
+            }
+            
+            const joinBtn = card.querySelector('.btn-join-league');
+            if (joinBtn) {
+                joinBtn.addEventListener('click', () => {
+                    enterLeague(league._id, false, null, true);
+                });
+            }
             
             leaguesGrid.appendChild(card);
         });
@@ -817,6 +862,8 @@ async function handleCreateLeague(e) {
     const maxParticipants = document.getElementById('new-league-max-participants').value;
     const initialBudget = document.getElementById('new-league-budget').value;
     const pointsMode = document.getElementById('new-league-points-mode').value;
+    const privacy = document.getElementById('new-league-privacy').value;
+    const password = document.getElementById('new-league-password').value;
     
     const maxVal = parseInt(maxParticipants);
     if (isNaN(maxVal) || maxVal < 2 || maxVal > 14) {
@@ -836,7 +883,7 @@ async function handleCreateLeague(e) {
         const res = await fetch('/api/fantasy/leagues', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, maxParticipants, initialBudget, pointsMode, vpgLeagues })
+            body: JSON.stringify({ name, maxParticipants, initialBudget, pointsMode, vpgLeagues, privacy, password })
         });
         
         const data = await res.json();
@@ -844,6 +891,9 @@ async function handleCreateLeague(e) {
         
         showToast(data.message, 'success');
         createLeagueForm.reset();
+        
+        const passwordGroup = document.getElementById('new-league-password-group');
+        if (passwordGroup) passwordGroup.style.display = 'none';
         
         // Reset/reload VPG checkboxes
         await loadCreationVpgLeagues();
@@ -856,29 +906,57 @@ async function handleCreateLeague(e) {
 }
 
 // Enter/Join League logic
-async function enterLeague(leagueId, keepCurrentTab = false) {
+async function enterLeague(leagueId, keepCurrentTab = false, password = null, openJoinDirectly = false) {
     try {
-        const res = await fetch(`/api/fantasy/leagues/${leagueId}/my-team`);
-        
-        if (res.status === 404) {
-            // Not joined yet, prompt Modal
-            const infoRes = await fetch('/api/fantasy/leagues');
-            const infoData = await infoRes.json();
-            const league = infoData.leagues.find(l => l._id === leagueId);
-            
-            pendingJoinLeagueId = leagueId;
-            joinLeagueModalName.textContent = league ? league.name : 'Liga';
-            joinTeamNameInput.value = '';
-            joinLeagueModal.classList.add('open');
-            return;
+        const cachedPassword = sessionStorage.getItem('league_password_' + leagueId);
+        const passToCheck = password || cachedPassword || '';
+
+        const accessRes = await fetch(`/api/fantasy/leagues/${leagueId}/access`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: passToCheck })
+        });
+
+        if (accessRes.status === 401 || accessRes.status === 403) {
+            sessionStorage.removeItem('league_password_' + leagueId);
+            const promptPassword = prompt('Esta es una liga privada. Introduce la contraseña para acceder:');
+            if (promptPassword === null) return;
+            return enterLeague(leagueId, keepCurrentTab, promptPassword, openJoinDirectly);
         }
-        
-        if (!res.ok) {
-            const err = await res.json();
-            throw new Error(err.error || 'Error al entrar en la liga.');
+
+        if (!accessRes.ok) {
+            const errData = await accessRes.json();
+            throw new Error(errData.error || 'Error al comprobar el acceso.');
         }
-        
-        myTeam = await res.json();
+
+        const accessData = await accessRes.json();
+        if (password) {
+            sessionStorage.setItem('league_password_' + leagueId, password);
+        }
+
+        let tempMyTeam = null;
+        if (accessData.isJoined) {
+            const res = await fetch(`/api/fantasy/leagues/${leagueId}/my-team`);
+            if (!res.ok) {
+                const err = await res.json();
+                throw new Error(err.error || 'Error al entrar en la liga.');
+            }
+            tempMyTeam = await res.json();
+            tempMyTeam.isSpectator = false;
+        } else {
+            tempMyTeam = {
+                isSpectator: true,
+                teamName: 'Espectador',
+                balance: 0,
+                points: 0,
+                lineup: { POR: null, DFC: [], MC: [], DC: [] },
+                players: [],
+                approved: true,
+                formation: '3-1-4-2'
+            };
+        }
+
+        myTeam = tempMyTeam;
         currentLeagueId = leagueId;
         sessionStorage.setItem('selected_league_id', leagueId);
         
@@ -886,13 +964,48 @@ async function enterLeague(leagueId, keepCurrentTab = false) {
         const leaguesRes = await fetch('/api/fantasy/leagues');
         const leaguesData = await leaguesRes.json();
         activeLeague = leaguesData.leagues.find(l => l._id === leagueId);
+        if (!activeLeague) {
+            throw new Error('No se pudo encontrar la información de la liga activa.');
+        }
         
         // Initialize dashboard UI
-        activeLeagueName.textContent = activeLeague.name;
-        activeTeamNameBadge.textContent = myTeam.teamName;
-        userBalanceEl.textContent = formatCurrency(myTeam.balance);
-        totalPointsEl.textContent = `${myTeam.points} pts`;
-        formationSelect.value = myTeam.formation;
+        const lockIcon = activeLeague.privacy === 'private' ? ' <i class="fa-solid fa-lock text-yellow" title="Liga Privada" style="font-size: 0.95rem; margin-left: 5px;"></i>' : '';
+        activeLeagueName.innerHTML = activeLeague.name + lockIcon;
+        
+        if (myTeam.isSpectator) {
+            activeTeamNameBadge.textContent = 'Espectador (Modo Lectura)';
+        } else if (!myTeam.approved) {
+            activeTeamNameBadge.textContent = `${myTeam.teamName} (Inscripción Pendiente)`;
+        } else {
+            activeTeamNameBadge.textContent = myTeam.teamName;
+        }
+        
+        const btnJoinLeagueSpectator = document.getElementById('btn-join-league-spectator');
+        if (myTeam.isSpectator || !myTeam.approved) {
+            userBalanceEl.textContent = '-';
+            squadValueEl.textContent = '-';
+            totalPointsEl.textContent = '-';
+            if (formationSelect) formationSelect.disabled = true;
+            if (btnSaveLineup) btnSaveLineup.style.display = 'none';
+            
+            if (myTeam.isSpectator) {
+                if (btnJoinLeagueSpectator) btnJoinLeagueSpectator.style.display = 'inline-block';
+                if (btnLeaveLeague) btnLeaveLeague.style.display = 'none';
+            } else {
+                if (btnJoinLeagueSpectator) btnJoinLeagueSpectator.style.display = 'none';
+                if (btnLeaveLeague) btnLeaveLeague.style.display = 'inline-block'; // Allow pending team to cancel/leave
+            }
+        } else {
+            userBalanceEl.textContent = formatCurrency(myTeam.balance);
+            totalPointsEl.textContent = `${myTeam.points} pts`;
+            if (formationSelect) {
+                formationSelect.value = myTeam.formation;
+                formationSelect.disabled = false;
+            }
+            if (btnSaveLineup) btnSaveLineup.style.display = 'inline-block';
+            if (btnJoinLeagueSpectator) btnJoinLeagueSpectator.style.display = 'none';
+            if (btnLeaveLeague) btnLeaveLeague.style.display = 'inline-block';
+        }
         
         // Toggle market open status banner
         if (activeLeague.marketOpen) {
@@ -908,23 +1021,13 @@ async function enterLeague(leagueId, keepCurrentTab = false) {
         const statsArea = document.querySelector('.stats-area');
         const leagueNav = document.querySelector('.league-nav');
         
-        if (!myTeam.approved) {
-            statsArea.style.display = 'none';
-            leagueNav.style.display = 'none';
-            pendingApprovalView.style.display = 'block';
-            pendingTeamNameDisplay.textContent = myTeam.teamName;
-            
-            // Hide all tab contents
-            document.querySelectorAll('.league-tab-content').forEach(c => c.classList.remove('active'));
-            return;
-        } else {
-            statsArea.style.display = 'flex';
-            leagueNav.style.display = 'flex';
-            pendingApprovalView.style.display = 'none';
-        }
+        // Always display statsArea and navigation tabs so pending/spectators can view league leaderboard/market
+        statsArea.style.display = 'flex';
+        leagueNav.style.display = 'flex';
+        pendingApprovalView.style.display = 'none'; // we will show overlay on pitch instead of blocking view
         
         // Show/hide admin tab based on permissions
-        const canAdmin = currentUser.isAdmin || (activeLeague && (activeLeague.createdBy === currentUser.discordId || activeLeague.coAdmin === currentUser.discordId));
+        const canAdmin = currentUser && (currentUser.isAdmin || (activeLeague && (activeLeague.createdBy === currentUser.discordId || activeLeague.coAdmin === currentUser.discordId)));
         if (btnLeagueAdminTab) {
             btnLeagueAdminTab.style.display = canAdmin ? '' : 'none';
         }
@@ -980,15 +1083,16 @@ async function enterLeague(leagueId, keepCurrentTab = false) {
 
         // Fetch active bids to update badge
         try {
-            const bidsRes = await fetch(`/api/fantasy/leagues/${leagueId}/market/bids`);
-            if (bidsRes.ok) {
-                const bidsData = await bidsRes.json();
-                const receivedPending = bidsData.received || [];
-                if (receivedPending.length > 0) {
-                    bidsCountBadge.textContent = receivedPending.length;
-                    bidsCountBadge.style.display = 'inline-block';
-                } else {
-                    bidsCountBadge.style.display = 'none';
+            bidsCountBadge.style.display = 'none';
+            if (!myTeam.isSpectator) {
+                const bidsRes = await fetch(`/api/fantasy/leagues/${leagueId}/market/bids`);
+                if (bidsRes.ok) {
+                    const bidsData = await bidsRes.json();
+                    const receivedPending = bidsData.received || [];
+                    if (receivedPending.length > 0) {
+                        bidsCountBadge.textContent = receivedPending.length;
+                        bidsCountBadge.style.display = 'inline-block';
+                    }
                 }
             }
         } catch (e) {
@@ -1001,7 +1105,6 @@ async function enterLeague(leagueId, keepCurrentTab = false) {
         renderSquadList();
         updateSquadStats();
 
-        // Refresh active views if we kept the tab
         if (keepCurrentTab) {
             const activeLeftBtn = document.querySelector('.nav-tab-btn.active');
             const activeLeftTab = activeLeftBtn ? activeLeftBtn.getAttribute('data-league-tab') : null;
@@ -1020,6 +1123,9 @@ async function enterLeague(leagueId, keepCurrentTab = false) {
             }
         }
         startAutoRefresh();
+        if (openJoinDirectly && myTeam.isSpectator) {
+            openJoinModalFromSpectator();
+        }
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
@@ -1033,10 +1139,11 @@ async function handleJoinLeagueSubmit(e) {
     if (!teamName || !pendingJoinLeagueId) return;
     
     try {
+        const password = sessionStorage.getItem('league_password_' + pendingJoinLeagueId) || '';
         const res = await fetch(`/api/fantasy/leagues/${pendingJoinLeagueId}/join`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ teamName })
+            body: JSON.stringify({ teamName, password })
         });
         
         const data = await res.json();
@@ -1052,6 +1159,14 @@ async function handleJoinLeagueSubmit(e) {
         showToast(e.message, 'error');
     }
 }
+
+function openJoinModalFromSpectator() {
+    pendingJoinLeagueId = currentLeagueId;
+    joinLeagueModalName.textContent = activeLeague ? activeLeague.name : 'Liga';
+    joinTeamNameInput.value = '';
+    joinLeagueModal.classList.add('open');
+}
+window.openJoinModalFromSpectator = openJoinModalFromSpectator;
 
 // Filter and Render Player Market list
 function filterAndRenderMarket() {
@@ -1097,7 +1212,11 @@ function filterAndRenderMarket() {
         let priceCol = `<span style="font-weight: 600;">${formatCurrency(p.price)}</span>`;
         let actionCol = '';
 
-        if (isOwned) {
+        if (myTeam.isSpectator) {
+            actionCol = `<button class="btn btn-secondary btn-xs" disabled style="opacity: 0.6; cursor: not-allowed;"><i class="fa-solid fa-eye"></i> Espectador</button>`;
+        } else if (!myTeam.approved) {
+            actionCol = `<button class="btn btn-secondary btn-xs" disabled style="opacity: 0.6; cursor: not-allowed;"><i class="fa-solid fa-clock"></i> Pendiente Aprobación</button>`;
+        } else if (isOwned) {
             actionCol = `<button class="btn btn-secondary btn-xs" disabled><i class="fa-solid fa-check"></i> En tu equipo</button>`;
         } else if (p.owner) {
             const clauseVal = p.clause || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
@@ -1167,29 +1286,31 @@ function filterAndRenderMarket() {
             </td>
         `;
 
-        const buyBtn = row.querySelector('.btn-buy');
-        if (buyBtn && activeLeague && activeLeague.marketOpen) {
-            buyBtn.addEventListener('click', () => buyPlayer(p));
-        }
+        if (!myTeam.isSpectator && myTeam.approved) {
+            const buyBtn = row.querySelector('.btn-buy');
+            if (buyBtn && activeLeague && activeLeague.marketOpen) {
+                buyBtn.addEventListener('click', () => buyPlayer(p));
+            }
 
-        const freeAgentBidBtn = row.querySelector('.btn-open-free-agent-bid');
-        if (freeAgentBidBtn && activeLeague && activeLeague.marketOpen) {
-            freeAgentBidBtn.addEventListener('click', () => {
-                bidPlayerName.textContent = p.eaPlayerName;
-                bidSellerTeamVal.textContent = 'Agente Libre (SYSTEM)';
-                bidAskingPriceVal.textContent = formatCurrency(p.price);
-                bidBalanceVal.textContent = formatCurrency(myTeam.balance);
-                bidAmountInput.value = p.price;
-                bidForm.setAttribute('data-player-name', p.eaPlayerName);
-                bidForm.setAttribute('data-seller-id', 'SYSTEM');
-                bidModal.classList.add('open');
-            });
-        }
+            const freeAgentBidBtn = row.querySelector('.btn-open-free-agent-bid');
+            if (freeAgentBidBtn && activeLeague && activeLeague.marketOpen) {
+                freeAgentBidBtn.addEventListener('click', () => {
+                    bidPlayerName.textContent = p.eaPlayerName;
+                    bidSellerTeamVal.textContent = 'Agente Libre (SYSTEM)';
+                    bidAskingPriceVal.textContent = formatCurrency(p.price);
+                    bidBalanceVal.textContent = formatCurrency(myTeam.balance);
+                    bidAmountInput.value = p.price;
+                    bidForm.setAttribute('data-player-name', p.eaPlayerName);
+                    bidForm.setAttribute('data-seller-id', 'SYSTEM');
+                    bidModal.classList.add('open');
+                });
+            }
 
-        const clausulazoBtn = row.querySelector('.btn-clausulazo');
-        if (clausulazoBtn && activeLeague && activeLeague.marketOpen && !clausulazoBtn.disabled) {
-            const clauseVal = p.clause || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
-            clausulazoBtn.addEventListener('click', () => executeClausulazo(p, clauseVal));
+            const clausulazoBtn = row.querySelector('.btn-clausulazo');
+            if (clausulazoBtn && activeLeague && activeLeague.marketOpen && !clausulazoBtn.disabled) {
+                const clauseVal = p.clause || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
+                clausulazoBtn.addEventListener('click', () => executeClausulazo(p, clauseVal));
+            }
         }
 
         marketList.appendChild(row);
@@ -1199,6 +1320,16 @@ function filterAndRenderMarket() {
 // Render owned squad list
 function renderSquadList() {
     squadList.innerHTML = '';
+    
+    if (myTeam.isSpectator) {
+        squadList.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-muted"><i class="fa-solid fa-eye"></i> Modo Espectador. Únete a la liga para crear tu plantilla.</td></tr>`;
+        return;
+    }
+
+    if (!myTeam.approved) {
+        squadList.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-warning"><i class="fa-solid fa-clock"></i> Inscripción pendiente de aprobación. Podrás gestionar tu plantilla una vez seas aprobado.</td></tr>`;
+        return;
+    }
     
     if (!myTeam.players || myTeam.players.length === 0) {
         squadList.innerHTML = `<tr><td colspan="9" class="text-center py-4 text-muted">No tienes jugadores. Ficha en el Mercado.</td></tr>`;
@@ -1304,6 +1435,11 @@ function isPlayerInLineup(playerName) {
 
 // Update squad counts & stats
 function updateSquadStats() {
+    if (myTeam.isSpectator || !myTeam.approved) {
+        squadValueEl.textContent = '-';
+        if (squadCountEl) squadCountEl.textContent = '0';
+        return;
+    }
     let totalVal = 0;
     const squadSize = myTeam.players ? myTeam.players.length : 0;
     
@@ -1326,6 +1462,48 @@ function renderField() {
         <div class="field-penalty-area-bottom"></div>
     `;
     soccerField.innerHTML = markingsHtml;
+
+    if (myTeam.isSpectator || !myTeam.approved) {
+        const overlay = document.createElement('div');
+        overlay.style.position = 'absolute';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.display = 'flex';
+        overlay.style.flexDirection = 'column';
+        overlay.style.justifyContent = 'center';
+        overlay.style.alignItems = 'center';
+        overlay.style.background = 'rgba(10, 25, 15, 0.65)';
+        overlay.style.backdropFilter = 'blur(10px)';
+        overlay.style.webkitBackdropFilter = 'blur(10px)';
+        overlay.style.zIndex = '10';
+        overlay.style.padding = '20px';
+        overlay.style.textAlign = 'center';
+        
+        if (myTeam.isSpectator) {
+            overlay.innerHTML = `
+                <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 30px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); max-width: 90%; backdrop-filter: blur(4px);">
+                    <i class="fa-solid fa-eye text-green" style="font-size: 3rem; margin-bottom: 15px; filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.4));"></i>
+                    <h3 style="color: #f8fafc; font-size: 1.5rem; margin-bottom: 10px; font-weight: 700;">Modo Espectador</h3>
+                    <p style="color: #cbd5e1; font-size: 0.95rem; margin-bottom: 20px; line-height: 1.5;">Estás viendo esta liga en modo de sólo lectura. Para poder gestionar tu plantilla y participar en el mercado, necesitas unirte.</p>
+                    <button class="btn btn-success" onclick="openJoinModalFromSpectator()" style="padding: 10px 20px; font-size: 1rem; border-radius: 8px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);">
+                        <i class="fa-solid fa-plus-circle"></i> Unirse a la Liga
+                    </button>
+                </div>
+            `;
+        } else {
+            overlay.innerHTML = `
+                <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 30px; box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37); max-width: 90%; backdrop-filter: blur(4px);">
+                    <i class="fa-solid fa-clock-rotate-left text-yellow fa-spin-pulse" style="font-size: 3rem; margin-bottom: 15px; filter: drop-shadow(0 0 10px rgba(234, 179, 8, 0.4));"></i>
+                    <h3 style="color: #f8fafc; font-size: 1.5rem; margin-bottom: 10px; font-weight: 700;">Inscripción Pendiente</h3>
+                    <p style="color: #cbd5e1; font-size: 0.95rem; margin-bottom: 20px; line-height: 1.5;">Tu equipo <strong>${myTeam.teamName}</strong> está registrado y pendiente de aprobación por el administrador de la liga. Podrás gestionar tu plantilla una vez seas aprobado.</p>
+                </div>
+            `;
+        }
+        soccerField.appendChild(overlay);
+        return;
+    }
 
     const currentLayout = FORMATIONS[myTeam.formation];
     if (!currentLayout) return;
@@ -1463,13 +1641,68 @@ function removePlayerFromSlot(posKey, idx) {
 }
 
 function adjustLineupToNewFormation(oldF, newF) {
+    const alignedPlayers = [];
+    if (myTeam.lineup) {
+        if (Array.isArray(myTeam.lineup.DFC)) {
+            myTeam.lineup.DFC.forEach(p => p && alignedPlayers.push(p));
+        }
+        if (Array.isArray(myTeam.lineup.MC)) {
+            myTeam.lineup.MC.forEach(p => p && alignedPlayers.push(p));
+        }
+        if (Array.isArray(myTeam.lineup.DC)) {
+            myTeam.lineup.DC.forEach(p => p && alignedPlayers.push(p));
+        }
+    }
+
+    const layout = FORMATIONS[newF];
+    if (!layout) {
+        showToast('Formación no válida.', 'error');
+        return;
+    }
+
+    const newDFC = new Array(layout.DFC ? layout.DFC.length : 0).fill(null);
+    const newMC = new Array(layout.MC ? layout.MC.length : 0).fill(null);
+    const newDC = new Array(layout.DC ? layout.DC.length : 0).fill(null);
+
+    const playerPositionMap = {};
+    alignedPlayers.forEach(pName => {
+        const p = allPlayers.find(x => x.eaPlayerName === pName);
+        if (p) {
+            playerPositionMap[pName] = p.lastPosition;
+        }
+    });
+
+    function fillSlot(slotKey, slotIndex) {
+        const foundIndex = alignedPlayers.findIndex(pName => {
+            const pos = playerPositionMap[pName];
+            return pos && isPlayerEligibleForSlot(pos, slotKey, newF, slotIndex);
+        });
+        if (foundIndex !== -1) {
+            const pName = alignedPlayers[foundIndex];
+            alignedPlayers.splice(foundIndex, 1);
+            return pName;
+        }
+        return null;
+    }
+
+    for (let i = 0; i < newDFC.length; i++) {
+        newDFC[i] = fillSlot('DFC', i);
+    }
+    for (let i = 0; i < newMC.length; i++) {
+        newMC[i] = fillSlot('MC', i);
+    }
+    for (let i = 0; i < newDC.length; i++) {
+        newDC[i] = fillSlot('DC', i);
+    }
+
     myTeam.lineup = {
-        POR: myTeam.lineup.POR,
-        DFC: [],
-        MC: [],
-        DC: []
+        POR: myTeam.lineup ? myTeam.lineup.POR : null,
+        DFC: newDFC,
+        MC: newMC,
+        DC: newDC
     };
-    showToast(`Formación cambiada a ${newF}. Coloca tus jugadores.`, 'success');
+
+    saveLineupToServer();
 }
 
 // Buy Player Operation
@@ -1528,6 +1761,7 @@ async function sellPlayer(player) {
 
 // Save Current Lineup Setup to Database
 async function saveLineupToServer() {
+    if (myTeam.isSpectator) return;
     try {
         const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/lineup`, {
             method: 'POST',
@@ -1550,7 +1784,7 @@ async function saveLineupToServer() {
 
 // VIEW 2.2: Fetch and render Leaderboard
 async function loadLeaderboard() {
-    leaderboardList.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Cargando clasificación...</td></tr>`;
+    leaderboardList.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Cargando clasificación...</td></tr>`;
     
     try {
         const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/leaderboard`);
@@ -1561,7 +1795,7 @@ async function loadLeaderboard() {
         leaderboardList.innerHTML = '';
         
         if (leaderboard.length === 0) {
-            leaderboardList.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">No hay equipos en la clasificación.</td></tr>`;
+            leaderboardList.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">No hay equipos en la clasificación.</td></tr>`;
             return;
         }
         
@@ -1589,6 +1823,9 @@ async function loadLeaderboard() {
                 }
             }
             
+            const lineupValMillions = (manager.lineupValue || 0) / 1000000;
+            const formattedLineupValue = lineupValMillions.toLocaleString('es-ES', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + 'M €';
+            
             row.innerHTML = `
                 <td class="text-center pos-col ${posBadgeClass}">${manager.position}</td>
                 <td>
@@ -1602,6 +1839,7 @@ async function loadLeaderboard() {
                 </td>
                 <td class="text-center font-weight-bold col-hide-sm" style="font-weight: 600;">${manager.playerCount} / 15</td>
                 <td class="text-center text-muted col-hide-md">${manager.formation || '4-3-3'}</td>
+                <td class="text-right text-white" style="font-weight: 600;">${formattedLineupValue}</td>
                 <td class="text-right text-yellow" style="font-weight: 700; font-size: 1.05rem;">${manager.points} pts</td>
                 <td class="text-center">
                     <button class="btn btn-secondary btn-xs btn-view-rival" data-discord-id="${manager.discordId}"><i class="fa-solid fa-eye"></i> Ver Once</button>
@@ -1616,7 +1854,7 @@ async function loadLeaderboard() {
         });
     } catch (e) {
         console.error(e);
-        leaderboardList.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-red">Error al cargar la clasificación.</td></tr>`;
+        leaderboardList.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-red">Error al cargar la clasificación.</td></tr>`;
     }
 }
 
@@ -1652,7 +1890,7 @@ async function showRivalTeam(discordId, teamName) {
             const positions = layout[groupKey];
             positions.forEach((pos, idx) => {
                 const node = document.createElement('div');
-                node.className = 'field-player-node';
+                node.className = 'field-player-node rival-player-node';
                 node.style.left = `${pos.left}%`;
                 node.style.top = `${pos.top}%`;
 
@@ -1667,51 +1905,7 @@ async function showRivalTeam(discordId, teamName) {
                         <div class="player-name-plate">${alignedPlayer}</div>
                     `;
 
-                    if (p) {
-                        node.style.cursor = 'pointer';
-                        node.addEventListener('click', () => {
-                            if (!activeLeague || activeLeague.status === 'closed') {
-                                showToast('La liga no está activa.', 'error');
-                                return;
-                            }
-                            if (!activeLeague.marketOpen) {
-                                showToast('El mercado está cerrado.', 'error');
-                                return;
-                            }
-                            if (activeLeague.allowClauses === false) {
-                                showToast('Los clausulazos no están permitidos en esta liga.', 'error');
-                                return;
-                            }
-                            if (p.owner === currentUser.discordId) {
-                                showToast('Este jugador ya es de tu equipo.', 'info');
-                                return;
-                            }
-
-                            let isProtected = false;
-                            let timeStr = '';
-                            if (p.protectedUntil) {
-                                const protDate = new Date(p.protectedUntil);
-                                if (protDate > new Date()) {
-                                    isProtected = true;
-                                    const diffMs = protDate.getTime() - Date.now();
-                                    const days = Math.floor(diffMs / (24 * 60 * 60 * 1000));
-                                    const hours = Math.floor((diffMs % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-                                    const mins = Math.max(1, Math.floor((diffMs % (60 * 60 * 1000)) / (60 * 1000)));
-                                    if (days > 0) timeStr += `${days}d `;
-                                    if (hours > 0 || days > 0) timeStr += `${hours}h `;
-                                    timeStr += `${mins}m`;
-                                }
-                            }
-
-                            if (isProtected) {
-                                showToast(`El jugador ${p.eaPlayerName} está protegido de clausulazos por ${timeStr}.`, 'warning');
-                                return;
-                            }
-
-                            const clauseVal = p.clause || Math.round(p.price * (activeLeague.clauseMultiplier || 1.5));
-                            executeClausulazo(p, clauseVal);
-                        });
-                    }
+                    // Player circle is static and non-clickable now
                 } else {
                     node.innerHTML = `
                         <div class="player-circle" style="opacity: 0.3; pointer-events: none; border-style: dotted;">
@@ -2629,6 +2823,12 @@ async function loadUserMarket() {
         othersListings.forEach(l => {
             const p = l.playerInfo;
             const row = document.createElement('tr');
+            
+            let buttonHtml = `<button class="btn btn-warning btn-xs btn-open-bid" data-name="${l.eaPlayerName}" data-seller="${l.sellerTeamName}" data-asking="${l.askingPrice}" data-value="${p.price}" ${activeLeague && (!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-gavel"></i> Pujar</button>`;
+            if (myTeam.isSpectator) {
+                buttonHtml = `<button class="btn btn-secondary btn-xs" disabled style="opacity: 0.6; cursor: not-allowed;"><i class="fa-solid fa-eye"></i> Espectador</button>`;
+            }
+
             row.innerHTML = `
                 <td>
                     <div style="font-weight: 700; color: #f8fafc;">${l.eaPlayerName}</div>
@@ -2646,20 +2846,22 @@ async function loadUserMarket() {
                 <td class="text-right price-text col-hide-sm">${formatCurrency(p.price)}</td>
                 <td class="text-right price-text text-yellow" style="font-weight: 700;">${formatCurrency(l.askingPrice)}</td>
                 <td class="text-center">
-                    <button class="btn btn-warning btn-xs btn-open-bid" data-name="${l.eaPlayerName}" data-seller="${l.sellerTeamName}" data-asking="${l.askingPrice}" data-value="${p.price}" ${activeLeague && (!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-gavel"></i> Pujar</button>
+                    ${buttonHtml}
                 </td>
             `;
 
-            row.querySelector('.btn-open-bid').addEventListener('click', () => {
-                bidPlayerName.textContent = l.eaPlayerName;
-                bidSellerTeamVal.textContent = l.sellerTeamName;
-                bidAskingPriceVal.textContent = formatCurrency(l.askingPrice);
-                bidBalanceVal.textContent = formatCurrency(myTeam.balance);
-                bidAmountInput.value = l.askingPrice;
-                bidForm.setAttribute('data-player-name', l.eaPlayerName);
-                bidForm.setAttribute('data-seller-id', l.sellerDiscordId);
-                bidModal.classList.add('open');
-            });
+            if (!myTeam.isSpectator) {
+                row.querySelector('.btn-open-bid').addEventListener('click', () => {
+                    bidPlayerName.textContent = l.eaPlayerName;
+                    bidSellerTeamVal.textContent = l.sellerTeamName;
+                    bidAskingPriceVal.textContent = formatCurrency(l.askingPrice);
+                    bidBalanceVal.textContent = formatCurrency(myTeam.balance);
+                    bidAmountInput.value = l.askingPrice;
+                    bidForm.setAttribute('data-player-name', l.eaPlayerName);
+                    bidForm.setAttribute('data-seller-id', l.sellerDiscordId);
+                    bidModal.classList.add('open');
+                });
+            }
 
             userMarketList.appendChild(row);
         });
@@ -2670,6 +2872,18 @@ async function loadUserMarket() {
 }
 
 async function loadMarketBids() {
+    if (myTeam.isSpectator) {
+        bidsReceivedList.innerHTML = `<tr><td colspan="5" class="text-center py-3 text-muted"><i class="fa-solid fa-eye"></i> Modo Espectador. Únete para recibir ofertas.</td></tr>`;
+        bidsSentList.innerHTML = `<tr><td colspan="5" class="text-center py-3 text-muted"><i class="fa-solid fa-eye"></i> Modo Espectador. Únete para enviar ofertas.</td></tr>`;
+        bidsCountBadge.style.display = 'none';
+        return;
+    }
+    if (!myTeam.approved) {
+        bidsReceivedList.innerHTML = `<tr><td colspan="5" class="text-center py-3 text-warning"><i class="fa-solid fa-clock"></i> Inscripción pendiente de aprobación. Podrás ver tus ofertas recibidas una vez seas aprobado.</td></tr>`;
+        bidsSentList.innerHTML = `<tr><td colspan="5" class="text-center py-3 text-warning"><i class="fa-solid fa-clock"></i> Inscripción pendiente de aprobación. Podrás ver tus ofertas enviadas una vez seas aprobado.</td></tr>`;
+        bidsCountBadge.style.display = 'none';
+        return;
+    }
     bidsReceivedList.innerHTML = `<tr><td colspan="5" class="text-center py-3 text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Cargando ofertas...</td></tr>`;
     bidsSentList.innerHTML = `<tr><td colspan="5" class="text-center py-3 text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Cargando ofertas...</td></tr>`;
     try {

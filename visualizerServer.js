@@ -5784,10 +5784,22 @@ export async function startVisualizerServer(discordClient) {
     app.get('/api/fantasy/leagues', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
             const db = getDb();
+            const discordId = req.user.id;
             const leagues = await db.collection('fantasy_leagues').find({ $or: [{ approved: true }, { approved: { $exists: false } }] }).sort({ createdAt: -1 }).toArray();
-            // For each league, count participants
+            // For each league, count participants and check current user status
             for (const league of leagues) {
                 league.participantCount = await db.collection('fantasy_teams').countDocuments({ leagueId: league._id.toString() });
+                
+                const userTeam = await db.collection('fantasy_teams').findOne({ discordId, leagueId: league._id.toString() });
+                if (userTeam) {
+                    league.isJoined = true;
+                    league.isApproved = !!userTeam.approved;
+                } else {
+                    league.isJoined = false;
+                    league.isApproved = false;
+                }
+                
+                delete league.password;
             }
             res.json({ leagues });
         } catch (e) {
@@ -5801,6 +5813,9 @@ export async function startVisualizerServer(discordClient) {
         try {
             const db = getDb();
             const pending = await db.collection('fantasy_leagues').find({ approved: false }).sort({ createdAt: -1 }).toArray();
+            pending.forEach(league => {
+                delete league.password;
+            });
             res.json({ pending });
         } catch (e) {
             console.error('[API Fantasy Pending Leagues] Error:', e);
@@ -5851,7 +5866,7 @@ export async function startVisualizerServer(discordClient) {
     // Create league (any authenticated user if allowed, admins always)
     app.post('/api/fantasy/leagues', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
-            const { name, maxParticipants, initialBudget, pointsMode, vpgLeagues } = req.body;
+            const { name, maxParticipants, initialBudget, pointsMode, vpgLeagues, privacy, password } = req.body;
             if (!name || name.trim() === '') return res.status(400).json({ error: 'El nombre de la liga es obligatorio.' });
             
             const db = getDb();
@@ -5926,7 +5941,9 @@ export async function startVisualizerServer(discordClient) {
                 startedAt: null,
                 endedAt: null,
                 vpgLeagues: selectedLeagues,
-                approved: isPrivileged // admins: true, users: false
+                approved: isPrivileged, // admins: true, users: false
+                privacy: privacy === 'private' ? 'private' : 'public',
+                password: (privacy === 'private' && password) ? password.trim() : null
             };
             const result = await db.collection('fantasy_leagues').insertOne(league);
             league._id = result.insertedId;
@@ -5942,7 +5959,12 @@ export async function startVisualizerServer(discordClient) {
             const message = isPrivileged
                 ? `Liga "${league.name}" creada y mercado de agentes libres inicializado.`
                 : `Solicitud de liga "${league.name}" enviada. Un administrador debe aprobarla.`;
-            res.json({ success: true, message, league, needsApproval: !isPrivileged });
+            
+            // Delete password before returning league details to client
+            const returnedLeague = { ...league };
+            delete returnedLeague.password;
+            
+            res.json({ success: true, message, league: returnedLeague, needsApproval: !isPrivileged });
         } catch (e) {
             console.error('[API Fantasy Create League] Error:', e);
             res.status(500).json({ error: 'Error al crear la liga.' });
@@ -6312,6 +6334,47 @@ export async function startVisualizerServer(discordClient) {
 
     // ========== FANTASY API: User League Actions ==========
 
+    // Check access to a league (public/private password, check if joined or admin)
+    app.post('/api/fantasy/leagues/:id/access', isAuthenticated, isFantasyEnabled, async (req, res) => {
+        try {
+            const db = getDb();
+            const discordId = req.user.id;
+            const leagueId = req.params.id;
+            const { password } = req.body;
+
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+
+            // Check if user is already joined
+            const team = await db.collection('fantasy_teams').findOne({ discordId, leagueId });
+            if (team) {
+                return res.json({ hasAccess: true, isJoined: true });
+            }
+
+            // Check if admin or referee
+            const isAdmin = discordId === process.env.OWNER_DISCORD_ID;
+            const isReferee = Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
+            if (isAdmin || isReferee) {
+                return res.json({ hasAccess: true, isJoined: false });
+            }
+
+            // Check if public
+            if (league.privacy !== 'private') {
+                return res.json({ hasAccess: true, isJoined: false });
+            }
+
+            // If private, verify password
+            if (!password || password.trim() !== league.password) {
+                return res.status(401).json({ error: 'Contraseña de la liga incorrecta o no proporcionada.' });
+            }
+
+            res.json({ hasAccess: true, isJoined: false });
+        } catch (e) {
+            console.error('[API League Access] Error:', e);
+            res.status(500).json({ error: 'Error al verificar acceso a la liga.' });
+        }
+    });
+
     // Join a league
     app.post('/api/fantasy/leagues/:id/join', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
@@ -6325,6 +6388,18 @@ export async function startVisualizerServer(discordClient) {
             if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
             if (league.status !== 'open') return res.status(400).json({ error: 'Las inscripciones están cerradas para esta liga.' });
 
+            // Check privacy and password (admin/referee bypass)
+            const isAdminUser = discordId === process.env.OWNER_DISCORD_ID;
+            const isRefereeUser = Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
+            if (league.privacy === 'private' && league.password) {
+                if (!isAdminUser && !isRefereeUser) {
+                    const { password } = req.body;
+                    if (!password || password.trim() !== league.password) {
+                        return res.status(401).json({ error: 'Contraseña de la liga incorrecta.' });
+                    }
+                }
+            }
+
             // Check if already joined
             const existing = await db.collection('fantasy_teams').findOne({ discordId, leagueId });
             if (existing) return res.status(400).json({ error: 'Ya estás inscrito en esta liga.' });
@@ -6333,8 +6408,6 @@ export async function startVisualizerServer(discordClient) {
             const count = await db.collection('fantasy_teams').countDocuments({ leagueId });
             if (count >= league.maxParticipants) return res.status(400).json({ error: 'La liga está llena.' });
 
-            const isAdminUser = discordId === process.env.OWNER_DISCORD_ID;
-            const isRefereeUser = Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
             const isCreator = league.createdBy === discordId;
             const isAutoApproved = isAdminUser || isRefereeUser || isCreator;
             const team = {
@@ -6406,20 +6479,68 @@ export async function startVisualizerServer(discordClient) {
             const db = getDb();
             const teams = await db.collection('fantasy_teams').find(
                 { leagueId: req.params.id, approved: true },
-                { projection: { discordId: 1, discordUsername: 1, discordAvatar: 1, teamName: 1, points: 1, players: 1, formation: 1 } }
+                { projection: { discordId: 1, discordUsername: 1, discordAvatar: 1, teamName: 1, points: 1, players: 1, formation: 1, lineup: 1 } }
             ).sort({ points: -1 }).toArray();
 
-            const leaderboard = teams.map((t, i) => ({
-                position: i + 1,
-                discordId: t.discordId,
-                discordUsername: t.discordUsername,
-                discordAvatar: t.discordAvatar,
-                teamName: t.teamName,
-                points: t.points,
-                playerCount: (t.players || []).length,
-                formation: t.formation,
-                isMe: t.discordId === req.user.id
-            }));
+            // Collect all unique starting 11 player names
+            const allLineupPlayerNames = new Set();
+            teams.forEach(t => {
+                if (t.lineup) {
+                    if (t.lineup.POR) allLineupPlayerNames.add(t.lineup.POR);
+                    if (Array.isArray(t.lineup.DFC)) t.lineup.DFC.forEach(p => p && allLineupPlayerNames.add(p));
+                    if (Array.isArray(t.lineup.MC)) t.lineup.MC.forEach(p => p && allLineupPlayerNames.add(p));
+                    if (Array.isArray(t.lineup.DC)) t.lineup.DC.forEach(p => p && allLineupPlayerNames.add(p));
+                }
+            });
+
+            // Fetch player profiles to calculate prices
+            const playerNamesArray = Array.from(allLineupPlayerNames);
+            const profiles = await db.collection('player_profiles').find(
+                { eaPlayerName: { $in: playerNamesArray } }
+            ).toArray();
+
+            const priceMap = {};
+            profiles.forEach(p => {
+                const { price } = calculatePlayerPointsAndPrice(p);
+                priceMap[p.eaPlayerName] = price || 0;
+            });
+
+            const leaderboard = teams.map((t, i) => {
+                let lineupValue = 0;
+                if (t.lineup) {
+                    if (t.lineup.POR && priceMap[t.lineup.POR]) {
+                        lineupValue += priceMap[t.lineup.POR];
+                    }
+                    if (Array.isArray(t.lineup.DFC)) {
+                        t.lineup.DFC.forEach(p => {
+                            if (p && priceMap[p]) lineupValue += priceMap[p];
+                        });
+                    }
+                    if (Array.isArray(t.lineup.MC)) {
+                        t.lineup.MC.forEach(p => {
+                            if (p && priceMap[p]) lineupValue += priceMap[p];
+                        });
+                    }
+                    if (Array.isArray(t.lineup.DC)) {
+                        t.lineup.DC.forEach(p => {
+                            if (p && priceMap[p]) lineupValue += priceMap[p];
+                        });
+                    }
+                }
+
+                return {
+                    position: i + 1,
+                    discordId: t.discordId,
+                    discordUsername: t.discordUsername,
+                    discordAvatar: t.discordAvatar,
+                    teamName: t.teamName,
+                    points: t.points,
+                    playerCount: (t.players || []).length,
+                    formation: t.formation,
+                    lineupValue,
+                    isMe: t.discordId === req.user.id
+                };
+            });
 
             res.json({ leaderboard });
         } catch (e) {
@@ -6807,30 +6928,25 @@ export async function startVisualizerServer(discordClient) {
             return true;
         }
         
+        const layout = FANTASY_FORMATIONS[formation];
+        const slotConfig = layout?.[slotKey]?.[slotIndex];
+        if (!slotConfig) return false;
+        const label = slotConfig.label.toUpperCase();
+        
         if (slot === 'MC') {
-            if (isMidfielder(pos)) {
-                return true;
+            if (label === 'MI' || label === 'MD') {
+                return isLateral(pos) || ['MI', 'MD'].includes(pos);
+            } else {
+                return isMidfielder(pos);
             }
-            if (isLateral(pos)) {
-                const layout = FANTASY_FORMATIONS[formation];
-                const slotConfig = layout?.[slotKey]?.[slotIndex];
-                const label = slotConfig?.label?.toUpperCase();
-                return label === 'MD' || label === 'MI';
-            }
-            return false;
         }
         
         if (slot === 'DC') {
-            if (isForward(pos)) {
-                return true;
+            if (label === 'EI' || label === 'ED') {
+                return isLateral(pos) || isForward(pos);
+            } else {
+                return isForward(pos);
             }
-            if (isLateral(pos)) {
-                const layout = FANTASY_FORMATIONS[formation];
-                const slotConfig = layout?.[slotKey]?.[slotIndex];
-                const label = slotConfig?.label?.toUpperCase();
-                return label === 'ED' || label === 'EI';
-            }
-            return false;
         }
         
         return false;

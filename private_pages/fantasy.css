@@ -1492,4 +1492,21 @@ body {
     height: 16px;
 }
 
+/* Static read-only styling for rival once modal nodes */
+.field-player-node.rival-player-node {
+    cursor: default;
+}
+.field-player-node.rival-player-node:hover .player-circle {
+    transform: none !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
+    color: #cbd5e1 !important;
+}
+.field-player-node.rival-player-node:hover .player-circle.occupied {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+    box-shadow: none !important;
+    color: #cbd5e1 !important;
+}
+
+
 

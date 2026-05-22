@@ -1490,10 +1490,36 @@
             if (!url || !url.includes('res.cloudinary.com') || url.includes('/q_auto')) return url;
             return url.replace('/upload/', `/upload/q_auto:best,f_auto,vc_auto,${_dashVidW}/`);
         }
+        function getNormalizedVideoUrl(url) {
+            if (!url) return '';
+            if (url.includes('/upload/')) {
+                const uploadIndex = url.indexOf('/upload/');
+                const afterUpload = url.substring(uploadIndex + 8);
+                const match = afterUpload.match(/(?:v\d+\/)?([^\/]+)$/);
+                if (match) return match[1];
+            }
+            try {
+                const path = url.split('?')[0];
+                return path.substring(path.lastIndexOf('/') + 1);
+            } catch (e) {
+                return url;
+            }
+        }
         fetch('/api/settings/videos').then(r => r.json()).then(data => {
             if (data.video_dash) {
                 const v = document.getElementById('dash-video');
-                if (v) { const s = v.querySelector('source'); if (s) { s.src = optimizeCdnUrl(data.video_dash); v.load(); v.play().catch(() => {}); } }
+                if (v) {
+                    const s = v.querySelector('source');
+                    if (s) {
+                        const currentNorm = getNormalizedVideoUrl(s.src);
+                        const newNorm = getNormalizedVideoUrl(data.video_dash);
+                        if (currentNorm !== newNorm) {
+                            s.src = optimizeCdnUrl(data.video_dash);
+                            v.load();
+                            v.play().catch(() => {});
+                        }
+                    }
+                }
             }
         }).catch(() => {});
 
