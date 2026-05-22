@@ -6933,15 +6933,15 @@ export async function startVisualizerServer(discordClient) {
                 if (slotIndex === 1 || slotIndex === 2) {
                     return isCentralDefender(pos);
                 }
-                return true;
+                return isLateral(pos);
             }
             if (formation === '5-3-2') {
                 if (slotIndex === 1 || slotIndex === 2 || slotIndex === 3) {
                     return isCentralDefender(pos);
                 }
-                return true;
+                return isLateral(pos);
             }
-            return true;
+            return isCentralDefender(pos) || isLateral(pos);
         }
         
         const layout = FANTASY_FORMATIONS[formation];
