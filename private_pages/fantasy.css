@@ -461,29 +461,46 @@ body {
 }
 
 .player-card-ut-avatar {
-    margin-top: 14px;
-    font-size: 1.4rem;
-    color: rgba(255, 255, 255, 0.15);
-    text-shadow: 0 0 6px rgba(255, 255, 255, 0.05);
+    margin-top: 6px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-.player-card-ut.occupied .player-card-ut-avatar {
-    color: #00f59b;
-    opacity: 0.45;
-    filter: drop-shadow(0 0 4px rgba(0, 245, 155, 0.3));
+.player-card-ut-avatar i {
+    font-size: 2.1rem;
+    color: rgba(255, 255, 255, 0.25);
+    text-shadow: none;
+    transition: all 0.3s ease;
+}
+
+/* Watermark styles based on tier for empty avatar icon */
+.gold.player-card-ut.occupied .player-card-ut-avatar i {
+    color: rgba(31, 22, 0, 0.2) !important;
+}
+.silver.player-card-ut.occupied .player-card-ut-avatar i {
+    color: rgba(15, 23, 42, 0.2) !important;
+}
+.bronze.player-card-ut.occupied .player-card-ut-avatar i {
+    color: rgba(62, 31, 7, 0.2) !important;
+}
+.burgundy.player-card-ut.occupied .player-card-ut-avatar i {
+    color: rgba(255, 255, 255, 0.2) !important;
 }
 
 .player-card-ut-name {
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     font-weight: 800;
     color: #f8fafc;
     text-align: center;
-    width: 90%;
+    width: 98%;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     margin-bottom: 2px;
     text-transform: uppercase;
+    letter-spacing: -0.015em;
 }
 
 /* Vacant card contents */
@@ -544,6 +561,41 @@ body {
 .player-card-ut.occupied .player-card-ut-avatar i {
     font-size: 1.2rem;
     color: rgba(255, 255, 255, 0.4);
+}
+
+/* Watermark styles for occupied cards when they do NOT have an avatar */
+.player-card-ut.occupied .player-card-ut-avatar.no-avatar {
+    width: 48px;
+    height: 48px;
+    margin-top: 12px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    overflow: visible;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.player-card-ut.occupied .player-card-ut-avatar.no-avatar i {
+    font-size: 2.8rem;
+    line-height: 1;
+    margin-bottom: -4px;
+    transition: all 0.3s ease;
+}
+
+/* Tier specific watermark silhouette colors */
+.gold.player-card-ut.occupied .player-card-ut-avatar.no-avatar i {
+    color: rgba(31, 22, 0, 0.15) !important;
+}
+.silver.player-card-ut.occupied .player-card-ut-avatar.no-avatar i {
+    color: rgba(15, 23, 42, 0.12) !important;
+}
+.bronze.player-card-ut.occupied .player-card-ut-avatar.no-avatar i {
+    color: rgba(62, 31, 7, 0.16) !important;
+}
+.burgundy.player-card-ut.occupied .player-card-ut-avatar.no-avatar i {
+    color: rgba(255, 255, 255, 0.12) !important;
 }
 
 .player-avatar-img {
@@ -2000,54 +2052,56 @@ body {
 
 /* 1. BRONZE TIER (Points < 30) */
 .bronze.fut-card {
-    background: linear-gradient(135deg, #a77044 0%, #683c1c 50%, #3e1b07 100%) !important;
+    background: linear-gradient(135deg, #ffd3b4 0%, #d8966c 50%, #a7663d 100%) !important;
 }
 .bronze.fut-card:hover {
-    filter: drop-shadow(0 15px 30px rgba(167, 112, 68, 0.45)) !important;
+    filter: drop-shadow(0 15px 30px rgba(216, 150, 108, 0.45)) !important;
 }
 .bronze .fut-card-inner {
     background: 
-        radial-gradient(circle at 50% 30%, rgba(167, 112, 68, 0.15), transparent 60%),
-        repeating-linear-gradient(45deg, rgba(167, 112, 68, 0.04) 0px, rgba(167, 112, 68, 0.04) 2px, transparent 2px, transparent 8px),
-        linear-gradient(180deg, #231912 0%, #0f0a07 100%) !important;
+        radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.6), transparent 60%),
+        repeating-linear-gradient(45deg, rgba(62, 31, 7, 0.015) 0px, rgba(62, 31, 7, 0.015) 2px, transparent 2px, transparent 8px),
+        linear-gradient(180deg, #fffcf9 0%, #f7dfce 50%, #e8ba99 100%) !important;
 }
 .bronze .fut-card-inner::before {
-    background: radial-gradient(circle at 50% 30%, rgba(167, 112, 68, 0.25) 0%, transparent 60%) !important;
+    background: radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.7) 0%, transparent 60%) !important;
 }
 .bronze .fut-card-rating {
-    color: #ffffff !important;
-    text-shadow: 0 0 5px rgba(255, 255, 255, 0.4) !important;
+    color: #2f1401 !important;
+    text-shadow: none !important;
 }
 .bronze .fut-card-pos, 
 .bronze .fut-card-player-name {
-    color: #ffffff !important;
+    color: #381802 !important;
+    font-weight: 800 !important;
 }
 .bronze .fut-card-stat-value {
-    color: #ffffff !important;
+    color: #2f1401 !important;
 }
 .bronze .fut-card-stat-label {
-    color: #ebd3c2 !important;
+    color: #723c18 !important;
 }
 
 /* Small Bronze Card on Pitch */
 .bronze.player-card-ut.occupied {
-    background: linear-gradient(135deg, #a77044 0%, #3e1b07 100%) !important;
+    background: linear-gradient(135deg, #ffd3b4 0%, #a7663d 100%) !important;
 }
 .bronze.player-card-ut.occupied:hover {
-    filter: drop-shadow(0 8px 16px rgba(167, 112, 68, 0.5)) !important;
+    filter: drop-shadow(0 8px 16px rgba(216, 150, 108, 0.5)) !important;
 }
 .bronze.player-card-ut.occupied .player-card-ut-inner {
     background: 
-        radial-gradient(circle at 50% 30%, rgba(167, 112, 68, 0.12), transparent 60%),
-        repeating-linear-gradient(45deg, rgba(167, 112, 68, 0.04) 0px, rgba(167, 112, 68, 0.04) 1.5px, transparent 1.5px, transparent 6px),
-        linear-gradient(180deg, #231912 0%, #0f0a07 100%) !important;
+        radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.6), transparent 60%),
+        repeating-linear-gradient(45deg, rgba(62, 31, 7, 0.015) 0px, rgba(62, 31, 7, 0.015) 1.5px, transparent 1.5px, transparent 6px),
+        linear-gradient(180deg, #fffcf9 0%, #f7dfce 50%, #e8ba99 100%) !important;
 }
 .bronze.player-card-ut.occupied .player-card-ut-rating {
-    color: #ffffff !important;
+    color: #2f1401 !important;
 }
 .bronze.player-card-ut.occupied .player-card-ut-position,
 .bronze.player-card-ut.occupied .player-card-ut-name {
-    color: #ffffff !important;
+    color: #381802 !important;
+    font-weight: 800 !important;
 }
 
 /* 2. SILVER TIER (30 <= Points < 85) */
@@ -2209,3 +2263,82 @@ body {
 .burgundy.player-card-ut.occupied .player-card-ut-name {
     color: #ffe4e6 !important;
 }
+
+/* ==========================================================================
+   MICRO FUT CARD (For Market and Squad list tables)
+   ========================================================================== */
+.micro-fut-card {
+    position: relative;
+    width: 25px;
+    height: 33px;
+    border-radius: 4px;
+    padding: 1.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    flex-shrink: 0;
+}
+
+.micro-fut-card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.micro-fut-card-rating {
+    font-size: 0.65rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    font-family: 'Outfit', sans-serif;
+}
+
+/* Micro FUT Card Tier Specific Styles */
+.micro-fut-card.bronze {
+    background: linear-gradient(135deg, #ffd3b4 0%, #a7663d 100%) !important;
+}
+.micro-fut-card.bronze .micro-fut-card-inner {
+    background: linear-gradient(180deg, #fffcf9 0%, #f7dfce 100%) !important;
+}
+.micro-fut-card.bronze .micro-fut-card-rating {
+    color: #2f1401 !important;
+}
+
+.micro-fut-card.silver {
+    background: linear-gradient(135deg, #d1d5db 0%, #4b5563 100%) !important;
+}
+.micro-fut-card.silver .micro-fut-card-inner {
+    background: linear-gradient(180deg, #f8fafc 0%, #cbd5e1 100%) !important;
+}
+.micro-fut-card.silver .micro-fut-card-rating {
+    color: #0f172a !important;
+}
+
+.micro-fut-card.gold {
+    background: linear-gradient(135deg, #ffe066 0%, #8a6f27 100%) !important;
+}
+.micro-fut-card.gold .micro-fut-card-inner {
+    background: linear-gradient(180deg, #ffe885 0%, #d4af37 100%) !important;
+}
+.micro-fut-card.gold .micro-fut-card-rating {
+    color: #1f1600 !important;
+}
+
+.micro-fut-card.burgundy {
+    background: linear-gradient(135deg, #ff2e63 0%, #4a0010 100%) !important;
+}
+.micro-fut-card.burgundy .micro-fut-card-inner {
+    background: 
+        radial-gradient(circle at 50% 30%, rgba(255, 46, 99, 0.2), transparent 60%),
+        linear-gradient(180deg, #2a0813 0%, #120207 100%) !important;
+}
+.micro-fut-card.burgundy .micro-fut-card-rating {
+    color: #ffffff !important;
+    text-shadow: 0 0 3px rgba(255, 46, 99, 0.6);
+}
+

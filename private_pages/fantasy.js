@@ -1323,6 +1323,17 @@ function filterAndRenderMarket() {
         const isOwned = myTeam.players.includes(p.eaPlayerName);
         const row = document.createElement('tr');
         
+        const pRating = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
+        const tierClass = getCardTierClass(pRating);
+        const displayedPoints = p ? Math.round(p.points * 10) / 10 : 0;
+        const microCardHtml = `
+            <div class="micro-fut-card ${tierClass}">
+                <div class="micro-fut-card-inner">
+                    <span class="micro-fut-card-rating">${displayedPoints}</span>
+                </div>
+            </div>
+        `;
+
         let priceCol = `<span style="font-weight: 600;">${formatCurrency(p.price)}</span>`;
         let actionCol = '';
 
@@ -1390,9 +1401,14 @@ function filterAndRenderMarket() {
 
         row.innerHTML = `
             <td>
-                <div style="font-weight: 700; color: #f8fafc;">${p.eaPlayerName}</div>
-                <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
-                    ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${formatPlayerPoints(p)} pts</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    ${microCardHtml}
+                    <div>
+                        <div style="font-weight: 700; color: #f8fafc;">${p.eaPlayerName}</div>
+                        <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                            ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${formatPlayerPoints(p)} pts</span>
+                        </div>
+                    </div>
                 </div>
             </td>
             <td class="text-muted col-hide-md">${p.lastClub}</td>
@@ -1480,16 +1496,32 @@ function renderSquadList() {
             }
         }
 
+        const pRating = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
+        const tierClass = getCardTierClass(pRating);
+        const displayedPoints = p ? Math.round(p.points * 10) / 10 : 0;
+        const microCardHtml = `
+            <div class="micro-fut-card ${tierClass}">
+                <div class="micro-fut-card-inner">
+                    <span class="micro-fut-card-rating">${displayedPoints}</span>
+                </div>
+            </div>
+        `;
+
         row.innerHTML = `
             <td>
-                <div style="font-weight: 700; color: #f8fafc;">
-                    ${p.eaPlayerName}
-                    <span class="mobile-only-inline-block badge ${isAligned ? 'btn-success' : 'text-muted'}" style="display: none; border: none; font-size: 0.65rem; padding: 2px 4px; margin-left: 4px;">
-                        ${isAligned ? 'Alineado' : 'Banquillo'}
-                    </span>
-                </div>
-                <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
-                    ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${formatPlayerPoints(p)} pts</span> • <span>Valor: ${formatCurrency(p.price)}</span>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    ${microCardHtml}
+                    <div>
+                        <div style="font-weight: 700; color: #f8fafc;">
+                            ${p.eaPlayerName}
+                            <span class="mobile-only-inline-block badge ${isAligned ? 'btn-success' : 'text-muted'}" style="display: none; border: none; font-size: 0.65rem; padding: 2px 4px; margin-left: 4px;">
+                                ${isAligned ? 'Alineado' : 'Banquillo'}
+                            </span>
+                        </div>
+                        <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                            ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${formatPlayerPoints(p)} pts</span> • <span>Valor: ${formatCurrency(p.price)}</span>
+                        </div>
+                    </div>
                 </div>
             </td>
             <td class="text-muted col-hide-md">${p.lastClub}</td>
@@ -1650,9 +1682,24 @@ function renderField() {
                 const tierPoints = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
                 const lastName = alignedPlayer.split(' ').pop();
 
-                const avatarHtml = p && p.avatar ? 
+                // Dynamic sizing for long names to avoid truncation
+                const nameLength = lastName.length;
+                let nameStyle = '';
+                if (nameLength > 12) {
+                    nameStyle = 'style="font-size: 0.38rem; letter-spacing: -0.04em;"';
+                } else if (nameLength > 10) {
+                    nameStyle = 'style="font-size: 0.42rem; letter-spacing: -0.03em;"';
+                } else if (nameLength > 8) {
+                    nameStyle = 'style="font-size: 0.46rem; letter-spacing: -0.02rem;"';
+                } else if (nameLength > 6) {
+                    nameStyle = 'style="font-size: 0.5rem; letter-spacing: -0.01em;"';
+                }
+
+                const hasAvatar = p && p.avatar;
+                const avatarHtml = hasAvatar ? 
                     `<img src="https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${p.avatar}/smThumb" alt="" class="player-avatar-img">` : 
                     `<i class="fa-solid fa-user"></i>`;
+                const avatarClass = hasAvatar ? 'player-card-ut-avatar' : 'player-card-ut-avatar no-avatar';
                 const logoHtml = p && p.clubLogo ? 
                     `<img src="${p.clubLogo}" alt="" class="player-club-logo-img">` : 
                     `<i class="fa-solid fa-shield-halved"></i>`;
@@ -1667,10 +1714,10 @@ function renderField() {
                             <div class="player-card-ut-club-logo">
                                 ${logoHtml}
                             </div>
-                            <div class="player-card-ut-avatar">
+                            <div class="${avatarClass}">
                                 ${avatarHtml}
                             </div>
-                            <div class="player-card-ut-name">${lastName}</div>
+                            <div class="player-card-ut-name" ${nameStyle}>${lastName}</div>
                         </div>
                     </div>
                 `;
@@ -2334,12 +2381,27 @@ async function showRivalTeam(discordId, teamName) {
                         const tierPoints = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
                         const lastName = alignedPlayer.split(' ').pop();
 
-                        const avatarHtml = p && p.avatar ? 
+                        // Dynamic sizing for long names to avoid truncation
+                        const nameLength = lastName.length;
+                        let nameStyle = '';
+                        if (nameLength > 12) {
+                            nameStyle = 'style="font-size: 0.38rem; letter-spacing: -0.04em;"';
+                        } else if (nameLength > 10) {
+                            nameStyle = 'style="font-size: 0.42rem; letter-spacing: -0.03em;"';
+                        } else if (nameLength > 8) {
+                            nameStyle = 'style="font-size: 0.46rem; letter-spacing: -0.02rem;"';
+                        } else if (nameLength > 6) {
+                            nameStyle = 'style="font-size: 0.5rem; letter-spacing: -0.01em;"';
+                        }
+
+                        const hasAvatar = p && p.avatar;
+                        const avatarHtml = hasAvatar ? 
                             `<img src="https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${p.avatar}/smThumb" alt="" class="player-avatar-img">` : 
-                            `<i class="fa-solid fa-user" style="color: #cbd5e1; opacity: 0.4;"></i>`;
+                            `<i class="fa-solid fa-user"></i>`;
+                        const avatarClass = hasAvatar ? 'player-card-ut-avatar' : 'player-card-ut-avatar no-avatar';
                         const logoHtml = p && p.clubLogo ? 
                             `<img src="${p.clubLogo}" alt="" class="player-club-logo-img">` : 
-                            `<i class="fa-solid fa-shield-halved" style="color: #cbd5e1; opacity: 0.3;"></i>`;
+                            `<i class="fa-solid fa-shield-halved"></i>`;
 
                         node.innerHTML = `
                             <div class="player-card-ut occupied ${getCardTierClass(tierPoints)}" style="pointer-events: none;">
@@ -2351,10 +2413,10 @@ async function showRivalTeam(discordId, teamName) {
                                     <div class="player-card-ut-club-logo">
                                         ${logoHtml}
                                     </div>
-                                    <div class="player-card-ut-avatar">
+                                    <div class="${avatarClass}">
                                         ${avatarHtml}
                                     </div>
-                                    <div class="player-card-ut-name">${lastName}</div>
+                                    <div class="player-card-ut-name" ${nameStyle}>${lastName}</div>
                                 </div>
                             </div>
                         `;
