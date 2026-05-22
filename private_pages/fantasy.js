@@ -2453,6 +2453,9 @@ async function executeClausulazo(player, clauseAmount) {
         if (!res.ok) throw new Error(data.error || 'Error al ejecutar el clausulazo.');
 
         showToast(data.message, 'success');
+        if (rivalTeamModal) {
+            rivalTeamModal.classList.remove('open');
+        }
         await enterLeague(currentLeagueId, true);
     } catch (e) {
         console.error(e);
