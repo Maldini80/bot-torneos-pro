@@ -1646,7 +1646,8 @@ function renderField() {
 
             if (alignedPlayer) {
                 const p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === alignedPlayer.toLowerCase());
-                const rating = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
+                const displayedPoints = p ? Math.round(p.points * 10) / 10 : 0;
+                const tierPoints = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
                 const lastName = alignedPlayer.split(' ').pop();
 
                 const avatarHtml = p && p.avatar ? 
@@ -1657,10 +1658,10 @@ function renderField() {
                     `<i class="fa-solid fa-shield-halved"></i>`;
 
                 node.innerHTML = `
-                    <div class="player-card-ut occupied ${getCardTierClass(rating)}">
+                    <div class="player-card-ut occupied ${getCardTierClass(tierPoints)}">
                         <div class="player-card-ut-inner">
                             <div class="player-card-ut-rating-pos">
-                                <span class="player-card-ut-rating">${rating}</span>
+                                <span class="player-card-ut-rating">${displayedPoints}</span>
                                 <span class="player-card-ut-position">${pos.label.split(' ')[0]}</span>
                             </div>
                             <div class="player-card-ut-club-logo">
@@ -1718,7 +1719,8 @@ function openPositionSelector(posKey, idx) {
     if (alignedPlayer && alignedPlayerProfile) {
         const p = alignedPlayerProfile;
         const clauseVal = myTeam.clauses?.[alignedPlayer] || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
-        const cardRating = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
+        const displayedPoints = p ? Math.round(p.points * 10) / 10 : 0;
+        const tierPoints = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
 
         const avatarUrl = p.avatar ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${p.avatar}/smThumb` : null;
         const avatarHtml = avatarUrl ? `<img src="${avatarUrl}" alt="" class="fut-card-player-avatar-img">` : `<i class="fa-solid fa-user-ninja"></i>`;
@@ -1727,11 +1729,11 @@ function openPositionSelector(posKey, idx) {
         modalBody.innerHTML = `
             <div class="modal-split-layout">
                 <div class="modal-card-column">
-                    <div class="fut-card ${getCardTierClass(cardRating)}">
+                    <div class="fut-card ${getCardTierClass(tierPoints)}">
                         <div class="fut-card-inner">
                             <div class="fut-card-top-section">
                                 <div class="fut-card-left-col">
-                                    <div class="fut-card-rating">${cardRating}</div>
+                                    <div class="fut-card-rating">${displayedPoints}</div>
                                     <div class="fut-card-pos">${posKey}</div>
                                     <div class="fut-card-flag">
                                         <img src="${getFlagUrl(p.nationality)}" alt="${p.nationality || 'es'}" class="fut-card-flag-img">
@@ -2328,7 +2330,8 @@ async function showRivalTeam(discordId, teamName) {
 
                     if (alignedPlayer) {
                         const p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === alignedPlayer.toLowerCase());
-                        const rating = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
+                        const displayedPoints = p ? Math.round(p.points * 10) / 10 : 0;
+                        const tierPoints = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
                         const lastName = alignedPlayer.split(' ').pop();
 
                         const avatarHtml = p && p.avatar ? 
@@ -2339,10 +2342,10 @@ async function showRivalTeam(discordId, teamName) {
                             `<i class="fa-solid fa-shield-halved" style="color: #cbd5e1; opacity: 0.3;"></i>`;
 
                         node.innerHTML = `
-                            <div class="player-card-ut occupied ${getCardTierClass(rating)}" style="pointer-events: none;">
+                            <div class="player-card-ut occupied ${getCardTierClass(tierPoints)}" style="pointer-events: none;">
                                 <div class="player-card-ut-inner">
                                     <div class="player-card-ut-rating-pos">
-                                        <span class="player-card-ut-rating">${rating}</span>
+                                        <span class="player-card-ut-rating">${displayedPoints}</span>
                                         <span class="player-card-ut-position">${pos.label.split(' ')[0]}</span>
                                     </div>
                                     <div class="player-card-ut-club-logo">
