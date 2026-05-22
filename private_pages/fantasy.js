@@ -157,6 +157,8 @@ let mySentBids = [];
 let currentFilteredPlayers = [];
 let selectedSlotPos = null; 
 let selectedSlotIdx = null; 
+let activeSaveCount = 0;
+let lineupSaveChain = Promise.resolve();
 
 function matchPositionCategory(lastPosition, filterCategory) {
     if (!lastPosition || !filterCategory) return false;
@@ -1636,20 +1638,32 @@ function renderField() {
 
             if (alignedPlayer) {
                 const p = allPlayers.find(x => x.eaPlayerName === alignedPlayer);
+                const rating = p ? p.points : 0;
+                const lastName = alignedPlayer.split(' ').pop();
                 node.innerHTML = `
-                    <div class="player-circle occupied">
-                        <span class="player-jersey-number">${p ? p.points : '0'}</span>
-                        <span class="player-role-badge">${pos.label}</span>
+                    <div class="player-card-ut occupied">
+                        <div class="player-card-ut-inner">
+                            <div class="player-card-ut-rating-pos">
+                                <span class="player-card-ut-rating">${rating}</span>
+                                <span class="player-card-ut-position">${pos.label.split(' ')[0]}</span>
+                            </div>
+                            <div class="player-card-ut-avatar">
+                                <i class="fa-solid fa-shield-halved"></i>
+                            </div>
+                            <div class="player-card-ut-name">${lastName}</div>
+                        </div>
                     </div>
-                    <div class="player-name-plate">${alignedPlayer}</div>
                 `;
             } else {
                 node.innerHTML = `
-                    <div class="player-circle">
-                        <i class="fa-solid fa-plus"></i>
-                        <span class="player-role-badge">${pos.label}</span>
+                    <div class="player-card-ut vacant">
+                        <div class="player-card-ut-inner">
+                            <div class="player-card-ut-add">
+                                <i class="fa-solid fa-plus"></i>
+                            </div>
+                            <div class="player-card-ut-position-label">${pos.label.split(' ')[0]}</div>
+                        </div>
                     </div>
-                    <div class="player-name-plate">${pos.label}</div>
                 `;
             }
 
@@ -1669,7 +1683,9 @@ function openPositionSelector(posKey, idx) {
     selectedSlotIdx = idx;
 
     modalPositionName.textContent = posKey;
-    modalPlayerList.innerHTML = '';
+
+    const modalBody = positionModal.querySelector('.modal-body');
+    if (!modalBody) return;
 
     const matchingPlayers = (myTeam.players || []).filter(name => {
         const p = allPlayers.find(x => x.eaPlayerName === name);
@@ -1678,65 +1694,154 @@ function openPositionSelector(posKey, idx) {
     });
 
     const alignedPlayer = posKey === 'POR' ? myTeam.lineup.POR : (myTeam.lineup[posKey] && myTeam.lineup[posKey][idx]);
+    const alignedPlayerProfile = alignedPlayer ? allPlayers.find(x => x.eaPlayerName === alignedPlayer) : null;
 
-    if (alignedPlayer) {
-        const removeRow = document.createElement('div');
-        removeRow.className = 'modal-player-row';
-        removeRow.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-        removeRow.style.background = 'rgba(239, 68, 68, 0.05)';
-        removeRow.innerHTML = `
-            <div class="modal-player-info">
-                <div class="modal-player-name" style="color: #ef4444;"><i class="fa-solid fa-circle-minus"></i> Quitar de alineación</div>
-                <div class="modal-player-club">${alignedPlayer}</div>
+    if (alignedPlayer && alignedPlayerProfile) {
+        const p = alignedPlayerProfile;
+        const clauseVal = myTeam.clauses?.[alignedPlayer] || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
+
+        modalBody.innerHTML = `
+            <div class="modal-split-layout">
+                <div class="modal-card-column">
+                    <div class="fut-card">
+                        <div class="fut-card-inner">
+                            <div class="fut-card-badge-col">
+                                <div class="fut-card-rating">${p.points || 0}</div>
+                                <div class="fut-card-pos">${posKey}</div>
+                            </div>
+                            <div class="fut-card-club-badge">
+                                <i class="fa-solid fa-shield-halved"></i>
+                            </div>
+                            <div class="fut-card-player-avatar">
+                                <i class="fa-solid fa-user-ninja"></i>
+                            </div>
+                            <div class="fut-card-player-name">${p.eaPlayerName.split(' ').pop()}</div>
+                            <div class="fut-card-stats-grid">
+                                <div class="fut-card-stat-item">
+                                    <span class="fut-card-stat-label">PJ</span>
+                                    <span class="fut-card-stat-value">${p.matchesPlayed || 0}</span>
+                                </div>
+                                <div class="fut-card-stat-item">
+                                    <span class="fut-card-stat-label">RAT</span>
+                                    <span class="fut-card-stat-value">${parseFloat(p.avgRating || 0).toFixed(2)}</span>
+                                </div>
+                                <div class="fut-card-stat-item">
+                                    <span class="fut-card-stat-label">G</span>
+                                    <span class="fut-card-stat-value">${p.goals || 0}</span>
+                                </div>
+                                <div class="fut-card-stat-item">
+                                    <span class="fut-card-stat-label">A</span>
+                                    <span class="fut-card-stat-value">${p.assists || 0}</span>
+                                </div>
+                                <div class="fut-card-stat-item" style="grid-column: span 2;">
+                                    <span class="fut-card-stat-label">VAL</span>
+                                    <span class="fut-card-stat-value value-highlight">${formatCurrency(p.price)}</span>
+                                </div>
+                                <div class="fut-card-stat-item" style="grid-column: span 2;">
+                                    <span class="fut-card-stat-label">CLA</span>
+                                    <span class="fut-card-stat-value clause-highlight">${formatCurrency(clauseVal)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-actions-column">
+                    <div class="modal-initial-actions">
+                        <button class="btn btn-primary btn-block btn-substitute">
+                            <i class="fa-solid fa-arrows-rotate"></i> Sustituir Jugador
+                        </button>
+                        <button class="btn btn-danger btn-block btn-remove">
+                            <i class="fa-solid fa-trash-can"></i> Quitar de alineación
+                        </button>
+                    </div>
+                    <div class="modal-replacements-section" style="display: none;">
+                        <button class="btn btn-secondary btn-xs btn-back-actions" style="margin-bottom: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                            <i class="fa-solid fa-arrow-left"></i> Atrás
+                        </button>
+                        <p class="modal-instruction" style="margin-bottom: 8px; font-size: 0.85rem;">Sustituir por:</p>
+                        <div class="modal-player-list replacement-list"></div>
+                    </div>
+                </div>
             </div>
-            <i class="fa-solid fa-chevron-right text-muted"></i>
         `;
-        removeRow.addEventListener('click', () => {
+
+        const btnSubstitute = modalBody.querySelector('.btn-substitute');
+        const btnRemove = modalBody.querySelector('.btn-remove');
+        const initialActions = modalBody.querySelector('.modal-initial-actions');
+        const replacementsSection = modalBody.querySelector('.modal-replacements-section');
+        const btnBackActions = modalBody.querySelector('.btn-back-actions');
+        const replacementListEl = modalBody.querySelector('.replacement-list');
+
+        btnSubstitute.addEventListener('click', () => {
+            initialActions.style.display = 'none';
+            replacementsSection.style.display = 'flex';
+        });
+
+        btnBackActions.addEventListener('click', () => {
+            replacementsSection.style.display = 'none';
+            initialActions.style.display = 'flex';
+        });
+
+        btnRemove.addEventListener('click', () => {
             removePlayerFromSlot(posKey, idx);
             positionModal.classList.remove('open');
             renderField();
             renderSquadList();
         });
-        modalPlayerList.appendChild(removeRow);
-    }
 
-    if (matchingPlayers.length === 0) {
-        modalPlayerList.innerHTML += `<p class="text-center text-muted py-4">No tienes jugadores de posición ${posKey} en tu plantilla.</p>`;
+        populatePlayerListElements(replacementListEl, matchingPlayers, alignedPlayer);
+
     } else {
-        matchingPlayers.forEach(name => {
-            const isUsed = isPlayerInLineup(name) && name !== alignedPlayer;
-            const p = allPlayers.find(x => x.eaPlayerName === name);
-            if (!p) return;
-
-            const row = document.createElement('div');
-            row.className = 'modal-player-row';
-            if (isUsed) {
-                row.style.opacity = '0.5';
-                row.style.pointerEvents = 'none';
-            }
-
-            row.innerHTML = `
-                <div class="modal-player-info">
-                    <div class="modal-player-name">${name} ${isUsed ? '(Ya alineado)' : ''}</div>
-                    <div class="modal-player-club">${p.lastClub} | Puntos VPG: ${formatPlayerPoints(p)}</div>
-                </div>
-                <i class="fa-solid fa-check text-green"></i>
-            `;
-
-            if (!isUsed) {
-                row.addEventListener('click', () => {
-                    alignPlayerToSlot(name, posKey, idx);
-                    positionModal.classList.remove('open');
-                    renderField();
-                    renderSquadList();
-                });
-            }
-
-            modalPlayerList.appendChild(row);
-        });
+        // If vacant or profile not found
+        modalBody.innerHTML = `
+            <p class="modal-instruction">Selecciona un jugador disponible para esta posición:</p>
+            <div class="modal-player-list" id="modal-player-list"></div>
+        `;
+        const listEl = modalBody.querySelector('.modal-player-list');
+        populatePlayerListElements(listEl, matchingPlayers, alignedPlayer);
     }
 
     positionModal.classList.add('open');
+}
+
+function populatePlayerListElements(listEl, matchingPlayers, alignedPlayer) {
+    listEl.innerHTML = '';
+    if (matchingPlayers.length === 0) {
+        listEl.innerHTML = `<p class="text-center text-muted py-4">No tienes jugadores de posición ${selectedSlotPos} en tu plantilla.</p>`;
+        return;
+    }
+
+    matchingPlayers.forEach(name => {
+        const isUsed = isPlayerInLineup(name) && name !== alignedPlayer;
+        const p = allPlayers.find(x => x.eaPlayerName === name);
+        if (!p) return;
+
+        const row = document.createElement('div');
+        row.className = 'modal-player-row';
+        if (isUsed) {
+            row.style.opacity = '0.5';
+            row.style.pointerEvents = 'none';
+        }
+
+        row.innerHTML = `
+            <div class="modal-player-info">
+                <div class="modal-player-name">${name} ${isUsed ? '(Ya alineado)' : ''}</div>
+                <div class="modal-player-club">${p.lastClub} | Puntos VPG: ${formatPlayerPoints(p)}</div>
+            </div>
+            <i class="fa-solid fa-check text-green"></i>
+        `;
+
+        if (!isUsed) {
+            row.addEventListener('click', () => {
+                alignPlayerToSlot(name, selectedSlotPos, selectedSlotIdx);
+                positionModal.classList.remove('open');
+                renderField();
+                renderSquadList();
+            });
+        }
+
+        listEl.appendChild(row);
+    });
 }
 
 function alignPlayerToSlot(playerName, posKey, idx) {
@@ -1883,12 +1988,22 @@ async function sellPlayer(player) {
 
 // Save Current Lineup Setup to Database
 async function saveLineupToServer(silent = false) {
+    activeSaveCount++;
+    lineupSaveChain = lineupSaveChain.then(async () => {
+        await executeSaveLineup(silent);
+    }).catch(err => {
+        console.error('Error in lineup save chain:', err);
+    }).finally(() => {
+        activeSaveCount--;
+    });
+    return lineupSaveChain;
+}
+
+async function executeSaveLineup(silent = false) {
     const isSilent = silent === true;
     if (myTeam.isSpectator) return;
     if (isLineupLocked()) {
-        if (!isSilent) {
-            showToast('No puedes modificar tu alineación de lunes a jueves entre las 20:30 y las 23:59 (hora de Madrid).', 'error');
-        }
+        showToast('No puedes modificar tu alineación de lunes a jueves entre las 20:30 y las 23:59 (hora de Madrid).', 'error');
         return;
     }
     try {
@@ -2174,18 +2289,32 @@ async function showRivalTeam(discordId, teamName) {
 
                     if (alignedPlayer) {
                         const p = allPlayers.find(x => x.eaPlayerName === alignedPlayer);
+                        const rating = p ? p.points : 0;
+                        const lastName = alignedPlayer.split(' ').pop();
                         node.innerHTML = `
-                            <div class="player-circle occupied" style="background: linear-gradient(135deg, #1e293b, #0f172a); border-color: rgba(255,255,255,0.2);">
-                                <span class="player-jersey-number" style="color: #cbd5e1;">${p ? p.points : '0'}</span>
+                            <div class="player-card-ut occupied" style="pointer-events: none;">
+                                <div class="player-card-ut-inner" style="background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);">
+                                    <div class="player-card-ut-rating-pos">
+                                        <span class="player-card-ut-rating" style="color: #cbd5e1; text-shadow: none;">${rating}</span>
+                                        <span class="player-card-ut-position" style="color: #94a3b8;">${pos.label.split(' ')[0]}</span>
+                                    </div>
+                                    <div class="player-card-ut-avatar">
+                                        <i class="fa-solid fa-shield-halved" style="color: #64748b; opacity: 0.5;"></i>
+                                    </div>
+                                    <div class="player-card-ut-name">${lastName}</div>
+                                </div>
                             </div>
-                            <div class="player-name-plate">${alignedPlayer}</div>
                         `;
                     } else {
                         node.innerHTML = `
-                            <div class="player-circle" style="opacity: 0.3; pointer-events: none; border-style: dotted;">
-                                <span class="player-role-badge">${pos.label}</span>
+                            <div class="player-card-ut vacant" style="opacity: 0.4; pointer-events: none;">
+                                <div class="player-card-ut-inner">
+                                    <div class="player-card-ut-add">
+                                        <i class="fa-solid fa-minus" style="font-size: 0.7rem;"></i>
+                                    </div>
+                                    <div class="player-card-ut-position-label">${pos.label.split(' ')[0]}</div>
+                                </div>
                             </div>
-                            <div class="player-name-plate" style="opacity: 0.4;">Vacio</div>
                         `;
                     }
                     
@@ -3685,6 +3814,18 @@ function startAutoRefresh() {
     if (autoRefreshInterval) return;
     autoRefreshInterval = setInterval(async () => {
         if (!currentLeagueId) return;
+        
+        // Skip auto-refresh if a lineup save is in progress or queued
+        if (activeSaveCount > 0) {
+            console.log('[AUTO-REFRESH] Guardado de alineación en progreso, omitiendo refresco.');
+            return;
+        }
+
+        // Skip auto-refresh if any modal is currently open
+        if (document.querySelector('.modal-overlay.open') !== null) {
+            console.log('[AUTO-REFRESH] Modal abierto, omitiendo refresco.');
+            return;
+        }
         
         // Don't auto refresh if user is focusing or typing in any input element to avoid losing focus/state
         const active = document.activeElement;
