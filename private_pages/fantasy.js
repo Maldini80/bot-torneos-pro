@@ -1646,7 +1646,7 @@ function renderField() {
 
             if (alignedPlayer) {
                 const p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === alignedPlayer.toLowerCase());
-                const rating = p ? p.points : 0;
+                const rating = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
                 const lastName = alignedPlayer.split(' ').pop();
 
                 const avatarHtml = p && p.avatar ? 
@@ -1718,6 +1718,7 @@ function openPositionSelector(posKey, idx) {
     if (alignedPlayer && alignedPlayerProfile) {
         const p = alignedPlayerProfile;
         const clauseVal = myTeam.clauses?.[alignedPlayer] || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
+        const cardRating = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
 
         const avatarUrl = p.avatar ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${p.avatar}/smThumb` : null;
         const avatarHtml = avatarUrl ? `<img src="${avatarUrl}" alt="" class="fut-card-player-avatar-img">` : `<i class="fa-solid fa-user-ninja"></i>`;
@@ -1726,11 +1727,11 @@ function openPositionSelector(posKey, idx) {
         modalBody.innerHTML = `
             <div class="modal-split-layout">
                 <div class="modal-card-column">
-                    <div class="fut-card ${getCardTierClass(p.points)}">
+                    <div class="fut-card ${getCardTierClass(cardRating)}">
                         <div class="fut-card-inner">
                             <div class="fut-card-top-section">
                                 <div class="fut-card-left-col">
-                                    <div class="fut-card-rating">${p.points || 0}</div>
+                                    <div class="fut-card-rating">${cardRating}</div>
                                     <div class="fut-card-pos">${posKey}</div>
                                     <div class="fut-card-flag">
                                         <img src="${getFlagUrl(p.nationality)}" alt="${p.nationality || 'es'}" class="fut-card-flag-img">
@@ -2327,7 +2328,7 @@ async function showRivalTeam(discordId, teamName) {
 
                     if (alignedPlayer) {
                         const p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === alignedPlayer.toLowerCase());
-                        const rating = p ? p.points : 0;
+                        const rating = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
                         const lastName = alignedPlayer.split(' ').pop();
 
                         const avatarHtml = p && p.avatar ? 
