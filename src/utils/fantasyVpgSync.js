@@ -648,10 +648,10 @@ export async function processLeagueMarketOffers(db) {
         let targetOffer;
         let tier;
         if (elapsedDays >= 4) {
-            targetOffer = Math.round(price * 0.20); // Valor menos 80% (20% del valor)
+            targetOffer = Math.round(price * 0.80); // 20% de descuento (80% del valor)
             tier = 2;
         } else {
-            targetOffer = Math.round(price * 0.25); // Valor menos 75% (25% del valor)
+            targetOffer = Math.round(price * 0.75); // 25% de descuento (75% del valor)
             tier = 1;
         }
 

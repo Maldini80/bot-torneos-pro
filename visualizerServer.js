@@ -7201,8 +7201,8 @@ export async function startVisualizerServer(discordClient) {
 
             // Get market price using single source of truth
             const { price } = calculatePlayerPointsAndPrice(player);
-            // 80% reimbursement penalty
-            const saleReimbursement = Math.round(price * 0.8);
+            // 65% reimbursement penalty
+            const saleReimbursement = Math.round(price * 0.65);
 
             // Remove from lineup too
             const newLineup = { ...userTeam.lineup };
@@ -7232,7 +7232,7 @@ export async function startVisualizerServer(discordClient) {
             await db.collection('fantasy_market_listings').deleteMany({ leagueId, sellerDiscordId: discordId, eaPlayerName });
             await db.collection('fantasy_market_bids').deleteMany({ leagueId, eaPlayerName, $or: [ { bidderDiscordId: discordId }, { sellerDiscordId: discordId } ] });
 
-            res.json({ success: true, message: `Has vendido a ${eaPlayerName} por ${saleReimbursement.toLocaleString('es-ES')} € (80% de su valor de ${price.toLocaleString('es-ES')} €).` });
+            res.json({ success: true, message: `Has vendido a ${eaPlayerName} por ${saleReimbursement.toLocaleString('es-ES')} € (65% de su valor de ${price.toLocaleString('es-ES')} €).` });
         } catch (e) {
             console.error('[API Fantasy Sell] Error:', e);
             res.status(500).json({ error: 'Error al vender jugador.' });

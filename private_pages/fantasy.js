@@ -1533,7 +1533,7 @@ function renderSquadList() {
             <td class="text-right price-text col-hide-sm">${formatCurrency(p.price)}</td>
             <td class="text-center">
                 <div style="display: flex; gap: 4px; justify-content: center;">
-                    <button class="btn btn-danger btn-xs btn-sell" data-name="${p.eaPlayerName}" ${activeLeague && (!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-dollar-sign"></i> Vender (80%)</button>
+                    <button class="btn btn-danger btn-xs btn-sell" data-name="${p.eaPlayerName}" ${activeLeague && (!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-dollar-sign"></i> Vender (65%)</button>
                     <button class="btn btn-warning btn-xs btn-clause" data-name="${p.eaPlayerName}" ${activeLeague && (!activeLeague.allowClauses || !activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-arrow-trend-up"></i> Cláusula</button>
                     ${isListed 
                         ? `<button class="btn btn-secondary btn-xs btn-unlist" data-name="${p.eaPlayerName}" ${activeLeague && (!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-minus"></i> Quitar Venta</button>`
@@ -1611,7 +1611,7 @@ function getTableCardHtml(p) {
     const tierPoints = Math.round((p.points + (p.basePoints || 0)) * 10) / 10;
     const tierClass = getCardTierClass(tierPoints);
     const displayedPoints = Math.round(p.points * 10) / 10;
-    const lastName = p.eaPlayerName.split(' ').pop();
+    const lastName = p.eaPlayerName.trim().split(' ').pop();
     
     // Dynamic sizing for long names to avoid truncation
     const nameLength = lastName.length;
@@ -1727,7 +1727,7 @@ function renderField() {
                 const p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === alignedPlayer.toLowerCase());
                 const displayedPoints = p ? Math.round(p.points * 10) / 10 : 0;
                 const tierPoints = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
-                const lastName = alignedPlayer.split(' ').pop();
+                const lastName = alignedPlayer.trim().split(' ').pop();
 
 
                 // Dynamic sizing for long names to avoid truncation
@@ -1844,7 +1844,7 @@ function openPositionSelector(posKey, idx) {
                                     ${avatarHtml}
                                 </div>
                             </div>
-                            <div class="fut-card-player-name">${p.eaPlayerName.split(' ').pop()}</div>
+                            <div class="fut-card-player-name">${p.eaPlayerName.trim().split(' ').pop()}</div>
                             <div class="fut-card-stats-grid">
                                 <div class="fut-card-stat-item">
                                     <span class="fut-card-stat-value">${p.matchesPlayed || 0}</span>
@@ -2097,8 +2097,8 @@ async function buyPlayer(player) {
 
 // Sell Player Operation
 async function sellPlayer(player) {
-    const saleReimbursement = Math.round(player.price * 0.8);
-    if (!confirm(`¿Estás seguro de que deseas vender a ${player.eaPlayerName} a la máquina por el 80% de su valor (${formatCurrency(saleReimbursement)})?`)) {
+    const saleReimbursement = Math.round(player.price * 0.65);
+    if (!confirm(`¿Estás seguro de que deseas vender a ${player.eaPlayerName} a la máquina por el 65% de su valor (${formatCurrency(saleReimbursement)})?`)) {
         return;
     }
 
@@ -2432,7 +2432,7 @@ async function showRivalTeam(discordId, teamName) {
                         const p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === alignedPlayer.toLowerCase());
                         const displayedPoints = p ? Math.round(p.points * 10) / 10 : 0;
                         const tierPoints = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
-                        const lastName = alignedPlayer.split(' ').pop();
+                        const lastName = alignedPlayer.trim().split(' ').pop();
 
 
                         // Dynamic sizing for long names to avoid truncation
