@@ -625,15 +625,6 @@ export async function processLeagueMarketOffers(db) {
     const playerColl = db.collection('player_profiles');
 
     for (const listing of listings) {
-        // Fallback si createdAt no existe
-        const createdAt = listing.createdAt ? new Date(listing.createdAt) : now;
-        const elapsedMs = now - createdAt;
-        const elapsedDays = elapsedMs / (1000 * 60 * 60 * 24);
-
-        if (elapsedDays < 2) {
-            continue; // Menos de 2 días
-        }
-
         // Buscar el perfil del jugador
         const player = await playerColl.findOne({
             eaPlayerName: { $regex: new RegExp('^' + listing.eaPlayerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
@@ -641,18 +632,6 @@ export async function processLeagueMarketOffers(db) {
         if (!player) {
             console.warn(`[LEAGUE MARKET OFFER] No se encontró perfil para el jugador listado: ${listing.eaPlayerName}`);
             continue;
-        }
-
-        const { price } = calculatePlayerPointsAndPrice(player);
-
-        let targetOffer;
-        let tier;
-        if (elapsedDays >= 4) {
-            targetOffer = Math.round(price * 0.80); // 20% de descuento (80% del valor)
-            tier = 2;
-        } else {
-            targetOffer = Math.round(price * 0.75); // 25% de descuento (75% del valor)
-            tier = 1;
         }
 
         // Buscar puja de la liga existente
@@ -663,6 +642,11 @@ export async function processLeagueMarketOffers(db) {
         });
 
         if (!existingBid) {
+            const { price } = calculatePlayerPointsAndPrice(player);
+            // Generar un porcentaje aleatorio entre 80% y 86%
+            const pct = Math.floor(Math.random() * (86 - 80 + 1)) + 80;
+            const targetOffer = Math.round(price * (pct / 100));
+
             // Crear nueva puja de la liga
             await db.collection('fantasy_market_bids').insertOne({
                 leagueId: listing.leagueId,
@@ -672,27 +656,11 @@ export async function processLeagueMarketOffers(db) {
                 sellerTeamName: listing.sellerTeamName,
                 eaPlayerName: listing.eaPlayerName,
                 bidAmount: targetOffer,
-                tier: tier,
+                tier: 1,
                 status: 'pending',
                 createdAt: new Date()
             });
-            console.log(`[LEAGUE MARKET OFFER] Nueva oferta de La Liga creada para ${listing.eaPlayerName} por ${targetOffer.toLocaleString('es-ES')} € (Tier ${tier})`);
-        } else {
-            // Si el tier ha cambiado, actualizamos la oferta
-            if (existingBid.tier !== tier) {
-                await db.collection('fantasy_market_bids').updateOne(
-                    { _id: existingBid._id },
-                    {
-                        $set: {
-                            bidAmount: targetOffer,
-                            tier: tier,
-                            status: 'pending',
-                            createdAt: new Date()
-                        }
-                    }
-                );
-                console.log(`[LEAGUE MARKET OFFER] Oferta de La Liga para ${listing.eaPlayerName} actualizada a ${targetOffer.toLocaleString('es-ES')} € (Tier ${tier})`);
-            }
+            console.log(`[LEAGUE MARKET OFFER] Nueva oferta de La Liga creada para ${listing.eaPlayerName} por ${targetOffer.toLocaleString('es-ES')} € (${pct}%)`);
         }
     }
 }
