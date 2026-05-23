@@ -7444,6 +7444,19 @@ export async function startVisualizerServer(discordClient) {
             const db = getDb();
             const discordId = req.user.id;
 
+            // Validate that the bid amount is at least the player's market price
+            const playerProfile = await db.collection('player_profiles').findOne({
+                eaPlayerName: { $regex: new RegExp('^' + eaPlayerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+            });
+            if (!playerProfile) return res.status(404).json({ error: 'Perfil de jugador no encontrado.' });
+
+            const { price: playerMarketPrice } = calculatePlayerPointsAndPrice(playerProfile);
+            if (Math.round(bidAmount) < playerMarketPrice) {
+                return res.status(400).json({
+                    error: `La puja mínima para este jugador debe ser su valor de mercado (${playerMarketPrice.toLocaleString('es-ES')} €).`
+                });
+            }
+
             if (sellerDiscordId === discordId) {
                 return res.status(400).json({ error: 'No puedes pujar por tu propio jugador.' });
             }

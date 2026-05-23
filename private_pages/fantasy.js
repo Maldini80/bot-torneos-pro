@@ -1438,6 +1438,7 @@ function filterAndRenderMarket() {
                     bidAmountInput.value = p.price;
                     bidForm.setAttribute('data-player-name', p.eaPlayerName);
                     bidForm.setAttribute('data-seller-id', 'SYSTEM');
+                    bidForm.setAttribute('data-market-price', p.price);
                     bidModal.classList.add('open');
                 });
             }
@@ -3582,11 +3583,18 @@ async function handleBidSubmit(e) {
     const playerName = bidForm.getAttribute('data-player-name');
     const sellerId = bidForm.getAttribute('data-seller-id');
     const amount = parseInt(bidAmountInput.value);
+    const marketPrice = parseInt(bidForm.getAttribute('data-market-price')) || 0;
 
     if (amount <= 0) {
         showToast('El precio ofertado debe ser mayor que 0.', 'error');
         return;
     }
+
+    if (amount < marketPrice) {
+        showToast(`La puja mínima para este jugador debe ser su valor de mercado (${formatCurrency(marketPrice)}).`, 'error');
+        return;
+    }
+
     // Lookup if we already have a pending bid for this player
     const existingBid = mySentBids.find(b => b.eaPlayerName.toLowerCase() === playerName.toLowerCase() && b.status === 'pending');
     const oldBidAmount = existingBid ? existingBid.bidAmount : 0;
@@ -3671,6 +3679,7 @@ async function loadUserMarket() {
                     bidAmountInput.value = l.askingPrice;
                     bidForm.setAttribute('data-player-name', l.eaPlayerName);
                     bidForm.setAttribute('data-seller-id', l.sellerDiscordId);
+                    bidForm.setAttribute('data-market-price', p.price);
                     bidModal.classList.add('open');
                 });
             }
