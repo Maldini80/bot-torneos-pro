@@ -152,6 +152,7 @@ let myTeam = {
     teamName: ''
 };
 let allPlayers = [];
+let searchedPlayersList = [];
 let marketListings = [];
 let mySentBids = [];
 let currentFilteredPlayers = [];
@@ -4071,6 +4072,7 @@ async function handleAdminPlayerSearch() {
         if (!res.ok) throw new Error('Error al buscar jugadores.');
         const players = await res.json();
         
+        searchedPlayersList = players || [];
         adminSearchPlayerResults.innerHTML = '';
         
         if (players.length === 0) {
@@ -4096,7 +4098,7 @@ async function handleAdminPlayerSearch() {
                 
                 row.innerHTML = `
                     <td>
-                        <div style="font-weight: 600; color: #fff;">${p.eaPlayerName}</div>
+                        <div class="clickable-player-name" style="font-weight: 700; color: #38bdf8; cursor: pointer; text-decoration: underline;" onclick="openPlayerStatsModalByName('${p.eaPlayerName.replace(/'/g, "\\'")}')">${p.eaPlayerName}</div>
                         <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
                             ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${p.points} pts</span>
                         </div>
@@ -4142,7 +4144,7 @@ async function handleAdminPlayerSearch() {
                 const displayPos = p.manualPosition || p.lastPosition || 'MC';
                 row.innerHTML = `
                     <td>
-                        <div style="font-weight: 600; color: #fff;">${p.eaPlayerName}</div>
+                        <div class="clickable-player-name" style="font-weight: 700; color: #38bdf8; cursor: pointer; text-decoration: underline;" onclick="openPlayerStatsModalByName('${p.eaPlayerName.replace(/'/g, "\\'")}')">${p.eaPlayerName}</div>
                         <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
                             ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${p.points} pts</span>
                         </div>
@@ -4419,8 +4421,11 @@ function stopAutoRefresh() {
 async function openPlayerStatsModalByName(playerName) {
     if (!playerName) return;
     
-    // Find player in allPlayers
-    const p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === playerName.toLowerCase());
+    // Find player in allPlayers, falling back to searchedPlayersList
+    let p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === playerName.toLowerCase());
+    if (!p) {
+        p = searchedPlayersList.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === playerName.toLowerCase());
+    }
     if (!p) {
         showToast('No se encontró información de este jugador.', 'error');
         return;
@@ -4430,7 +4435,7 @@ async function openPlayerStatsModalByName(playerName) {
     let clauseVal = p.clause || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
     
     // If not set on player profile directly, look if any team owns him to fetch their customized clause
-    if (!p.clause) {
+    if (!p.clause && currentLeagueId) {
         try {
             const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/teams`);
             if (res.ok) {
