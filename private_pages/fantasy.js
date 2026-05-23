@@ -309,6 +309,7 @@ const toggleAdminPasswordVisibility = document.getElementById('toggle-admin-pass
 const adminLeagueAllowClauses = document.getElementById('admin-league-allow-clauses');
 const adminLeagueClauseMultiplier = document.getElementById('admin-league-clause-multiplier');
 const adminLeagueInitialBudget = document.getElementById('admin-league-initial-budget');
+const adminLeagueVpgTags = document.getElementById('admin-league-vpg-tags');
 const btnAdminToggleMarket = document.getElementById('btn-admin-toggle-market');
 const btnAdminToggleStatus = document.getElementById('btn-admin-toggle-status');
 const adminLeagueStatusText = document.getElementById('admin-league-status-text');
@@ -789,7 +790,7 @@ async function showLeagueSelector() {
     leaguesGrid.innerHTML = `<div class="loading-state"><i class="fa-solid fa-spinner fa-spin"></i> Cargando ligas...</div>`;
     
     // Load VPG leagues for the creation form dropdown
-    loadCreationVpgLeagues();
+    await loadCreationVpgLeagues();
     
     try {
         const res = await fetch('/api/fantasy/leagues');
@@ -865,6 +866,18 @@ function renderLeaguesList(filterText = '') {
             }
         }
 
+        const vpgLg = league.vpgLeagues || [];
+        let vpgHtml = '';
+        if (vpgLg.length > 0) {
+            const tags = vpgLg.map(slug => {
+                const matched = globalAllLeagues.find(l => l.slug === slug);
+                return `<span class="badge" style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56,189,248,0.2); padding: 1px 6px; font-size: 0.65rem; border-radius: 4px; display: inline-block;">${matched ? (matched.title || slug) : slug}</span>`;
+            }).join(' ');
+            vpgHtml = `<div style="margin-top: 8px; margin-bottom: 12px; display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 0.75rem; color: #94a3b8;"><i class="fa-solid fa-link" style="font-size: 0.7rem; color: #64748b;"></i> <strong style="color:#94a3b8;">VPG:</strong> ${tags}</div>`;
+        } else {
+            vpgHtml = `<div style="margin-top: 8px; margin-bottom: 12px; font-size: 0.75rem; color: #64748b;"><i class="fa-solid fa-link" style="font-size: 0.7rem; color: #64748b;"></i> <strong>VPG:</strong> Sin ligas VPG vinculadas</div>`;
+        }
+
         card.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:center;">
                 <h3>${league.name}${lockIcon}</h3>
@@ -875,6 +888,7 @@ function renderLeaguesList(filterText = '') {
                 <div><i class="fa-solid fa-wallet"></i> <span>Presupuesto: ${formatCurrency(league.initialBudget)}</span></div>
                 <div><i class="fa-solid fa-store"></i> <span>Mercado: ${league.marketOpen ? 'Abierto' : 'Cerrado'}</span></div>
             </div>
+            ${vpgHtml}
             ${buttonsHtml}
         `;
         
@@ -910,16 +924,42 @@ async function loadPendingLeagueRequests() {
             container.innerHTML = '<span class="text-muted" style="font-size: 0.85rem;">No hay solicitudes pendientes.</span>';
             return;
         }
+        if (!globalAllLeagues || globalAllLeagues.length === 0) {
+            try {
+                const res = await fetch('/api/fantasy/active-leagues');
+                if (res.ok) {
+                    const data = await res.json();
+                    globalAllLeagues = data.allLeagues || [];
+                }
+            } catch (e) {
+                console.error('Error loading VPG leagues for pending list:', e);
+            }
+        }
+
         container.innerHTML = '';
         pending.forEach(league => {
             const card = document.createElement('div');
             card.style.cssText = 'background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 12px; display: flex; flex-direction: column; gap: 8px;';
             const date = new Date(league.createdAt).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            
+            const vpgLg = league.vpgLeagues || [];
+            let vpgHtml = '';
+            if (vpgLg.length > 0) {
+                const tags = vpgLg.map(slug => {
+                    const matched = globalAllLeagues.find(l => l.slug === slug);
+                    return `<span class="badge" style="background: rgba(56, 189, 248, 0.1); color: #38bdf8; border: 1px solid rgba(56,189,248,0.2); padding: 1px 6px; font-size: 0.65rem; border-radius: 4px; display: inline-block;">${matched ? (matched.title || slug) : slug}</span>`;
+                }).join(' ');
+                vpgHtml = `<div style="display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; align-items: center;"><strong style="font-size: 0.75rem; color: #94a3b8;">Ligas VPG:</strong> ${tags}</div>`;
+            } else {
+                vpgHtml = `<div style="font-size: 0.75rem; color: #64748b; margin-top: 4px;"><strong>Ligas VPG:</strong> Sin ligas VPG vinculadas</div>`;
+            }
+
             card.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div>
+                    <div style="width: 100%;">
                         <div style="font-weight: 600; color: #fff; font-size: 0.9rem;">${league.name}</div>
                         <div style="font-size: 0.75rem; color: #64748b;">Por: ${league.createdByUsername || 'Desconocido'} • ${date}</div>
+                        ${vpgHtml}
                     </div>
                 </div>
                 <div style="display: flex; gap: 8px;">
@@ -2550,6 +2590,40 @@ async function loadAdminPanelData() {
     adminLeagueAllowClauses.value = activeLeague.allowClauses !== false ? 'true' : 'false';
     adminLeagueClauseMultiplier.value = activeLeague.clauseMultiplier || 1.5;
     adminLeagueInitialBudget.value = activeLeague.initialBudget || 100000000;
+    
+    // Render linked VPG leagues
+    if (adminLeagueVpgTags) {
+        adminLeagueVpgTags.innerHTML = '<span class="text-muted" style="font-size: 0.8rem;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando ligas...</span>';
+        let allLeagues = globalAllLeagues || [];
+        if (allLeagues.length === 0) {
+            try {
+                const res = await fetch('/api/fantasy/active-leagues');
+                if (res.ok) {
+                    const data = await res.json();
+                    allLeagues = data.allLeagues || [];
+                    globalAllLeagues = allLeagues;
+                }
+            } catch (e) {
+                console.error('Error fetching VPG leagues for names mapping:', e);
+            }
+        }
+
+        adminLeagueVpgTags.innerHTML = '';
+        const linkedLeagues = activeLeague.vpgLeagues || [];
+        if (linkedLeagues.length === 0) {
+            adminLeagueVpgTags.innerHTML = '<span class="text-muted" style="font-size: 0.8rem;">Ninguna liga VPG vinculada</span>';
+        } else {
+            linkedLeagues.forEach(slug => {
+                const matched = allLeagues.find(l => l.slug === slug);
+                const title = matched ? (matched.title || slug) : slug;
+                const badge = document.createElement('span');
+                badge.className = 'badge';
+                badge.style.margin = '2px';
+                badge.innerText = title;
+                adminLeagueVpgTags.appendChild(badge);
+            });
+        }
+    }
     
     // Hide/show delete card for helpers
     const deleteCard = btnAdminDeleteLeague ? btnAdminDeleteLeague.closest('.action-card') : null;
