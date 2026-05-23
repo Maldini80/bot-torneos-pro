@@ -354,7 +354,7 @@ export async function syncFantasyWithVpg() {
                 while (hasMore) {
                     updateRebuildStatus({ progress: `Descargando líderes de ${leagueSlug} para ${fantasyPos} (offset: ${offset})...` });
 
-                    const leaderboardUrl = `https://api.virtualprogaming.com/public/leagues/${leagueSlug}/leaderboard?leaderboard=${vpgPosKey}&limit=30&offset=${offset}`;
+                    const leaderboardUrl = `https://api.virtualprogaming.com/public/leagues/${leagueSlug}/leaderboard?leaderboard=${vpgPosKey}&type=all&limit=30&offset=${offset}`;
                     let pagePlayers = [];
                     try {
                         const res = await fetch(leaderboardUrl, { headers: HEADERS });
