@@ -1042,18 +1042,21 @@ async function handleCreateLeague(e) {
     const privacy = document.getElementById('new-league-privacy').value;
     const password = document.getElementById('new-league-password').value;
     
-    const maxVal = parseInt(maxParticipants);
-    if (isNaN(maxVal) || maxVal < 2 || maxVal > 14) {
-        showToast('El número máximo de participantes permitido es de 2 a 14.', 'error');
-        return;
-    }
-    
     // Get checked VPG leagues
     const checkboxesContainer = document.getElementById('new-league-vpg-checkboxes');
     let vpgLeagues = [];
     if (checkboxesContainer) {
         const checkedBoxes = checkboxesContainer.querySelectorAll('input[type="checkbox"]:checked');
         vpgLeagues = Array.from(checkedBoxes).map(cb => cb.value);
+    }
+
+    const hasBothFirstDivs = vpgLeagues.includes('superliga-spain-a') && vpgLeagues.includes('superliga-spain-b');
+    const maxLimit = hasBothFirstDivs ? 18 : 14;
+    
+    const maxVal = parseInt(maxParticipants);
+    if (isNaN(maxVal) || maxVal < 2 || maxVal > maxLimit) {
+        showToast(`El número máximo de participantes permitido es de 2 a ${maxLimit}.`, 'error');
+        return;
     }
     
     try {
@@ -2607,6 +2610,13 @@ async function loadAdminPanelData() {
     // Fill Config Form
     adminLeagueName.value = activeLeague.name;
     adminLeagueStatus.value = activeLeague.status;
+    // Set dynamic max limit on input participants
+    if (adminLeagueMaxParts) {
+        const currentVpgLeagues = activeLeague.vpgLeagues || [];
+        const hasBothFirstDivs = currentVpgLeagues.includes('superliga-spain-a') && currentVpgLeagues.includes('superliga-spain-b');
+        const maxLimit = hasBothFirstDivs ? 18 : 14;
+        adminLeagueMaxParts.setAttribute('max', maxLimit);
+    }
     adminLeagueMaxParts.value = activeLeague.maxParticipants;
     if (adminLeaguePrivacy) {
         adminLeaguePrivacy.value = activeLeague.privacy || 'public';
@@ -2865,9 +2875,13 @@ async function handleUpdateLeagueSubmit(e) {
     const privacy = adminLeaguePrivacy ? adminLeaguePrivacy.value : 'public';
     const password = adminLeaguePassword ? adminLeaguePassword.value : '';
     
+    const currentVpgLeagues = activeLeague ? activeLeague.vpgLeagues : [];
+    const hasBothFirstDivs = Array.isArray(currentVpgLeagues) && currentVpgLeagues.includes('superliga-spain-a') && currentVpgLeagues.includes('superliga-spain-b');
+    const maxLimit = hasBothFirstDivs ? 18 : 14;
+
     const maxVal = parseInt(maxParticipants);
-    if (isNaN(maxVal) || maxVal < 2 || maxVal > 14) {
-        showToast('El número máximo de participantes permitido es de 2 a 14.', 'error');
+    if (isNaN(maxVal) || maxVal < 2 || maxVal > maxLimit) {
+        showToast(`El número máximo de participantes permitido es de 2 a ${maxLimit}.`, 'error');
         return;
     }
 
@@ -4255,6 +4269,19 @@ function updateSelectedVpgCount() {
         countLabel.innerText = labelText;
     } else {
         countLabel.innerText = `${checked.length} ligas seleccionadas`;
+    }
+
+    // Dynamically adjust maximum participants allowed based on selected divisions
+    const maxPartsInput = document.getElementById('new-league-max-participants');
+    if (maxPartsInput) {
+        const checkedValues = checked.map(cb => cb.value);
+        const hasBothFirstDivs = checkedValues.includes('superliga-spain-a') && checkedValues.includes('superliga-spain-b');
+        const maxLimit = hasBothFirstDivs ? 18 : 14;
+        maxPartsInput.setAttribute('max', maxLimit);
+        const currentVal = parseInt(maxPartsInput.value);
+        if (!isNaN(currentVal) && currentVal > maxLimit) {
+            maxPartsInput.value = maxLimit;
+        }
     }
 }
 
