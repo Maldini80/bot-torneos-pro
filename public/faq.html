@@ -60,7 +60,8 @@
         <div class="faq-category"><h2 class="category-title">⚽ Liga Fantasy</h2>
             <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Qué es la Liga Fantasy de THE BLITZ?</span><span class="chv">▼</span></button><div class="faq-a">Es un juego en el que creas tu propio equipo de fantasía fichando jugadores de las ligas oficiales de VPG España. Compites contra otros mánagers por presupuesto, alineaciones y puntos de rendimiento. La liga permite un **máximo de 14 participantes** para garantizar que haya suficientes jugadores en el mercado.</div></div>
             <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Cómo se calculan los puntos de los jugadores y del equipo?</span><span class="chv">▼</span></button><div class="faq-a">Utilizamos directamente los <strong>puntos oficiales de rendimiento</strong> de la API de VPG en sus clasificaciones por posición, asegurando una valoración justa y oficial.
-            <br>• <strong>Solo puntúa el 11 titular:</strong> Únicamente los 11 jugadores alineados en tu formación titular sumarán puntos para la jornada de tu equipo. Los jugadores que se queden en el banquillo (suplentes) no sumarán puntos ni generarán ingresos por punto en esa jornada.</div></div>
+            <br>• <strong>Solo puntúa el 11 titular:</strong> Únicamente los 11 jugadores alineados en tu formación titular sumarán puntos para la jornada de tu equipo. Los jugadores que se queden en el banquillo (suplentes) no sumarán puntos ni generarán ingresos por punto en esa jornada.
+            <br>• <strong>Valor 11 en la Clasificación:</strong> En la tabla de clasificación de la liga se muestra una columna **Valor 11** que calcula y detalla la valoración total en el mercado de la alineación titular de cada mánager.</div></div>
             <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Cómo se define el valor de mercado (precio) de los jugadores?</span><span class="chv">▼</span></button><div class="faq-a">El valor de mercado se calcula dinámicamente a partir de sus estadísticas reales y sus puntos de rendimiento VPG:
             <br>• <strong>Nueva Economía:</strong> Para adaptarlo al presupuesto inicial de 100M €, los precios oscilan entre un mínimo de <strong>2.600.000 €</strong> y un máximo de <strong>80.000.000 €</strong>.
             <br>• <strong>Porteros (GK):</strong> Su valor se **duplica (x2)** automáticamente para reflejar la importancia de asegurar un guardameta de nivel.
@@ -88,7 +89,7 @@
             <br>• <strong>Bloqueo de clausulazos (robos):</strong> No se permite ejecutar clausulazos de lunes a jueves entre las **18:30 y las 23:59 (hora de Madrid)**.
             <br>• <strong>Puntuación en clausulazos:</strong> Si robas a un jugador de otro mánager mediante clausulazo, el jugador **no puntuará para tu equipo** en la actualización de las 20:00 de ese mismo día. En su lugar, los puntos de esa jornada se sumarán al equipo al que le robaron el jugador (su dueño original). El jugador empezará a puntuar normalmente para tu equipo a partir de la actualización del día siguiente.</div></div>
             <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Qué diferencia hay entre "Empezar de cero" y "Puntos acumulados"?</span><span class="chv">▼</span></button><div class="faq-a">Al crear una liga, se puede seleccionar el modo de puntuación inicial:
-            <br>• <strong>Empezar de cero:</strong> Todos los jugadores inician con 0 puntos en esa liga. El sistema captura sus puntos acumulados en ese momento (`basePoints`) y los resta dinámicamente de sus puntuaciones futuras.
+            <br>• <strong>Empezar de cero:</strong> Todos los jugadores inician con 0 puntos en esa liga. El sistema captura sus puntos acumulados en ese momento (`basePoints`) y los resta dinámicamente de sus puntuaciones futures.
             <br>• <strong>Puntos ya acumulados:</strong> Los jugadores inician en la liga directamente con todos los puntos que ya han conseguido a lo largo de la temporada.</div></div>
             <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Cómo funcionan las ofertas automáticas de "La Liga"?</span><span class="chv">▼</span></button><div class="faq-a">Si pones a la venta un jugador en el mercado y ningún otro manager te realiza una oferta, el propio sistema (bajo el nombre de <strong>"La Liga"</strong>) te presentará ofertas de compra automáticas para ayudarte a liberar presupuesto:
             <br>• <strong>Transcurridos 2 días:</strong> Recibirás una oferta de compra automática por el <strong>25%</strong> del valor de mercado actual del jugador.
@@ -98,12 +99,14 @@
             <br>• Aprobar o rechazar solicitudes de creación de ligas enviadas por usuarios.
             <br>• Abrir o cerrar el mercado de fichajes y configurar las cláusulas de rescisión en cualquier liga.
             <br>• Ajustar presupuestos (añadir o retirar dinero) y eliminar equipos de cualquier liga.
-            <br>• Recalcular puntuaciones y modificar precios manuales de jugadores a nivel general.
+            <br>• Recalcular puntuaciones, modificar precios manuales y **cambiar o corregir la posición de un jugador** a nivel general (aplicándose en todas las ligas).
+            <br>• Acceder y administrar cualquier liga privada **sin necesidad de introducir contraseña** (bypass de privacidad).
             <br>• Acceder al botón de regeneración global para reiniciar plantillas y mercado.</div></div>
             <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Qué poderes tiene el Creador de una liga?</span><span class="chv">▼</span></button><div class="faq-a">El usuario que crea una liga tiene privilegios de administración <strong>limitados exclusivamente a su propia liga</strong>. Puede:
             <br>• Aprobar o rechazar solicitudes de inscripción de nuevos mánagers.
             <br>• Eliminar equipos o mánagers de su liga.
-            <br>• Ajustar parámetros básicos de su liga (nombre, presupuesto inicial, y número máximo de participantes limitado hasta un **máximo de 14**).
+            <br>• Ajustar parámetros básicos y de privacidad de su liga (nombre, presupuesto inicial, **cambiar entre pública o privada**, **establecer/modificar su contraseña** y número máximo de participantes limitado hasta un **máximo de 14**).
+            <br>• **Visualizar la contraseña de la liga en todo momento** mediante un toggle interactivo si es privada.
             <br>• Activar o desactivar el mercado de fichajes de forma local.
             <br>• Habilitar/deshabilitar cláusulas de rescisión y modificar el multiplicador de las mismas.
             <br>• Forzar el restablecimiento global ("Restablecer todo") para borrar las plantillas de todos los mánagers, repartirles plantillas aleatorias nuevas de 100M € y regenerar el mercado de agentes libres de inmediato.
