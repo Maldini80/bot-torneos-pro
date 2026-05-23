@@ -184,13 +184,13 @@
             </section>
         </main>
 
-        <!-- Global Admin: Manual Player Price Override -->
-        <section class="fantasy-card admin-only-block" style="display: none; margin-top: 24px;">
+        <!-- Global Player Price & Position Lookup -->
+        <section id="global-player-lookup-section" class="fantasy-card" style="margin-top: 24px;">
             <div class="card-header">
-                <h3><i class="fa-solid fa-tags text-blue"></i> Gestión Manual de Precios de Jugadores (Global)</h3>
+                <h3><i class="fa-solid fa-magnifying-glass text-blue"></i> Buscador de Jugadores: Precios y Posiciones (Global)</h3>
             </div>
             <div class="card-body">
-                <p class="text-muted">Busca cualquier jugador por su nombre para anular su precio de mercado calculado automáticamente o restablecerlo. Este cambio afecta de forma global a todas las ligas.</p>
+                <p class="text-muted">Busca cualquier jugador registrado por su nombre o club para consultar su precio de mercado, puntos y posición actual. (Los administradores y árbitros pueden modificar o corregir estos valores manualmente).</p>
                 <div style="display: flex; gap: 8px; margin-bottom: 16px; max-width: 650px; flex-wrap: wrap;">
                     <input type="text" id="admin-search-player-input" placeholder="Buscar jugador o club (mín. 2 letras)..." style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; flex: 2; min-width: 200px; box-sizing: border-box;">
                     <select id="admin-search-player-pos" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; flex: 1; min-width: 120px; box-sizing: border-box;">
@@ -212,13 +212,13 @@
                                 <th>Posición</th>
                                 <th class="text-center col-hide-sm">Puntos VPG</th>
                                 <th class="text-right">Precio Actual</th>
-                                <th class="text-center">Precio Manual (€)</th>
-                                <th class="text-center">Acciones</th>
+                                <th class="text-center admin-only-header">Precio Manual (€)</th>
+                                <th class="text-center admin-only-header">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="admin-search-player-results">
                             <tr>
-                                <td colspan="7" class="text-center text-muted" style="padding: 20px;">Realiza una búsqueda para ver y editar jugadores.</td>
+                                <td colspan="7" id="admin-search-placeholder-cell" class="text-center text-muted" style="padding: 20px;">Realiza una búsqueda para ver los jugadores.</td>
                             </tr>
                         </tbody>
                     </table>

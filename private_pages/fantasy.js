@@ -411,7 +411,8 @@ async function checkUserSession() {
         selectorUserName.innerHTML = `<i class="fa-solid fa-user-circle text-blue"></i> ${currentUser.username}`;
         
         // Toggle admin blocks
-        if (currentUser.isAdmin) {
+        const isAdmin = !!(currentUser && currentUser.isAdmin);
+        if (isAdmin) {
             document.querySelectorAll('.admin-only-block').forEach(el => {
                 if (el.id === 'allow-user-leagues-row' || el.id === 'lock-lineups-row') {
                     el.style.display = 'flex';
@@ -425,6 +426,17 @@ async function checkUserSession() {
             document.querySelectorAll('.admin-only-block').forEach(el => el.style.display = 'none');
             const selMain = document.querySelector('.selector-main');
             if (selMain) selMain.classList.remove('has-admin');
+        }
+        
+        // Show/hide admin-only columns in the player search table
+        document.querySelectorAll('.admin-only-header').forEach(el => {
+            el.style.display = isAdmin ? '' : 'none';
+        });
+        
+        // Adjust colspan of placeholder cell in the player search table
+        const placeholderCell = document.getElementById('admin-search-placeholder-cell');
+        if (placeholderCell) {
+            placeholderCell.setAttribute('colspan', isAdmin ? '7' : '5');
         }
 
         // Fetch allow-user-leagues config and handle create league visibility
@@ -4045,7 +4057,10 @@ async function handleAdminPlayerSearch() {
         return;
     }
     
-    adminSearchPlayerResults.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Buscando jugadores...</td></tr>`;
+    const isAdmin = !!(currentUser && currentUser.isAdmin);
+    const colspanVal = isAdmin ? 7 : 5;
+    
+    adminSearchPlayerResults.innerHTML = `<tr><td colspan="${colspanVal}" class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Buscando jugadores...</td></tr>`;
     
     try {
         let url = `/api/fantasy/admin/players/search?query=${encodeURIComponent(query)}`;
@@ -4059,7 +4074,7 @@ async function handleAdminPlayerSearch() {
         adminSearchPlayerResults.innerHTML = '';
         
         if (players.length === 0) {
-            adminSearchPlayerResults.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">No se encontraron jugadores que coincidan con la búsqueda.</td></tr>`;
+            adminSearchPlayerResults.innerHTML = `<tr><td colspan="${colspanVal}" class="text-center py-4 text-muted">No se encontraron jugadores que coincidan con la búsqueda.</td></tr>`;
             return;
         }
         
@@ -4070,64 +4085,86 @@ async function handleAdminPlayerSearch() {
             const hasManualPosition = p.manualPosition !== null;
             const priceText = formatCurrency(p.price);
 
-            // Build options for position select
-            const positionsList = ['POR', 'DFC', 'LD', 'LI', 'CARR', 'MC', 'MCD', 'MCO', 'MI', 'MD', 'DC', 'ED', 'EI', 'MP'];
-            let selectOptionsHtml = `<option value="">Por defecto (${p.lastPosition})</option>`;
-            positionsList.forEach(pos => {
-                const isSelected = p.manualPosition === pos;
-                selectOptionsHtml += `<option value="${pos}" ${isSelected ? 'selected' : ''}>${pos}</option>`;
-            });
-            
-            row.innerHTML = `
-                <td>
-                    <div style="font-weight: 600; color: #fff;">${p.eaPlayerName}</div>
-                    <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
-                        ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${p.points} pts</span>
-                    </div>
-                </td>
-                <td class="col-hide-md"><div>${p.lastClub}</div></td>
-                <td>
-                    <select class="manual-pos-select" data-player-name="${p.eaPlayerName}" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 4px; padding: 4px; width: 90px; box-sizing: border-box; font-size: 0.8rem; cursor: pointer; ${hasManualPosition ? 'border-color: #f59e0b; color: #f59e0b; font-weight: 600;' : ''}">
-                        ${selectOptionsHtml}
-                    </select>
-                </td>
-                <td class="text-center col-hide-sm" style="font-weight: 600;">${p.points}</td>
-                <td class="text-right ${hasManualPrice ? 'text-yellow' : 'price-text'}" style="font-weight: 600;">
-                    ${priceText} ${hasManualPrice ? '<i class="fa-solid fa-hand-holding-dollar" title="Precio manual establecido"></i>' : ''}
-                </td>
-                <td class="text-center">
-                    <input type="number" class="manual-price-input" data-player-name="${p.eaPlayerName}" value="${p.manualPrice !== null ? p.manualPrice : ''}" placeholder="Ej. 1500000" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 4px; padding: 4px 8px; width: 120px; box-sizing: border-box; ${hasManualPrice ? 'border-color: #f59e0b; color: #f59e0b; font-weight: 600;' : ''}">
-                </td>
-                <td class="text-center">
-                    <div style="display: flex; gap: 4px; justify-content: center;">
-                        <button class="btn btn-primary btn-xs btn-save-manual-price" data-player-name="${p.eaPlayerName}"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
-                        ${isManual ? `<button class="btn btn-secondary btn-xs btn-reset-manual-price" data-player-name="${p.eaPlayerName}"><i class="fa-solid fa-rotate-left"></i> Restablecer</button>` : ''}
-                    </div>
-                </td>
-            `;
-            
-            const saveBtn = row.querySelector('.btn-save-manual-price');
-            saveBtn.addEventListener('click', async () => {
-                const input = row.querySelector('.manual-price-input');
-                const select = row.querySelector('.manual-pos-select');
-                const priceVal = input.value.trim();
-                const posVal = select.value;
-                
-                await handleUpdatePlayer(p.eaPlayerName, priceVal || null, posVal || null);
-            });
-            
-            if (isManual) {
-                const resetBtn = row.querySelector('.btn-reset-manual-price');
-                resetBtn.addEventListener('click', async () => {
-                    await handleUpdatePlayer(p.eaPlayerName, null, null);
+            if (isAdmin) {
+                // Build options for position select
+                const positionsList = ['POR', 'DFC', 'LD', 'LI', 'CARR', 'MC', 'MCD', 'MCO', 'MI', 'MD', 'DC', 'ED', 'EI', 'MP'];
+                let selectOptionsHtml = `<option value="">Por defecto (${p.lastPosition})</option>`;
+                positionsList.forEach(pos => {
+                    const isSelected = p.manualPosition === pos;
+                    selectOptionsHtml += `<option value="${pos}" ${isSelected ? 'selected' : ''}>${pos}</option>`;
                 });
+                
+                row.innerHTML = `
+                    <td>
+                        <div style="font-weight: 600; color: #fff;">${p.eaPlayerName}</div>
+                        <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                            ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${p.points} pts</span>
+                        </div>
+                    </td>
+                    <td class="col-hide-md"><div>${p.lastClub}</div></td>
+                    <td>
+                        <select class="manual-pos-select" data-player-name="${p.eaPlayerName}" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 4px; padding: 4px; width: 90px; box-sizing: border-box; font-size: 0.8rem; cursor: pointer; ${hasManualPosition ? 'border-color: #f59e0b; color: #f59e0b; font-weight: 600;' : ''}">
+                            ${selectOptionsHtml}
+                        </select>
+                    </td>
+                    <td class="text-center col-hide-sm" style="font-weight: 600;">${p.points}</td>
+                    <td class="text-right ${hasManualPrice ? 'text-yellow' : 'price-text'}" style="font-weight: 600;">
+                        ${priceText} ${hasManualPrice ? '<i class="fa-solid fa-hand-holding-dollar" title="Precio manual establecido"></i>' : ''}
+                    </td>
+                    <td class="text-center">
+                        <input type="number" class="manual-price-input" data-player-name="${p.eaPlayerName}" value="${p.manualPrice !== null ? p.manualPrice : ''}" placeholder="Ej. 1500000" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 4px; padding: 4px 8px; width: 120px; box-sizing: border-box; ${hasManualPrice ? 'border-color: #f59e0b; color: #f59e0b; font-weight: 600;' : ''}">
+                    </td>
+                    <td class="text-center">
+                        <div style="display: flex; gap: 4px; justify-content: center;">
+                            <button class="btn btn-primary btn-xs btn-save-manual-price" data-player-name="${p.eaPlayerName}"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
+                            ${isManual ? `<button class="btn btn-secondary btn-xs btn-reset-manual-price" data-player-name="${p.eaPlayerName}"><i class="fa-solid fa-rotate-left"></i> Restablecer</button>` : ''}
+                        </div>
+                    </td>
+                `;
+                
+                const saveBtn = row.querySelector('.btn-save-manual-price');
+                saveBtn.addEventListener('click', async () => {
+                    const input = row.querySelector('.manual-price-input');
+                    const select = row.querySelector('.manual-pos-select');
+                    const priceVal = input.value.trim();
+                    const posVal = select.value;
+                    
+                    await handleUpdatePlayer(p.eaPlayerName, priceVal || null, posVal || null);
+                });
+                
+                if (isManual) {
+                    const resetBtn = row.querySelector('.btn-reset-manual-price');
+                    resetBtn.addEventListener('click', async () => {
+                        await handleUpdatePlayer(p.eaPlayerName, null, null);
+                    });
+                }
+            } else {
+                const displayPos = p.manualPosition || p.lastPosition || 'MC';
+                row.innerHTML = `
+                    <td>
+                        <div style="font-weight: 600; color: #fff;">${p.eaPlayerName}</div>
+                        <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
+                            ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${p.points} pts</span>
+                        </div>
+                    </td>
+                    <td class="col-hide-md"><div>${p.lastClub}</div></td>
+                    <td>
+                        <span style="${hasManualPosition ? 'color: #f59e0b; font-weight: 600;' : ''}" title="${hasManualPosition ? 'Posición modificada por el administrador' : 'Posición de juego'}">
+                            ${displayPos} ${hasManualPosition ? '<i class="fa-solid fa-circle-info" style="font-size:0.75rem; margin-left:2px;"></i>' : ''}
+                        </span>
+                    </td>
+                    <td class="text-center col-hide-sm" style="font-weight: 600;">${p.points}</td>
+                    <td class="text-right ${hasManualPrice ? 'text-yellow' : 'price-text'}" style="font-weight: 600;">
+                        ${priceText} ${hasManualPrice ? '<i class="fa-solid fa-hand-holding-dollar" title="Precio manual establecido por el administrador"></i>' : ''}
+                    </td>
+                `;
             }
             
             adminSearchPlayerResults.appendChild(row);
         });
     } catch (e) {
         console.error(e);
-        adminSearchPlayerResults.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-red">Error al realizar la búsqueda.</td></tr>`;
+        adminSearchPlayerResults.innerHTML = `<tr><td colspan="${colspanVal}" class="text-center py-4 text-red">Error al realizar la búsqueda.</td></tr>`;
     }
 }
 

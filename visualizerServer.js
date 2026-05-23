@@ -8008,7 +8008,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Search players in admin panel
-    app.get('/api/fantasy/admin/players/search', isAuthenticated, isFantasyAdmin, async (req, res) => {
+    app.get('/api/fantasy/admin/players/search', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
             const { query, position } = req.query;
             
