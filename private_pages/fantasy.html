@@ -36,14 +36,17 @@
             <div class="selector-sidebar">
                 <!-- Admin: Create League Card -->
                 <section id="admin-create-league-section" class="fantasy-card" style="display: none;">
-                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div class="card-header">
                         <h2 id="create-league-title"><i class="fa-solid fa-folder-plus text-blue"></i> Crear Nueva Liga</h2>
-                        <label class="admin-only-block" style="display: none; align-items: center; gap: 8px; font-size: 0.8rem; color: #94a3b8; cursor: pointer; margin: 0;">
-                            <span>Permitir solicitudes</span>
-                            <input type="checkbox" id="toggle-allow-user-leagues" style="accent-color: #10b981; width: 16px; height: 16px; cursor: pointer;">
-                        </label>
                     </div>
                     <form id="create-league-form" class="admin-form">
+                        <div class="form-group admin-only-block" id="allow-user-leagues-row" style="display: none; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.02); padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.04); margin-bottom: 16px;">
+                            <span style="font-size: 0.85rem; color: #cbd5e1; font-weight: 500;">Permitir solicitudes de creación</span>
+                            <label class="switch-toggle">
+                                <input type="checkbox" id="toggle-allow-user-leagues">
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
                         <div class="form-group">
                             <label for="new-league-name">Nombre de la Liga</label>
                             <input type="text" id="new-league-name" placeholder="Ej: Superliga Fantasy Temp 1" required autocomplete="off">
@@ -60,7 +63,7 @@
                         </div>
                         <div class="form-group">
                             <label for="new-league-points-mode">Puntuación Inicial</label>
-                            <select id="new-league-points-mode" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; width: 100%; box-sizing: border-box; cursor: pointer;">
+                            <select id="new-league-points-mode">
                                 <option value="zero" selected>Empezar de cero (0 puntos al crear la liga)</option>
                                 <option value="accumulated">Puntos ya acumulados en la temporada</option>
                             </select>
@@ -68,14 +71,17 @@
                         <div class="form-row">
                             <div class="form-group col">
                                 <label for="new-league-privacy">Privacidad</label>
-                                <select id="new-league-privacy" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; width: 100%; box-sizing: border-box; cursor: pointer;">
+                                <select id="new-league-privacy">
                                     <option value="public" selected>Pública</option>
                                     <option value="private">Privada</option>
                                 </select>
                             </div>
                             <div class="form-group col" id="new-league-password-group" style="display: none;">
                                 <label for="new-league-password">Contraseña</label>
-                                <input type="password" id="new-league-password" placeholder="Contraseña..." autocomplete="new-password" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; width: 100%; box-sizing: border-box;">
+                                <div style="position: relative; width: 100%;">
+                                    <input type="password" id="new-league-password" placeholder="Contraseña..." autocomplete="new-password">
+                                    <i class="fa-solid fa-eye-slash" id="toggle-new-password-visibility" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #94a3b8; z-index: 10;"></i>
+                                </div>
                             </div>
                         </div>
                         <div class="form-group" style="position: relative;">
@@ -123,10 +129,10 @@
                             <!-- Add League UI -->
                             <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
                                 <div style="flex: 1; min-width: 200px; display: flex; gap: 8px;">
-                                    <select id="owner-available-leagues-select" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 8px; flex: 1; box-sizing: border-box; font-size: 0.85rem;">
+                                    <select id="owner-available-leagues-select" class="owner-input">
                                         <option value="">-- Seleccionar liga VPG --</option>
                                     </select>
-                                    <input type="text" id="owner-custom-league-slug" placeholder="O slug manual..." style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 8px; flex: 1; min-width: 140px; box-sizing: border-box; font-size: 0.85rem;">
+                                    <input type="text" id="owner-custom-league-slug" placeholder="O slug manual..." class="owner-input">
                                 </div>
                                 <button id="btn-owner-add-league" class="btn btn-sm btn-primary" style="padding: 8px 16px;"><i class="fa-solid fa-plus"></i> Añadir</button>
                             </div>

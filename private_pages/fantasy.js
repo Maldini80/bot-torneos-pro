@@ -634,6 +634,17 @@ function setupEventHandlers() {
         });
     }
 
+    const toggleNewPasswordVisibility = document.getElementById('toggle-new-password-visibility');
+    const newLeaguePassword = document.getElementById('new-league-password');
+    if (toggleNewPasswordVisibility && newLeaguePassword) {
+        toggleNewPasswordVisibility.addEventListener('click', () => {
+            const isPassword = newLeaguePassword.getAttribute('type') === 'password';
+            newLeaguePassword.setAttribute('type', isPassword ? 'text' : 'password');
+            toggleNewPasswordVisibility.classList.toggle('fa-eye', isPassword);
+            toggleNewPasswordVisibility.classList.toggle('fa-eye-slash', !isPassword);
+        });
+    }
+
     const btnJoinLeagueSpectator = document.getElementById('btn-join-league-spectator');
     if (btnJoinLeagueSpectator) {
         btnJoinLeagueSpectator.addEventListener('click', openJoinModalFromSpectator);
@@ -840,9 +851,9 @@ function renderLeaguesList(filterText = '') {
             const canJoin = league.status === 'open' && (league.participantCount < league.maxParticipants);
             if (canJoin) {
                 buttonsHtml = `
-                    <div style="display: flex; gap: 8px; margin-top: 12px; width: 100%;">
-                        <button class="btn btn-secondary btn-enter-league" data-id="${league._id}" style="flex: 1; margin-top: 0; padding: 10px 4px; font-size: 0.85rem;"><i class="fa-solid fa-eye"></i> Ver (Lectura)</button>
-                        <button class="btn btn-success btn-join-league" data-id="${league._id}" style="flex: 1; margin-top: 0; padding: 10px 4px; font-size: 0.85rem;"><i class="fa-solid fa-plus-circle"></i> Unirse</button>
+                    <div class="league-card-actions">
+                        <button class="btn btn-secondary btn-enter-league" data-id="${league._id}"><i class="fa-solid fa-eye"></i> Ver (Lectura)</button>
+                        <button class="btn btn-success btn-join-league" data-id="${league._id}"><i class="fa-solid fa-plus-circle"></i> Unirse</button>
                     </div>
                 `;
             } else {

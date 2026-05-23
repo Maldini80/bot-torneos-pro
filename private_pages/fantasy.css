@@ -1234,45 +1234,118 @@ body {
 }
 
 .league-card {
-    background: rgba(15, 23, 42, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.03);
-    border-radius: 12px;
+    background: rgba(20, 28, 47, 0.35);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 16px;
     padding: 20px;
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    transition: all 0.3s ease;
+    gap: 16px;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
 .league-card:hover {
-    border-color: rgba(56, 189, 248, 0.3);
-    transform: translateY(-4px);
-    box-shadow: 0 6px 20px rgba(56, 189, 248, 0.05);
+    border-color: rgba(56, 189, 248, 0.35);
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3), 0 0 15px rgba(56, 189, 248, 0.08);
+    background: rgba(20, 28, 47, 0.5);
 }
 
 .league-card h3 {
     font-family: 'Outfit', sans-serif;
-    font-size: 1.15rem;
-    font-weight: 600;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #f8fafc;
+    letter-spacing: -0.010em;
+    display: flex;
+    align-items: center;
 }
 
 .league-meta {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     font-size: 0.85rem;
     color: #94a3b8;
+    background: rgba(15, 23, 42, 0.3);
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.02);
 }
 
 .league-meta div {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    line-height: 1.4;
 }
 
 .league-meta div i {
-    width: 16px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 0.8rem;
     text-align: center;
+}
+
+/* Custom icon background colors for league-meta */
+.league-meta div:nth-child(1) i {
+    background: rgba(56, 189, 248, 0.12);
+    color: #38bdf8;
+}
+.league-meta div:nth-child(2) i {
+    background: rgba(0, 245, 155, 0.12);
+    color: #00f59b;
+}
+.league-meta div:nth-child(3) i {
+    background: rgba(168, 85, 247, 0.12);
+    color: #a855f7;
+}
+
+.league-card-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+    width: 100%;
+}
+
+.league-card-actions .btn {
+    flex: 1;
+    margin-top: 0;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.league-card .btn-enter-league {
+    background: linear-gradient(135deg, #00f59b 0%, #00d2e8 100%) !important;
+    border: none !important;
+    color: #050b14 !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.02em;
+    box-shadow: 0 4px 15px rgba(0, 245, 155, 0.2);
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+.league-card .btn-enter-league:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 245, 155, 0.4), 0 0 10px rgba(0, 210, 248, 0.2);
+    filter: brightness(1.1);
+}
+
+.league-card .btn-warning.btn-enter-league {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+    color: #000 !important;
+    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.2);
+}
+
+.league-card .btn-warning.btn-enter-league:hover {
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.4);
 }
 
 .badge-success {
@@ -1456,6 +1529,11 @@ body {
     font-family: inherit;
     font-size: 0.9rem;
     transition: all 0.3s ease;
+}
+
+.admin-form select option, #admin-update-league-form select option, .owner-input option {
+    background: #0f172a;
+    color: #f8fafc;
 }
 
 .admin-form input:focus, .admin-form select:focus,
@@ -1732,10 +1810,10 @@ body {
 }
 
 .custom-multiselect .select-box {
-    background: #1e293b;
-    border: 1px solid #475569;
-    color: #fff;
-    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #f8fafc;
+    border-radius: 8px;
     padding: 10px 12px;
     display: flex;
     justify-content: space-between;
@@ -1743,11 +1821,12 @@ body {
     cursor: pointer;
     user-select: none;
     font-size: 0.9rem;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: all 0.3s ease;
 }
 
 .custom-multiselect .select-box:hover {
-    border-color: #3b82f6;
+    border-color: #38bdf8;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.1);
 }
 
 .custom-multiselect .select-box i {
@@ -1757,8 +1836,8 @@ body {
 }
 
 .custom-multiselect.active .select-box {
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    border-color: #38bdf8;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
 }
 
 .custom-multiselect.active .select-box i {
@@ -1770,13 +1849,16 @@ body {
     position: relative;
     margin-top: 8px;
     width: 100%;
-    background: #0f172a;
-    border: 1px solid #334155;
-    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
     max-height: 180px;
     overflow-y: auto;
     padding: 8px;
     box-sizing: border-box;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    z-index: 20;
 }
 
 .custom-multiselect.active .checkboxes-dropdown {
@@ -1791,21 +1873,90 @@ body {
     cursor: pointer;
     color: #cbd5e1;
     margin: 0;
-    padding: 6px 8px;
-    border-radius: 4px;
-    transition: background 0.2s, color 0.2s;
+    padding: 8px 10px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
 }
 
 .custom-multiselect .checkboxes-dropdown label:hover {
-    background: rgba(255, 255, 255, 0.05);
-    color: #fff;
+    background: rgba(56, 189, 248, 0.08);
+    color: #38bdf8;
 }
 
 .custom-multiselect .checkboxes-dropdown input[type="checkbox"] {
-    accent-color: #10b981;
+    accent-color: #38bdf8;
     cursor: pointer;
     width: 16px;
     height: 16px;
+}
+
+/* Owner Panel custom inputs */
+.owner-input {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #f8fafc;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    box-sizing: border-box;
+    flex: 1;
+    transition: all 0.3s ease;
+}
+
+.owner-input:focus {
+    outline: none;
+    border-color: #38bdf8;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
+}
+
+/* Switch toggle styling */
+.switch-toggle {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    margin: 0;
+}
+
+.switch-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider-toggle {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.15);
+    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.slider-toggle:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 3px;
+    bottom: 3px;
+    background-color: #cbd5e1;
+    transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 50%;
+}
+
+.switch-toggle input:checked + .slider-toggle {
+    background-color: #00f59b;
+}
+
+.switch-toggle input:checked + .slider-toggle:before {
+    transform: translateX(20px);
+    background-color: #0f172a;
 }
 
 /* Static read-only styling for rival once modal nodes */
