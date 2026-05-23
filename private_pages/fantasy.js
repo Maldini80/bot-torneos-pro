@@ -1925,6 +1925,15 @@ function openPositionSelector(posKey, idx) {
         const displayedPoints = p ? Math.round(p.points * 10) / 10 : 0;
         const tierPoints = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
 
+        // Dynamic rating font scaling
+        const pointsStr = String(displayedPoints);
+        let ratingStyle = '';
+        if (pointsStr.length >= 5) {
+            ratingStyle = 'style="font-size: 1.05rem; margin-top: 3px;"';
+        } else if (pointsStr.length >= 4) {
+            ratingStyle = 'style="font-size: 1.25rem; margin-top: 2px;"';
+        }
+
         const avatarUrl = p.avatar ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${p.avatar}/smThumb` : null;
         const avatarHtml = avatarUrl ? `<img src="${avatarUrl}" alt="" class="fut-card-player-avatar-img">` : `<i class="fa-solid fa-user-ninja"></i>`;
         const clubLogoHtml = p.clubLogo ? `<img src="${p.clubLogo}" alt="" class="fut-card-club-logo-img">` : `<i class="fa-solid fa-shield-halved"></i>`;
@@ -1936,7 +1945,7 @@ function openPositionSelector(posKey, idx) {
                         <div class="fut-card-inner">
                             <div class="fut-card-top-section">
                                 <div class="fut-card-left-col">
-                                    <div class="fut-card-rating">${displayedPoints}</div>
+                                    <div class="fut-card-rating" ${ratingStyle}>${displayedPoints}</div>
                                     <div class="fut-card-pos">${posKey}</div>
                                     <div class="fut-card-flag">
                                         <img src="${getFlagUrl(p.nationality)}" alt="${p.nationality || 'es'}" class="fut-card-flag-img">
@@ -4456,6 +4465,16 @@ async function openPlayerStatsModalByName(playerName) {
 
     const displayedPoints = p ? Math.round(p.points * 10) / 10 : 0;
     const tierPoints = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
+
+    // Dynamic rating font scaling
+    const pointsStr = String(displayedPoints);
+    let ratingStyle = '';
+    if (pointsStr.length >= 5) {
+        ratingStyle = 'style="font-size: 1.05rem; margin-top: 3px;"';
+    } else if (pointsStr.length >= 4) {
+        ratingStyle = 'style="font-size: 1.25rem; margin-top: 2px;"';
+    }
+
     const avatarUrl = p.avatar ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${p.avatar}/smThumb` : null;
     const avatarHtml = avatarUrl ? `<img src="${avatarUrl}" alt="" class="player-avatar-img">` : `<i class="fa-solid fa-shield-halved avatar-shield-back" style="font-size: 4rem; opacity: 0.1; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);"></i><i class="fa-solid fa-user" style="font-size: 4rem; color: #64748b; margin-top: 15px;"></i>`;
     const clubLogoHtml = p.clubLogo ? `<img src="${p.clubLogo}" alt="" class="player-club-logo-img">` : `<i class="fa-solid fa-shield-halved"></i>`;
@@ -4469,7 +4488,7 @@ async function openPlayerStatsModalByName(playerName) {
             <div class="fut-card-inner">
                 <div class="fut-card-top-section">
                     <div class="fut-card-left-col">
-                        <div class="fut-card-rating">${displayedPoints}</div>
+                        <div class="fut-card-rating" ${ratingStyle}>${displayedPoints}</div>
                         <div class="fut-card-pos">${posKey}</div>
                         <div class="fut-card-flag">
                             <img src="${getFlagUrl(p.nationality)}" alt="${p.nationality || 'es'}" class="fut-card-flag-img">

@@ -2106,17 +2106,33 @@ body {
 }
 .fut-card-player-avatar-container img.fut-card-player-avatar-img,
 .fut-card-player-avatar-container img.player-avatar-img {
-    height: 105px;
-    width: auto;
-    object-fit: contain;
-    max-width: 100%;
-    border-radius: 0;
-    border: none;
-    background: transparent;
-    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6));
-    mix-blend-mode: screen;
-    -webkit-mask-image: radial-gradient(ellipse at 50% 40%, black 45%, transparent 95%);
-    mask-image: radial-gradient(ellipse at 50% 40%, black 45%, transparent 95%);
+    width: 78px;
+    height: 78px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(229, 192, 96, 0.6); /* Fallback border */
+    background: rgba(15, 23, 42, 0.8);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    margin-bottom: 12px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+    transition: all 0.3s ease;
+}
+
+.bronze .fut-card-player-avatar-container img.fut-card-player-avatar-img,
+.bronze .fut-card-player-avatar-container img.player-avatar-img {
+    border-color: #b28263;
+}
+.silver .fut-card-player-avatar-container img.fut-card-player-avatar-img,
+.silver .fut-card-player-avatar-container img.player-avatar-img {
+    border-color: #9ca3af;
+}
+.gold .fut-card-player-avatar-container img.fut-card-player-avatar-img,
+.gold .fut-card-player-avatar-container img.player-avatar-img {
+    border-color: #d4af37;
+}
+.burgundy .fut-card-player-avatar-container img.fut-card-player-avatar-img,
+.burgundy .fut-card-player-avatar-container img.player-avatar-img {
+    border-color: #ff2e63;
 }
 .fut-card-player-avatar-container i {
     font-size: 3.8rem;
