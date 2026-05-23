@@ -8010,13 +8010,27 @@ export async function startVisualizerServer(discordClient) {
     // Search players in admin panel
     app.get('/api/fantasy/admin/players/search', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
-            const { query, position } = req.query;
+            const { query, position, leagueId } = req.query;
             
             const db = getDb();
-            const { activeLeagues } = await getActiveFantasyTeams(db);
+            let customLeagues = null;
+            let leagueDoc = null;
+            if (leagueId) {
+                try {
+                    leagueDoc = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+                    if (leagueDoc && Array.isArray(leagueDoc.vpgLeagues) && leagueDoc.vpgLeagues.length > 0) {
+                        customLeagues = leagueDoc.vpgLeagues;
+                    }
+                } catch (e) {
+                    console.error('Invalid leagueId in search:', e);
+                }
+            }
+
+            const { activeLeagues } = await getActiveFantasyTeams(db, customLeagues);
+            const leaguesToQuery = customLeagues || activeLeagues;
 
             const queryObj = {
-                vpgLeagueSlug: { $in: activeLeagues }
+                vpgLeagueSlug: { $in: leaguesToQuery }
             };
 
             const hasQuery = query && query.trim().length >= 2;
@@ -8047,18 +8061,55 @@ export async function startVisualizerServer(discordClient) {
 
             const players = await db.collection('player_profiles').find(queryObj).limit(100).toArray();
 
+            // Fetch team logos from test db
+            const testDb = getDb('test');
+            const teamsList = await testDb.collection('teams').find({}, { projection: { name: 1, logoUrl: 1 } }).toArray();
+            const teamLogoMap = {};
+            teamsList.forEach(t => {
+                if (t.name) {
+                    teamLogoMap[t.name.toLowerCase().trim()] = t.logoUrl || null;
+                }
+            });
+
             // Calculate points and prices for search results
             const processed = players.map(p => {
-                const { price, points, avgRating } = calculatePlayerPointsAndPrice(p);
+                const { price, points: rawPoints, avgRating } = calculatePlayerPointsAndPrice(p);
+                let points = rawPoints;
+                let basePointsValue = 0;
+                if (leagueDoc && leagueDoc.pointsMode === 'zero' && leagueDoc.basePoints) {
+                    const playerNameLower = p.eaPlayerName.toLowerCase();
+                    let base = 0;
+                    if (leagueDoc.basePoints[p.eaPlayerName] !== undefined) {
+                        base = leagueDoc.basePoints[p.eaPlayerName];
+                    } else {
+                        const foundKey = Object.keys(leagueDoc.basePoints).find(k => k.toLowerCase() === playerNameLower);
+                        if (foundKey) {
+                            base = leagueDoc.basePoints[foundKey];
+                        }
+                    }
+                    points = Math.max(0, Math.round((rawPoints - base) * 10) / 10);
+                    basePointsValue = base;
+                }
+
+                const displayClub = (p.lastClub && p.lastClub.toLowerCase() === 'black hawks') ? 'Thunder Gaming' : p.lastClub;
+                const stats = p.stats || {};
+
                 return {
                     eaPlayerName: p.eaPlayerName,
-                    lastClub: p.lastClub || 'Sin Club',
-                    lastPosition: p.lastPosition || 'MC',
+                    lastClub: displayClub || 'Sin Club',
+                    lastPosition: p.manualPosition || p.lastPosition || 'MC',
                     price,
                     points,
+                    basePoints: basePointsValue,
                     avgRating: parseFloat(avgRating.toFixed(2)),
                     manualPrice: p.manualPrice || null,
-                    manualPosition: p.manualPosition || null
+                    manualPosition: p.manualPosition || null,
+                    matchesPlayed: stats.matchesPlayed || 0,
+                    goals: stats.goals || 0,
+                    assists: stats.assists || 0,
+                    clubLogo: (p.lastClub ? teamLogoMap[p.lastClub.toLowerCase().trim()] : null) || (displayClub ? teamLogoMap[displayClub.toLowerCase().trim()] : null) || null,
+                    avatar: p.avatar || null,
+                    nationality: p.nationality || p.user_nationality || null
                 };
             });
 

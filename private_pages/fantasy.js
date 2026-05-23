@@ -4068,6 +4068,9 @@ async function handleAdminPlayerSearch() {
         if (position) {
             url += `&position=${encodeURIComponent(position)}`;
         }
+        if (typeof currentLeagueId !== 'undefined' && currentLeagueId) {
+            url += `&leagueId=${currentLeagueId}`;
+        }
         const res = await fetch(url);
         if (!res.ok) throw new Error('Error al buscar jugadores.');
         const players = await res.json();
