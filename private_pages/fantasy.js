@@ -316,6 +316,8 @@ const btnAdminDeleteLeague = document.getElementById('btn-admin-delete-league');
 const btnAdminResetBasePoints = document.getElementById('btn-admin-reset-base-points');
 const adminResetBasePointsContainer = document.getElementById('admin-reset-base-points-container');
 const btnAdminResetAllSquads = document.getElementById('btn-admin-reset-all-squads');
+const btnAdminCancelBidsBelow = document.getElementById('btn-admin-cancel-bids-below');
+const btnAdminCancelBidsAll = document.getElementById('btn-admin-cancel-bids-all');
 const btnAdminRebuildStats = null; // Removed from league admin panel
 const rebuildStatsProgress = null; // Removed from league admin panel
 const btnOwnerRebuildStats = document.getElementById('btn-owner-rebuild-stats');
@@ -684,6 +686,8 @@ function setupEventHandlers() {
     btnAdminDeleteLeague.addEventListener('click', handleAdminDeleteLeague);
     if (btnAdminResetBasePoints) btnAdminResetBasePoints.addEventListener('click', handleAdminResetBasePoints);
     if (btnAdminResetAllSquads) btnAdminResetAllSquads.addEventListener('click', handleAdminResetAllSquads);
+    if (btnAdminCancelBidsBelow) btnAdminCancelBidsBelow.addEventListener('click', () => handleAdminCancelBids('below_value'));
+    if (btnAdminCancelBidsAll) btnAdminCancelBidsAll.addEventListener('click', () => handleAdminCancelBids('all'));
     if (btnAdminRebuildStats) btnAdminRebuildStats.addEventListener('click', () => executeRebuildStats(btnAdminRebuildStats, rebuildStatsProgress));
     if (btnOwnerRebuildStats) btnOwnerRebuildStats.addEventListener('click', () => executeRebuildStats(btnOwnerRebuildStats, ownerRebuildProgress));
 
@@ -3136,6 +3140,45 @@ async function handleAdminResetAllSquads() {
         if (btn) {
             btn.disabled = false;
             btn.innerText = originalText;
+        }
+    }
+}
+
+// Admin Cancel Bids
+async function handleAdminCancelBids(mode) {
+    const isBelow = mode === 'below_value';
+    const confirmMsg = isBelow 
+        ? '¿Estás seguro de que deseas cancelar y reembolsar SOLO las pujas que sean inferiores al valor de mercado actual de su respectivo jugador?'
+        : '¿Estás seguro de que deseas cancelar y reembolsar ABSOLUTAMENTE TODAS las pujas activas de esta liga? Esta acción no se puede deshacer.';
+        
+    if (!confirm(confirmMsg)) return;
+
+    const btnId = isBelow ? 'btn-admin-cancel-bids-below' : 'btn-admin-cancel-bids-all';
+    const btn = document.getElementById(btnId);
+    const originalText = btn ? btn.innerHTML : (isBelow ? 'Deshacer &lt; Valor' : 'Deshacer Todas');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = 'Procesando...';
+    }
+
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/cancel-bids`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al cancelar pujas.');
+
+        showToast(data.message || 'Pujas canceladas y reembolsadas correctamente.', 'success');
+        await enterLeague(currentLeagueId, true);
+    } catch (e) {
+        console.error(e);
+        showToast(e.message, 'error');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
         }
     }
 }

@@ -6153,6 +6153,20 @@ export async function startVisualizerServer(discordClient) {
             const team = await db.collection('fantasy_teams').findOne({ _id: new ObjectId(req.params.teamId), leagueId: req.params.id });
             if (!team) return res.status(404).json({ error: 'Equipo no encontrado.' });
 
+            // Refund bids placed by other managers on this user's players
+            const bidsToRefund = await db.collection('fantasy_market_bids').find({ 
+                leagueId: req.params.id, 
+                sellerDiscordId: team.discordId, 
+                status: 'pending' 
+            }).toArray();
+            for (const b of bidsToRefund) {
+                await db.collection('fantasy_teams').updateOne(
+                    { discordId: b.bidderDiscordId, leagueId: req.params.id },
+                    { $inc: { balance: Math.round(b.bidAmount) } }
+                );
+                console.log(`[KICK REFUND] Reembolsados ${b.bidAmount} € a ${b.bidderDiscordId} por expulsión del vendedor (${team.discordId}) para el jugador ${b.eaPlayerName}`);
+            }
+
             await db.collection('fantasy_teams').deleteOne({ _id: team._id });
 
             // Clean up listings
@@ -6466,6 +6480,20 @@ export async function startVisualizerServer(discordClient) {
             // Find the user's team
             const team = await db.collection('fantasy_teams').findOne({ discordId, leagueId });
             if (!team) return res.status(404).json({ error: 'No tienes un equipo en esta liga.' });
+
+            // Refund bids placed by other managers on this user's players
+            const bidsToRefund = await db.collection('fantasy_market_bids').find({ 
+                leagueId, 
+                sellerDiscordId: discordId, 
+                status: 'pending' 
+            }).toArray();
+            for (const b of bidsToRefund) {
+                await db.collection('fantasy_teams').updateOne(
+                    { discordId: b.bidderDiscordId, leagueId },
+                    { $inc: { balance: Math.round(b.bidAmount) } }
+                );
+                console.log(`[LEAVE REFUND] Reembolsados ${b.bidAmount} € a ${b.bidderDiscordId} por abandono del vendedor (${discordId}) para el jugador ${b.eaPlayerName}`);
+            }
 
             // Delete team
             await db.collection('fantasy_teams').deleteOne({ _id: team._id });
@@ -7865,6 +7893,66 @@ export async function startVisualizerServer(discordClient) {
         } catch (e) {
             console.error('[API Reset All Squads] Error:', e);
             res.status(500).json({ error: 'Error al restablecer las plantillas y el mercado: ' + e.message });
+        }
+    });
+
+    // Admin cancel and refund bids (all or below market value)
+    app.post('/api/fantasy/leagues/:id/cancel-bids', isAuthenticated, canAdminLeague, async (req, res) => {
+        try {
+            const leagueId = req.params.id;
+            const { mode } = req.body; // 'all' | 'below_value'
+            if (!mode || !['all', 'below_value'].includes(mode)) {
+                return res.status(400).json({ error: 'Modo de cancelación no válido. Debe ser "all" o "below_value".' });
+            }
+
+            const db = getDb();
+            const pendingBids = await db.collection('fantasy_market_bids').find({ leagueId, status: 'pending' }).toArray();
+
+            if (pendingBids.length === 0) {
+                return res.json({ success: true, message: 'No hay pujas pendientes para cancelar.' });
+            }
+
+            let bidsToCancel = [];
+            if (mode === 'below_value') {
+                const playerNames = [...new Set(pendingBids.map(b => b.eaPlayerName))];
+                const profiles = await db.collection('player_profiles').find({ eaPlayerName: { $in: playerNames } }).toArray();
+                const playerPriceMap = {};
+                profiles.forEach(p => {
+                    const { price } = calculatePlayerPointsAndPrice(p);
+                    playerPriceMap[p.eaPlayerName.toLowerCase()] = price;
+                });
+
+                bidsToCancel = pendingBids.filter(b => {
+                    const marketPrice = playerPriceMap[b.eaPlayerName.toLowerCase()] || 0;
+                    return b.bidAmount < marketPrice;
+                });
+            } else {
+                bidsToCancel = pendingBids;
+            }
+
+            if (bidsToCancel.length === 0) {
+                return res.json({ success: true, message: 'No se encontraron pujas que cumplan con la condición seleccionada.' });
+            }
+
+            // Refund each bidder
+            for (const b of bidsToCancel) {
+                await db.collection('fantasy_teams').updateOne(
+                    { discordId: b.bidderDiscordId, leagueId },
+                    { $inc: { balance: Math.round(b.bidAmount) } }
+                );
+            }
+
+            // Delete refunded bids
+            const bidIds = bidsToCancel.map(b => b._id);
+            await db.collection('fantasy_market_bids').deleteMany({ _id: { $in: bidIds } });
+
+            res.json({
+                success: true,
+                message: `Se han cancelado y reembolsado con éxito ${bidsToCancel.length} pujas ${mode === 'below_value' ? 'que eran menores al valor de mercado del jugador' : 'en total'}.`
+            });
+        } catch (e) {
+            console.error('[API Cancel Bids] Error:', e);
+            res.status(500).json({ error: 'Error al cancelar las pujas: ' + e.message });
         }
     });
 
