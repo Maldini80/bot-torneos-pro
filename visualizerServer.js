@@ -7887,7 +7887,7 @@ export async function startVisualizerServer(discordClient) {
     });
 
     // Admin reset all squads and free agent market
-    app.post('/api/fantasy/leagues/:id/reset-all-squads', isAuthenticated, canAdminLeague, async (req, res) => {
+    app.post('/api/fantasy/leagues/:id/reset-all-squads', isAuthenticated, isFantasyAdmin, async (req, res) => {
         try {
             const leagueId = req.params.id;
             const db = getDb();

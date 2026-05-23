@@ -2671,6 +2671,13 @@ async function loadAdminPanelData() {
         deleteCard.style.display = isOwnerOrCreator ? '' : 'none';
     }
 
+    // Hide/show reset all squads card only for global admins/referees (not creators unless they are global admins/referees)
+    const resetSquadsBtn = document.getElementById('btn-admin-reset-all-squads');
+    const resetSquadsCard = resetSquadsBtn ? resetSquadsBtn.closest('.action-card') : null;
+    if (resetSquadsCard) {
+        resetSquadsCard.style.display = currentUser.isAdmin ? '' : 'none';
+    }
+
     if (adminResetBasePointsContainer) {
         adminResetBasePointsContainer.style.display = (activeLeague && activeLeague.pointsMode === 'zero') ? '' : 'none';
     }
