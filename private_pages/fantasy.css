@@ -490,7 +490,7 @@ body {
 }
 
 .player-card-ut-name {
-    font-size: 0.6rem;
+    font-size: calc(0.6rem * var(--name-scale, 1));
     font-weight: 800;
     color: #f8fafc;
     text-align: center;
@@ -1067,7 +1067,7 @@ body {
     }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 600px) {
     .logo-text h1 {
         font-size: 1.15rem;
     }
@@ -1124,6 +1124,21 @@ body {
     .player-card-ut.occupied .player-card-ut-avatar i {
         font-size: 0.85rem;
     }
+    
+    /* Overrides for no-avatar cards on mobile */
+    .player-card-ut.occupied .player-card-ut-avatar.no-avatar {
+        width: 32px;
+        height: 32px;
+        margin-top: 6px;
+    }
+    .player-card-ut.occupied .player-card-ut-avatar.no-avatar i {
+        font-size: 1.8rem;
+        margin-bottom: -2px;
+    }
+    .player-card-ut.occupied .player-card-ut-avatar.no-avatar .avatar-shield-back {
+        font-size: 2.1rem;
+    }
+
     .player-card-ut-club-logo {
         top: 4px;
         right: 4px;
@@ -1131,7 +1146,7 @@ body {
         height: 10px;
     }
     .player-card-ut-name {
-        font-size: 0.55rem;
+        font-size: calc(0.55rem * var(--name-scale, 1));
         margin-bottom: 0px;
     }
     .player-card-ut-add {
@@ -1698,7 +1713,7 @@ body {
     margin-left: 4px;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 600px) {
     .points-base-label {
         display: block;
         font-size: 0.7rem;

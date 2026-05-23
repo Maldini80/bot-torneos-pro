@@ -7118,7 +7118,7 @@ export async function startVisualizerServer(discordClient) {
 
             const playerPositionMap = {};
             for (const doc of playerDocs) {
-                playerPositionMap[doc.eaPlayerName] = doc.lastPosition || 'MC';
+                playerPositionMap[doc.eaPlayerName] = doc.manualPosition || doc.lastPosition || 'MC';
             }
 
             // Verify POR

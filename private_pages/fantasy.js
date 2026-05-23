@@ -1605,15 +1605,15 @@ function getTableCardHtml(p) {
     const nameLength = lastName.length;
     let nameStyle = '';
     if (nameLength > 12) {
-        nameStyle = 'style="font-size: 0.34rem; letter-spacing: -0.05em;"';
+        nameStyle = 'style="--name-scale: 0.58; letter-spacing: -0.05em;"';
     } else if (nameLength > 10) {
-        nameStyle = 'style="font-size: 0.38rem; letter-spacing: -0.04em;"';
+        nameStyle = 'style="--name-scale: 0.65; letter-spacing: -0.04em;"';
     } else if (nameLength > 8) {
-        nameStyle = 'style="font-size: 0.42rem; letter-spacing: -0.03em;"';
+        nameStyle = 'style="--name-scale: 0.72; letter-spacing: -0.03em;"';
     } else if (nameLength > 6) {
-        nameStyle = 'style="font-size: 0.46rem; letter-spacing: -0.02em;"';
+        nameStyle = 'style="--name-scale: 0.8; letter-spacing: -0.02em;"';
     } else if (nameLength > 5) {
-        nameStyle = 'style="font-size: 0.5rem; letter-spacing: -0.01em;"';
+        nameStyle = 'style="--name-scale: 0.9; letter-spacing: -0.01em;"';
     }
     
     const hasAvatar = !!p.avatar;
@@ -1722,15 +1722,15 @@ function renderField() {
                 const nameLength = lastName.length;
                 let nameStyle = '';
                 if (nameLength > 12) {
-                    nameStyle = 'style="font-size: 0.34rem; letter-spacing: -0.05em;"';
+                    nameStyle = 'style="--name-scale: 0.58; letter-spacing: -0.05em;"';
                 } else if (nameLength > 10) {
-                    nameStyle = 'style="font-size: 0.38rem; letter-spacing: -0.04em;"';
+                    nameStyle = 'style="--name-scale: 0.65; letter-spacing: -0.04em;"';
                 } else if (nameLength > 8) {
-                    nameStyle = 'style="font-size: 0.42rem; letter-spacing: -0.03em;"';
+                    nameStyle = 'style="--name-scale: 0.72; letter-spacing: -0.03em;"';
                 } else if (nameLength > 6) {
-                    nameStyle = 'style="font-size: 0.46rem; letter-spacing: -0.02em;"';
+                    nameStyle = 'style="--name-scale: 0.8; letter-spacing: -0.02em;"';
                 } else if (nameLength > 5) {
-                    nameStyle = 'style="font-size: 0.5rem; letter-spacing: -0.01em;"';
+                    nameStyle = 'style="--name-scale: 0.9; letter-spacing: -0.01em;"';
                 }
 
                 const hasAvatar = p && p.avatar;
@@ -2427,15 +2427,15 @@ async function showRivalTeam(discordId, teamName) {
                         const nameLength = lastName.length;
                         let nameStyle = '';
                         if (nameLength > 12) {
-                            nameStyle = 'style="font-size: 0.34rem; letter-spacing: -0.05em;"';
+                            nameStyle = 'style="--name-scale: 0.58; letter-spacing: -0.05em;"';
                         } else if (nameLength > 10) {
-                            nameStyle = 'style="font-size: 0.38rem; letter-spacing: -0.04em;"';
+                            nameStyle = 'style="--name-scale: 0.65; letter-spacing: -0.04em;"';
                         } else if (nameLength > 8) {
-                            nameStyle = 'style="font-size: 0.42rem; letter-spacing: -0.03em;"';
+                            nameStyle = 'style="--name-scale: 0.72; letter-spacing: -0.03em;"';
                         } else if (nameLength > 6) {
-                            nameStyle = 'style="font-size: 0.46rem; letter-spacing: -0.02em;"';
+                            nameStyle = 'style="--name-scale: 0.8; letter-spacing: -0.02em;"';
                         } else if (nameLength > 5) {
-                            nameStyle = 'style="font-size: 0.5rem; letter-spacing: -0.01em;"';
+                            nameStyle = 'style="--name-scale: 0.9; letter-spacing: -0.01em;"';
                         }
 
                         const hasAvatar = p && p.avatar;
