@@ -1057,8 +1057,7 @@ async function handleCreateLeague(e) {
         vpgLeagues = Array.from(checkedBoxes).map(cb => cb.value);
     }
 
-    const hasBothFirstDivs = vpgLeagues.includes('superliga-spain-a') && vpgLeagues.includes('superliga-spain-b');
-    const maxLimit = hasBothFirstDivs ? 18 : 14;
+    const maxLimit = vpgLeagues.length >= 2 ? 18 : 14;
     
     const maxVal = parseInt(maxParticipants);
     if (isNaN(maxVal) || maxVal < 2 || maxVal > maxLimit) {
@@ -2620,8 +2619,7 @@ async function loadAdminPanelData() {
     // Set dynamic max limit on input participants
     if (adminLeagueMaxParts) {
         const currentVpgLeagues = activeLeague.vpgLeagues || [];
-        const hasBothFirstDivs = currentVpgLeagues.includes('superliga-spain-a') && currentVpgLeagues.includes('superliga-spain-b');
-        const maxLimit = hasBothFirstDivs ? 18 : 14;
+        const maxLimit = currentVpgLeagues.length >= 2 ? 18 : 14;
         adminLeagueMaxParts.setAttribute('max', maxLimit);
     }
     adminLeagueMaxParts.value = activeLeague.maxParticipants;
@@ -2883,8 +2881,7 @@ async function handleUpdateLeagueSubmit(e) {
     const password = adminLeaguePassword ? adminLeaguePassword.value : '';
     
     const currentVpgLeagues = activeLeague ? activeLeague.vpgLeagues : [];
-    const hasBothFirstDivs = Array.isArray(currentVpgLeagues) && currentVpgLeagues.includes('superliga-spain-a') && currentVpgLeagues.includes('superliga-spain-b');
-    const maxLimit = hasBothFirstDivs ? 18 : 14;
+    const maxLimit = (Array.isArray(currentVpgLeagues) ? currentVpgLeagues.length : 0) >= 2 ? 18 : 14;
 
     const maxVal = parseInt(maxParticipants);
     if (isNaN(maxVal) || maxVal < 2 || maxVal > maxLimit) {
@@ -4282,8 +4279,7 @@ function updateSelectedVpgCount() {
     const maxPartsInput = document.getElementById('new-league-max-participants');
     if (maxPartsInput) {
         const checkedValues = checked.map(cb => cb.value);
-        const hasBothFirstDivs = checkedValues.includes('superliga-spain-a') && checkedValues.includes('superliga-spain-b');
-        const maxLimit = hasBothFirstDivs ? 18 : 14;
+        const maxLimit = checkedValues.length >= 2 ? 18 : 14;
         maxPartsInput.setAttribute('max', maxLimit);
         const currentVal = parseInt(maxPartsInput.value);
         if (!isNaN(currentVal) && currentVal > maxLimit) {

@@ -5964,8 +5964,7 @@ export async function startVisualizerServer(discordClient) {
                 }
             }
 
-            const hasBothFirstDivs = selectedLeagues.includes('superliga-spain-a') && selectedLeagues.includes('superliga-spain-b');
-            const maxLimit = hasBothFirstDivs ? 18 : 14;
+            const maxLimit = selectedLeagues.length >= 2 ? 18 : 14;
             const parsedMaxParticipants = parseInt(maxParticipants) || 14;
             if (parsedMaxParticipants < 2 || parsedMaxParticipants > maxLimit) {
                 return res.status(400).json({ error: `El número de participantes debe estar entre 2 y ${maxLimit}.` });
@@ -6032,8 +6031,7 @@ export async function startVisualizerServer(discordClient) {
                 const parsedMax = parseInt(maxParticipants);
                 const existingLeague = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(req.params.id) });
                 const currentVpgLeagues = req.body.vpgLeagues !== undefined ? (Array.isArray(req.body.vpgLeagues) ? req.body.vpgLeagues : []) : (existingLeague ? existingLeague.vpgLeagues : []);
-                const hasBothFirstDivs = Array.isArray(currentVpgLeagues) && currentVpgLeagues.includes('superliga-spain-a') && currentVpgLeagues.includes('superliga-spain-b');
-                const maxLimit = hasBothFirstDivs ? 18 : 14;
+                const maxLimit = (Array.isArray(currentVpgLeagues) ? currentVpgLeagues.length : 0) >= 2 ? 18 : 14;
                 if (parsedMax < 2 || parsedMax > maxLimit) {
                     return res.status(400).json({ error: `El número de participantes debe estar entre 2 y ${maxLimit}.` });
                 }
