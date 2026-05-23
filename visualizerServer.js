@@ -8060,6 +8060,7 @@ export async function startVisualizerServer(discordClient) {
             }
 
             const players = await db.collection('player_profiles').find(queryObj).limit(100).toArray();
+            console.log(`[DEBUG SEARCH] Query "${query}" matched ${players.length} players. Documents:`, players.map(p => ({ name: p.eaPlayerName, stats: p.stats })));
 
             // Fetch team logos from test db
             const testDb = getDb('test');
