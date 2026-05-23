@@ -62,40 +62,22 @@ client.once(Events.ClientReady, async readyClient => {
                     const verifiedRole = await guild.roles.fetch(VERIFIED_ROLE_ID).catch(() => null);
                     if (verifiedRole) {
                         console.log('[SYNC] Iniciando sincronización de roles verificados...');
+                        // Manually correct nauarmdar's Discord ID if it's the old/incorrect one
+                        try {
+                            const oldNau = await db.collection('verified_users').findOne({ discordId: '435171084577538059' });
+                            if (oldNau) {
+                                console.log('[SYNC] Corrigiendo ID de Discord de nauarmdar de 435171084577538059 a 861938417842913312...');
+                                await db.collection('verified_users').updateOne(
+                                    { discordId: '435171084577538059' },
+                                    { $set: { discordId: '861938417842913312', username: 'nauarmdar' } }
+                                );
+                            }
+                        } catch (fixErr) {
+                            console.error('[SYNC] Error al corregir ID de nauarmdar:', fixErr);
+                        }
+
                         const verifiedUsers = await db.collection('verified_users').find({}).toArray();
                         console.log(`[SYNC] Encontrados ${verifiedUsers.length} usuarios verificados en la base de datos.`);
-
-                        // DEBUG LOG FOR NAU
-                        try {
-                            const nauUsersInDb = verifiedUsers.filter(u => 
-                                (u.username && u.username.toLowerCase().includes('nau')) || 
-                                (u.psnId && u.psnId.toLowerCase().includes('nau')) ||
-                                (u.discordUsername && u.discordUsername.toLowerCase().includes('nau'))
-                            );
-                            console.log('[DEBUG NAU] Users in DB matching "nau":', JSON.stringify(nauUsersInDb.map(u => ({
-                                discordId: u.discordId,
-                                username: u.username,
-                                discordUsername: u.discordUsername,
-                                psnId: u.psnId,
-                                gameId: u.gameId
-                            })), null, 2));
-
-                            const nauMemberInGuild = guild.members.cache.get('435171084577538059') || await guild.members.fetch('435171084577538059').catch(() => null);
-                            console.log('[DEBUG NAU] Member 435171084577538059 in guild:', nauMemberInGuild ? {
-                                tag: nauMemberInGuild.user.tag,
-                                username: nauMemberInGuild.user.username,
-                                roles: nauMemberInGuild.roles.cache.map(r => r.name)
-                            } : 'NOT FOUND');
-
-                            const searchResults = await guild.members.search({ query: 'nau', limit: 10 }).catch(() => []);
-                            console.log('[DEBUG NAU] Members in guild matching "nau":', JSON.stringify(searchResults.map(m => ({
-                                id: m.user.id,
-                                username: m.user.username,
-                                displayName: m.displayName
-                            })), null, 2));
-                        } catch (debugErr) {
-                            console.error('[DEBUG NAU] Error gathering debug data:', debugErr);
-                        }
 
                         let syncedCount = 0;
                         for (const user of verifiedUsers) {
