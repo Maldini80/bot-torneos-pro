@@ -344,8 +344,9 @@ export async function syncFantasyWithVpg() {
                     console.warn(`[VPG SYNC] No se encontró mapping en la DB para equipo VPG: "${vpgTeam.team_name}" (slug: ${vpgTeam.team_slug})`);
                 }
             }
+             // B. Fetch VPG position leaderboards with pagination
+            const leaguePlayersMap = new Map();
 
-            // B. Fetch VPG position leaderboards with pagination
             for (const [vpgPosKey, fantasyPos] of Object.entries(LEADERBOARD_POS_MAP)) {
                 let offset = 0;
                 let hasMore = true;
@@ -402,66 +403,82 @@ export async function syncFantasyWithVpg() {
                                 losses = Math.round((standing.losses || 0) * ratio);
                             }
 
-                            // Crear stats objeto compatible
-                            const playerStats = {
-                                matchesPlayed: played,
-                                goals: parseInt(player.goals) || 0,
-                                assists: parseInt(player.assists) || 0,
-                                passesMade: 0,
-                                passesAttempted: 0,
-                                tacklesMade: 0,
-                                tacklesAttempted: 0,
-                                shots: parseInt(player.shots) || 0,
-                                shotsOnTarget: 0,
-                                interceptions: 0,
-                                saves: parseInt(player.saves) || 0,
-                                redCards: parseInt(player.red_card) || 0,
-                                yellowCards: parseInt(player.yellow_card) || 0,
-                                mom: 0,
-                                cleanSheets: parseInt(player.clean_sheet) || 0,
-                                goalsConceded: 0,
-                                ratings: Array(played).fill(avgRating),
-                                wins: wins,
-                                losses: losses,
-                                ties: ties,
-                                vpgPoints: parseFloat(player.points) || 0
-                            };
+                            const usernameLower = username.toLowerCase();
+                            if (leaguePlayersMap.has(usernameLower)) {
+                                const existing = leaguePlayersMap.get(usernameLower);
+                                const existingStats = existing.stats;
 
-                            const updateData = {
-                                lastClub: dbTeam ? dbTeam.name : (player.team_name || player.team_slug || "VPG Club"),
-                                lastActive: new Date(),
-                                lastPosition: fantasyPos,
-                                vpgLeagueSlug: leagueSlug,
-                                avatar: player.user_avatar || null,
-                                nationality: player.user_nationality || null,
-                                stats: playerStats
-                            };
+                                const mergedStats = {
+                                    matchesPlayed: existingStats.matchesPlayed + played,
+                                    goals: existingStats.goals + (parseInt(player.goals) || 0),
+                                    assists: existingStats.assists + (parseInt(player.assists) || 0),
+                                    passesMade: existingStats.passesMade,
+                                    passesAttempted: existingStats.passesAttempted,
+                                    tacklesMade: existingStats.tacklesMade,
+                                    tacklesAttempted: existingStats.tacklesAttempted,
+                                    shots: existingStats.shots + (parseInt(player.shots) || 0),
+                                    shotsOnTarget: existingStats.shotsOnTarget,
+                                    interceptions: existingStats.interceptions,
+                                    saves: existingStats.saves + (parseInt(player.saves) || 0),
+                                    redCards: existingStats.redCards + (parseInt(player.red_card) || 0),
+                                    yellowCards: existingStats.yellowCards + (parseInt(player.yellow_card) || 0),
+                                    mom: existingStats.mom,
+                                    cleanSheets: existingStats.cleanSheets + (parseInt(player.clean_sheet) || 0),
+                                    goalsConceded: existingStats.goalsConceded,
+                                    ratings: existingStats.ratings.concat(Array(played).fill(avgRating)),
+                                    wins: existingStats.wins + wins,
+                                    losses: existingStats.losses + losses,
+                                    ties: existingStats.ties + ties,
+                                    vpgPoints: Math.round((existingStats.vpgPoints + (parseFloat(player.points) || 0)) * 10) / 10
+                                };
 
-                            // Buscar jugador por eaPlayerName case-insensitively
-                            const existingPlayer = await playerColl.findOne({ 
-                                eaPlayerName: { $regex: new RegExp('^' + username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } 
-                            });
+                                // Comparar partidos para elegir la posición con más presencia
+                                let bestPosition = existing.lastPosition;
+                                if (played > existingStats.matchesPlayed) {
+                                    bestPosition = fantasyPos;
+                                }
 
-                            if (existingPlayer) {
-                                await playerColl.updateOne(
-                                    { _id: existingPlayer._id },
-                                    { $set: updateData }
-                                );
+                                existing.stats = mergedStats;
+                                existing.lastPosition = bestPosition;
+                                if (player.user_avatar) existing.avatar = player.user_avatar;
+                                if (player.user_nationality) existing.nationality = player.user_nationality;
+                                if (dbTeam) existing.lastClub = dbTeam.name;
                             } else {
-                                // Insertar nuevo jugador
-                                await playerColl.insertOne({
-                                    eaPlayerName: username,
-                                    ...updateData,
-                                    build: {
-                                        height: null,
-                                        weight: null,
-                                        perks: {},
-                                        vproattr: "NH"
-                                    }
+                                const playerStats = {
+                                    matchesPlayed: played,
+                                    goals: parseInt(player.goals) || 0,
+                                    assists: parseInt(player.assists) || 0,
+                                    passesMade: 0,
+                                    passesAttempted: 0,
+                                    tacklesMade: 0,
+                                    tacklesAttempted: 0,
+                                    shots: parseInt(player.shots) || 0,
+                                    shotsOnTarget: 0,
+                                    interceptions: 0,
+                                    saves: parseInt(player.saves) || 0,
+                                    redCards: parseInt(player.red_card) || 0,
+                                    yellowCards: parseInt(player.yellow_card) || 0,
+                                    mom: 0,
+                                    cleanSheets: parseInt(player.clean_sheet) || 0,
+                                    goalsConceded: 0,
+                                    ratings: Array(played).fill(avgRating),
+                                    wins: wins,
+                                    losses: losses,
+                                    ties: ties,
+                                    vpgPoints: parseFloat(player.points) || 0
+                                };
+
+                                leaguePlayersMap.set(usernameLower, {
+                                    username: username,
+                                    lastClub: dbTeam ? dbTeam.name : (player.team_name || player.team_slug || "VPG Club"),
+                                    lastActive: new Date(),
+                                    lastPosition: fantasyPos,
+                                    vpgLeagueSlug: leagueSlug,
+                                    avatar: player.user_avatar || null,
+                                    nationality: player.user_nationality || null,
+                                    stats: playerStats
                                 });
                             }
-
-                            totalPlayersUpdated++;
                         }
                     }
 
@@ -475,6 +492,38 @@ export async function syncFantasyWithVpg() {
                 }
 
                 console.log(`[VPG SYNC] Líderes para ${vpgPosKey} en ${leagueSlug}: ${posPlayersCount} jugadores.`);
+            }
+
+            // Guardar todos los jugadores agregados en la BD
+            console.log(`[VPG SYNC] Guardando ${leaguePlayersMap.size} jugadores agregados en la liga ${leagueSlug}...`);
+            for (const [usernameLower, pData] of leaguePlayersMap.entries()) {
+                const { username, ...updateData } = pData;
+
+                // Buscar jugador por eaPlayerName case-insensitively
+                const existingPlayer = await playerColl.findOne({ 
+                    eaPlayerName: { $regex: new RegExp('^' + username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } 
+                });
+
+                if (existingPlayer) {
+                    await playerColl.updateOne(
+                        { _id: existingPlayer._id },
+                        { $set: updateData }
+                    );
+                } else {
+                    // Insertar nuevo jugador
+                    await playerColl.insertOne({
+                        eaPlayerName: username,
+                        ...updateData,
+                        build: {
+                            height: null,
+                            weight: null,
+                            perks: {},
+                            vproattr: "NH"
+                        }
+                    });
+                }
+
+                totalPlayersUpdated++;
             }
         }
 
