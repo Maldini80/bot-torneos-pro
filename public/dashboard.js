@@ -1295,7 +1295,7 @@ class DashboardApp {
 
     showNonMemberWarning() {
         const warningHTML = `
-            <div class="non-member-warning">
+            <div class="non-member-warning" style="position: relative; z-index: 10; max-width: 600px; margin: 120px auto 20px auto; box-sizing: border-box; backdrop-filter: blur(8px);">
                 <h3>${t(this.currentLang, 'auth.notMember')}</h3>
                 <p>${t(this.currentLang, 'auth.notMemberDesc')}</p>
                 <a href="https://discord.gg/zEy9ztp8QM" 
@@ -1306,9 +1306,22 @@ class DashboardApp {
             </div>
         `;
 
-        // Insertar al inicio del main content
-        const mainContent = document.querySelector('.dashboard-main');
-        mainContent.insertAdjacentHTML('afterbegin', warningHTML);
+        // Insertar en #hero-dash para que sea visible inmediatamente al aterrizar
+        const heroSection = document.getElementById('hero-dash');
+        if (heroSection) {
+            heroSection.innerHTML = warningHTML;
+            heroSection.style.display = 'flex';
+            heroSection.style.flexDirection = 'column';
+            heroSection.style.justifyContent = 'center';
+            heroSection.style.alignItems = 'center';
+            heroSection.style.padding = '20px';
+        } else {
+            // Fallback en caso de que no exista hero-dash
+            const mainContent = document.querySelector('.dashboard-main');
+            if (mainContent) {
+                mainContent.insertAdjacentHTML('afterbegin', warningHTML);
+            }
+        }
     }
 
     async init() {
