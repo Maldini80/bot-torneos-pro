@@ -2570,3 +2570,10 @@ body {
     pointer-events: none !important;
 }
 
+/* Responsive adjustment for player stats modal on smaller screens */
+@media (max-width: 480px) {
+    #player-stats-modal-body .fut-card {
+        transform: scale(1.0) !important;
+    }
+}
+
