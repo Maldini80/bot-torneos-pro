@@ -134,14 +134,14 @@
                             </div>
                             
                             <!-- Add League UI -->
-                            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 4px;">
-                                <div style="flex: 1; min-width: 200px; display: flex; gap: 8px;">
-                                    <select id="owner-available-leagues-select" class="owner-input">
-                                        <option value="">-- Seleccionar liga VPG --</option>
-                                    </select>
-                                    <input type="text" id="owner-custom-league-slug" placeholder="O slug manual..." class="owner-input">
+                            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                                <select id="owner-available-leagues-select" class="owner-input" style="width: 100%;">
+                                    <option value="">-- Seleccionar liga VPG --</option>
+                                </select>
+                                <div style="display: flex; gap: 8px; width: 100%;">
+                                    <input type="text" id="owner-custom-league-slug" placeholder="O slug manual..." class="owner-input" style="flex: 1; min-width: 0;">
+                                    <button id="btn-owner-add-league" class="btn btn-sm btn-primary" style="padding: 8px 16px; white-space: nowrap;"><i class="fa-solid fa-plus"></i> Añadir</button>
                                 </div>
-                                <button id="btn-owner-add-league" class="btn btn-sm btn-primary" style="padding: 8px 16px;"><i class="fa-solid fa-plus"></i> Añadir</button>
                             </div>
                             
                             <!-- Active Leagues Chips -->
