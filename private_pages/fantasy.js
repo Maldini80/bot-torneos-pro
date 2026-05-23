@@ -260,8 +260,10 @@ const createLeagueForm = document.getElementById('create-league-form');
 const createLeagueSection = document.getElementById('admin-create-league-section');
 const createLeagueTitle = document.getElementById('create-league-title');
 const toggleAllowUserLeagues = document.getElementById('toggle-allow-user-leagues');
+const toggleLockLineups = document.getElementById('toggle-lock-lineups');
 const btnLeagueAdminTab = document.getElementById('btn-league-admin-tab');
 let allowUserLeagueCreation = false;
+let lockLineupsActive = true;
 
 // DOM Elements - Dashboard View
 const activeLeagueName = document.getElementById('active-league-name');
@@ -405,7 +407,13 @@ async function checkUserSession() {
         
         // Toggle admin blocks
         if (currentUser.isAdmin) {
-            document.querySelectorAll('.admin-only-block').forEach(el => el.style.display = 'block');
+            document.querySelectorAll('.admin-only-block').forEach(el => {
+                if (el.id === 'allow-user-leagues-row' || el.id === 'lock-lineups-row') {
+                    el.style.display = 'flex';
+                } else {
+                    el.style.display = 'block';
+                }
+            });
             const selMain = document.querySelector('.selector-main');
             if (selMain) selMain.classList.add('has-admin');
         } else {
@@ -423,6 +431,16 @@ async function checkUserSession() {
                 if (toggleAllowUserLeagues) toggleAllowUserLeagues.checked = allowUserLeagueCreation;
             }
         } catch (e) { console.error('Error fetching allow-user-leagues config:', e); }
+
+        // Fetch lock-lineups config
+        try {
+            const lockRes = await fetch('/api/fantasy/admin/config/lock-lineups');
+            if (lockRes.ok) {
+                const lockData = await lockRes.json();
+                lockLineupsActive = lockData.locked;
+                if (toggleLockLineups) toggleLockLineups.checked = lockLineupsActive;
+            }
+        } catch (e) { console.error('Error fetching lock-lineups config:', e); }
 
         // Show create league section: always for admins, or for users if allowed
         if (createLeagueSection) {
@@ -709,6 +727,27 @@ function setupEventHandlers() {
                 console.error(e);
                 showToast(e.message, 'error');
                 toggleAllowUserLeagues.checked = !toggleAllowUserLeagues.checked; // revert
+            }
+        });
+    }
+
+    // Toggle lock lineups
+    if (toggleLockLineups) {
+        toggleLockLineups.addEventListener('change', async () => {
+            try {
+                const res = await fetch('/api/fantasy/admin/config/lock-lineups', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ locked: toggleLockLineups.checked })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Error al cambiar configuración.');
+                lockLineupsActive = data.locked;
+                showToast(data.message, 'success');
+            } catch (e) {
+                console.error(e);
+                showToast(e.message, 'error');
+                toggleLockLineups.checked = !toggleLockLineups.checked; // revert
             }
         });
     }
@@ -2261,7 +2300,7 @@ async function loadLeaderboard() {
                         </div>
                     </div>
                 </td>
-                <td class="text-center font-weight-bold col-hide-sm" style="font-weight: 600;">${manager.playerCount} / 15</td>
+                <td class="text-center font-weight-bold col-hide-sm" style="font-weight: 600;">${manager.playerCount}</td>
                 <td class="text-center text-muted col-hide-md">${manager.formation || '4-3-3'}</td>
                 <td class="text-right text-white" style="font-weight: 600;">${formattedLineupValue}</td>
                 <td class="text-right text-yellow" style="font-weight: 700; font-size: 1.05rem;">${manager.points} pts</td>
@@ -3351,6 +3390,7 @@ function getMadridTime() {
 }
 
 function isLineupLocked() {
+    if (!lockLineupsActive) return false;
     const { day, hours, minutes } = getMadridTime();
     if (day >= 1 && day <= 4) { // Monday to Thursday
         const totalMinutes = hours * 60 + minutes;

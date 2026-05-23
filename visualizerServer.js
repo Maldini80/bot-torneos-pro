@@ -5469,9 +5469,15 @@ export async function startVisualizerServer(discordClient) {
     // --- MIDDLEWARE: Fantasy Admin (owner and referees) ---
     function isFantasyAdmin(req, res, next) {
         if (!req.user) return res.status(401).json({ error: 'No autenticado' });
-        const isAdmin = req.user.id === process.env.OWNER_DISCORD_ID;
-        const isReferee = Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
-        if (isAdmin || isReferee) return next();
+        const isOwner = req.user.id === process.env.OWNER_DISCORD_ID;
+        const adminRoleIds = [
+            '1393505777443930183',
+            process.env.ARBITER_ROLE_ID,
+            process.env.ADMIN_ROLE_ID,
+            ...(process.env.ADMIN_ROLE_IDS?.split(',') || [])
+        ].filter(Boolean);
+        const hasAdminRole = Array.isArray(req.user.roles) && req.user.roles.some(r => adminRoleIds.includes(r));
+        if (isOwner || hasAdminRole) return next();
         return res.status(403).json({ error: 'Solo el administrador o los árbitros pueden realizar esta acción.' });
     }
 
@@ -5687,14 +5693,21 @@ export async function startVisualizerServer(discordClient) {
 
     // ========== FANTASY API: User Info ==========
     app.get('/api/fantasy/me', isAuthenticated, isFantasyEnabled, (req, res) => {
-        const isAdmin = req.user.id === process.env.OWNER_DISCORD_ID;
-        const isReferee = Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
+        const isOwner = req.user.id === process.env.OWNER_DISCORD_ID;
+        const adminRoleIds = [
+            '1393505777443930183',
+            process.env.ARBITER_ROLE_ID,
+            process.env.ADMIN_ROLE_ID,
+            ...(process.env.ADMIN_ROLE_IDS?.split(',') || [])
+        ].filter(Boolean);
+        const hasAdminRole = Array.isArray(req.user.roles) && req.user.roles.some(r => adminRoleIds.includes(r));
+        const isAdmin = isOwner || hasAdminRole;
         res.json({
             discordId: req.user.id,
             username: req.user.global_name || req.user.username,
             avatar: req.user.avatar,
-            isAdmin: isAdmin || isReferee,
-            isOwner: isAdmin
+            isAdmin: isAdmin,
+            isOwner: isOwner
         });
     });
 
@@ -5756,6 +5769,35 @@ export async function startVisualizerServer(discordClient) {
             res.json({ success: true, allowed: !!allowed, message: allowed ? 'Solicitudes de ligas habilitadas.' : 'Solicitudes de ligas deshabilitadas.' });
         } catch (e) {
             console.error('[API Post Allow User Leagues] Error:', e);
+            res.status(500).json({ error: 'Error al guardar configuración.' });
+        }
+    });
+
+    // Get lock-lineups config (accessible to all authenticated users)
+    app.get('/api/fantasy/admin/config/lock-lineups', isAuthenticated, isFantasyEnabled, async (req, res) => {
+        try {
+            const db = getDb();
+            const config = await db.collection('fantasy_config').findOne({ key: 'lock_lineups_active' });
+            res.json({ locked: config ? !!config.value : true });
+        } catch (e) {
+            console.error('[API Get Lock Lineups] Error:', e);
+            res.status(500).json({ error: 'Error al obtener configuración.' });
+        }
+    });
+
+    // Set lock-lineups config (admin only)
+    app.post('/api/fantasy/admin/config/lock-lineups', isAuthenticated, isFantasyAdmin, async (req, res) => {
+        try {
+            const { locked } = req.body;
+            const db = getDb();
+            await db.collection('fantasy_config').updateOne(
+                { key: 'lock_lineups_active' },
+                { $set: { key: 'lock_lineups_active', value: !!locked } },
+                { upsert: true }
+            );
+            res.json({ success: true, locked: !!locked, message: locked ? 'Bloqueo de alineaciones habilitado.' : 'Bloqueo de alineaciones deshabilitado.' });
+        } catch (e) {
+            console.error('[API Post Lock Lineups] Error:', e);
             res.status(500).json({ error: 'Error al guardar configuración.' });
         }
     });
@@ -6800,7 +6842,12 @@ export async function startVisualizerServer(discordClient) {
         };
     }
 
-    function isLineupLocked() {
+    async function isLineupLocked() {
+        const db = getDb();
+        const config = await db.collection('fantasy_config').findOne({ key: 'lock_lineups_active' });
+        const isLockEnabled = config ? !!config.value : true;
+        if (!isLockEnabled) return false;
+
         const { day, hours, minutes } = getMadridTime();
         if (day >= 1 && day <= 4) { // Monday to Thursday
             const totalMinutes = hours * 60 + minutes;
@@ -7085,7 +7132,7 @@ export async function startVisualizerServer(discordClient) {
             const { lineup, formation } = req.body;
             if (!lineup || !formation) return res.status(400).json({ error: 'Faltan lineup o formation' });
 
-            if (isLineupLocked()) {
+            if (await isLineupLocked()) {
                 return res.status(400).json({ error: 'No puedes modificar tu alineación de lunes a jueves entre las 20:30 y las 23:59 (hora de Madrid).' });
             }
 
