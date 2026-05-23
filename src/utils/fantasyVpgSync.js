@@ -408,41 +408,65 @@ export async function syncFantasyWithVpg() {
                                 const existing = leaguePlayersMap.get(usernameLower);
                                 const existingStats = existing.stats;
 
-                                const mergedStats = {
-                                    matchesPlayed: existingStats.matchesPlayed + played,
-                                    goals: existingStats.goals + (parseInt(player.goals) || 0),
-                                    assists: existingStats.assists + (parseInt(player.assists) || 0),
-                                    passesMade: existingStats.passesMade,
-                                    passesAttempted: existingStats.passesAttempted,
-                                    tacklesMade: existingStats.tacklesMade,
-                                    tacklesAttempted: existingStats.tacklesAttempted,
-                                    shots: existingStats.shots + (parseInt(player.shots) || 0),
-                                    shotsOnTarget: existingStats.shotsOnTarget,
-                                    interceptions: existingStats.interceptions,
-                                    saves: existingStats.saves + (parseInt(player.saves) || 0),
-                                    redCards: existingStats.redCards + (parseInt(player.red_card) || 0),
-                                    yellowCards: existingStats.yellowCards + (parseInt(player.yellow_card) || 0),
-                                    mom: existingStats.mom,
-                                    cleanSheets: existingStats.cleanSheets + (parseInt(player.clean_sheet) || 0),
-                                    goalsConceded: existingStats.goalsConceded,
-                                    ratings: existingStats.ratings.concat(Array(played).fill(avgRating)),
-                                    wins: existingStats.wins + wins,
-                                    losses: existingStats.losses + losses,
-                                    ties: existingStats.ties + ties,
-                                    vpgPoints: Math.round((existingStats.vpgPoints + (parseFloat(player.points) || 0)) * 10) / 10
-                                };
+                                // Si es la misma posición de fantasía, no sumamos, sino que tomamos la de mejores puntos para evitar duplicar
+                                if (existing.lastPosition === fantasyPos) {
+                                    if ((parseFloat(player.points) || 0) > (existingStats.vpgPoints || 0)) {
+                                        existingStats.matchesPlayed = played;
+                                        existingStats.goals = parseInt(player.goals) || 0;
+                                        existingStats.assists = parseInt(player.assists) || 0;
+                                        existingStats.shots = parseInt(player.shots) || 0;
+                                        existingStats.saves = parseInt(player.saves) || 0;
+                                        existingStats.redCards = parseInt(player.red_card) || 0;
+                                        existingStats.yellowCards = parseInt(player.yellow_card) || 0;
+                                        existingStats.cleanSheets = parseInt(player.clean_sheet) || 0;
+                                        existingStats.ratings = Array(played).fill(avgRating);
+                                        existingStats.wins = wins;
+                                        existingStats.losses = losses;
+                                        existingStats.ties = ties;
+                                        existingStats.vpgPoints = parseFloat(player.points) || 0;
 
-                                // Comparar partidos para elegir la posición con más presencia
-                                let bestPosition = existing.lastPosition;
-                                if (played > existingStats.matchesPlayed) {
-                                    bestPosition = fantasyPos;
+                                        if (player.user_avatar) existing.avatar = player.user_avatar;
+                                        if (player.user_nationality) existing.nationality = player.user_nationality;
+                                        if (dbTeam) existing.lastClub = dbTeam.name;
+                                    }
+                                } else {
+                                    // Si es una posición de fantasía diferente, sumamos las estadísticas
+                                    const mergedStats = {
+                                        matchesPlayed: existingStats.matchesPlayed + played,
+                                        goals: existingStats.goals + (parseInt(player.goals) || 0),
+                                        assists: existingStats.assists + (parseInt(player.assists) || 0),
+                                        passesMade: existingStats.passesMade,
+                                        passesAttempted: existingStats.passesAttempted,
+                                        tacklesMade: existingStats.tacklesMade,
+                                        tacklesAttempted: existingStats.tacklesAttempted,
+                                        shots: existingStats.shots + (parseInt(player.shots) || 0),
+                                        shotsOnTarget: existingStats.shotsOnTarget,
+                                        interceptions: existingStats.interceptions,
+                                        saves: existingStats.saves + (parseInt(player.saves) || 0),
+                                        redCards: existingStats.redCards + (parseInt(player.red_card) || 0),
+                                        yellowCards: existingStats.yellowCards + (parseInt(player.yellow_card) || 0),
+                                        mom: existingStats.mom,
+                                        cleanSheets: existingStats.cleanSheets + (parseInt(player.clean_sheet) || 0),
+                                        goalsConceded: existingStats.goalsConceded,
+                                        ratings: existingStats.ratings.concat(Array(played).fill(avgRating)),
+                                        wins: existingStats.wins + wins,
+                                        losses: existingStats.losses + losses,
+                                        ties: existingStats.ties + ties,
+                                        vpgPoints: Math.round((existingStats.vpgPoints + (parseFloat(player.points) || 0)) * 10) / 10
+                                    };
+
+                                    // Comparar partidos para elegir la posición con más presencia
+                                    let bestPosition = existing.lastPosition;
+                                    if (played > existingStats.matchesPlayed) {
+                                        bestPosition = fantasyPos;
+                                    }
+
+                                    existing.stats = mergedStats;
+                                    existing.lastPosition = bestPosition;
+                                    if (player.user_avatar) existing.avatar = player.user_avatar;
+                                    if (player.user_nationality) existing.nationality = player.user_nationality;
+                                    if (dbTeam) existing.lastClub = dbTeam.name;
                                 }
-
-                                existing.stats = mergedStats;
-                                existing.lastPosition = bestPosition;
-                                if (player.user_avatar) existing.avatar = player.user_avatar;
-                                if (player.user_nationality) existing.nationality = player.user_nationality;
-                                if (dbTeam) existing.lastClub = dbTeam.name;
                             } else {
                                 const playerStats = {
                                     matchesPlayed: played,
