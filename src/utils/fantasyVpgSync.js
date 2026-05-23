@@ -643,9 +643,9 @@ export async function processLeagueMarketOffers(db) {
 
         if (!existingBid) {
             const { price } = calculatePlayerPointsAndPrice(player);
-            // Generar un porcentaje aleatorio entre 80% y 86%
-            const pct = Math.floor(Math.random() * (86 - 80 + 1)) + 80;
-            const targetOffer = Math.round(price * (pct / 100));
+            // Generar un porcentaje aleatorio de incremento entre +13% y +25%
+            const pct = Math.floor(Math.random() * (25 - 13 + 1)) + 13;
+            const targetOffer = Math.round(price * (1 + pct / 100));
 
             // Crear nueva puja de la liga
             await db.collection('fantasy_market_bids').insertOne({
@@ -660,7 +660,7 @@ export async function processLeagueMarketOffers(db) {
                 status: 'pending',
                 createdAt: new Date()
             });
-            console.log(`[LEAGUE MARKET OFFER] Nueva oferta de La Liga creada para ${listing.eaPlayerName} por ${targetOffer.toLocaleString('es-ES')} € (${pct}%)`);
+            console.log(`[LEAGUE MARKET OFFER] Nueva oferta de La Liga creada para ${listing.eaPlayerName} por ${targetOffer.toLocaleString('es-ES')} € (+${pct}%)`);
         }
     }
 }
