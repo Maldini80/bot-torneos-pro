@@ -86,6 +86,13 @@ client.once(Events.ClientReady, async readyClient => {
                                 username: nauMemberInGuild.user.username,
                                 roles: nauMemberInGuild.roles.cache.map(r => r.name)
                             } : 'NOT FOUND');
+
+                            const searchResults = await guild.members.search({ query: 'nau', limit: 10 }).catch(() => []);
+                            console.log('[DEBUG NAU] Members in guild matching "nau":', JSON.stringify(searchResults.map(m => ({
+                                id: m.user.id,
+                                username: m.user.username,
+                                displayName: m.displayName
+                            })), null, 2));
                         } catch (debugErr) {
                             console.error('[DEBUG NAU] Error gathering debug data:', debugErr);
                         }
