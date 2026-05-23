@@ -2104,8 +2104,8 @@ body {
     overflow: hidden;
     padding-bottom: 2px;
 }
-
-.fut-card-player-avatar-container img.fut-card-player-avatar-img {
+.fut-card-player-avatar-container img.fut-card-player-avatar-img,
+.fut-card-player-avatar-container img.player-avatar-img {
     height: 105px;
     width: auto;
     object-fit: contain;
@@ -2114,8 +2114,10 @@ body {
     border: none;
     background: transparent;
     filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.6));
+    mix-blend-mode: screen;
+    -webkit-mask-image: radial-gradient(ellipse at 50% 40%, black 45%, transparent 95%);
+    mask-image: radial-gradient(ellipse at 50% 40%, black 45%, transparent 95%);
 }
-
 .fut-card-player-avatar-container i {
     font-size: 3.8rem;
     color: #38bdf8;
