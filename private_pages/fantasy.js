@@ -375,6 +375,9 @@ const bidBalanceVal = document.getElementById('bid-balance-val');
 const bidAmountInput = document.getElementById('bid-amount');
 const bidModalCloseBtn = document.getElementById('bid-modal-close-btn');
 
+const playerStatsModal = document.getElementById('player-stats-modal');
+const playerStatsModalCloseBtn = document.getElementById('player-stats-modal-close-btn');
+
 let pendingJoinLeagueId = null;
 
 // Page Load
@@ -389,6 +392,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     } else {
         await showLeagueSelector();
     }
+    
+    startMarketCountdown();
 });
 
 // User auth session check
@@ -618,6 +623,7 @@ function setupEventHandlers() {
     clauseModalCloseBtn.addEventListener('click', () => clauseModal.classList.remove('open'));
     listMarketModalCloseBtn.addEventListener('click', () => listMarketModal.classList.remove('open'));
     bidModalCloseBtn.addEventListener('click', () => bidModal.classList.remove('open'));
+    playerStatsModalCloseBtn.addEventListener('click', () => playerStatsModal.classList.remove('open'));
     
     window.addEventListener('click', (e) => {
         if (e.target === positionModal) positionModal.classList.remove('open');
@@ -626,6 +632,7 @@ function setupEventHandlers() {
         if (e.target === clauseModal) clauseModal.classList.remove('open');
         if (e.target === listMarketModal) listMarketModal.classList.remove('open');
         if (e.target === bidModal) bidModal.classList.remove('open');
+        if (e.target === playerStatsModal) playerStatsModal.classList.remove('open');
     });
 
     // Clause cost input calculator
@@ -1492,7 +1499,7 @@ function filterAndRenderMarket() {
                 <div style="display: flex; align-items: center; gap: 8px;">
                     ${tableCardHtml}
                     <div>
-                        <div style="font-weight: 700; color: #f8fafc;">${p.eaPlayerName}</div>
+                        <div class="clickable-player-name" style="font-weight: 700; color: #38bdf8; cursor: pointer; text-decoration: underline;" onclick="openPlayerStatsModalByName('${p.eaPlayerName.replace(/'/g, "\\'")}')">${p.eaPlayerName}</div>
                         <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
                             ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${formatPlayerPoints(p)} pts</span>
                         </div>
@@ -1593,7 +1600,7 @@ function renderSquadList() {
                     ${tableCardHtml}
                     <div>
                         <div style="font-weight: 700; color: #f8fafc;">
-                            ${p.eaPlayerName}
+                            <span class="clickable-player-name" style="color: #38bdf8; cursor: pointer; text-decoration: underline;" onclick="openPlayerStatsModalByName('${p.eaPlayerName.replace(/'/g, "\\'")}')">${p.eaPlayerName}</span>
                             <span class="mobile-only-inline-block badge ${isAligned ? 'btn-success' : 'text-muted'}" style="display: none; border: none; font-size: 0.65rem; padding: 2px 4px; margin-left: 4px;">
                                 ${isAligned ? 'Alineado' : 'Banquillo'}
                             </span>
@@ -2452,7 +2459,7 @@ async function showRivalTeam(discordId, teamName) {
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 ${tableCardHtml}
                                 <div>
-                                    <div style="font-weight: 700; color: #f8fafc;">${p.eaPlayerName}</div>
+                                    <div class="clickable-player-name" style="font-weight: 700; color: #38bdf8; cursor: pointer; text-decoration: underline;" onclick="openPlayerStatsModalByName('${p.eaPlayerName.replace(/'/g, "\\'")}')">${p.eaPlayerName}</div>
                                     <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
                                         ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${formatPlayerPoints(p)} pts</span>
                                     </div>
@@ -3829,7 +3836,7 @@ async function loadUserMarket() {
 
             row.innerHTML = `
                 <td>
-                    <div style="font-weight: 700; color: #f8fafc;">${l.eaPlayerName}</div>
+                    <div class="clickable-player-name" style="font-weight: 700; color: #38bdf8; cursor: pointer; text-decoration: underline;" onclick="openPlayerStatsModalByName('${l.eaPlayerName.replace(/'/g, "\\'")}')">${l.eaPlayerName}</div>
                     <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
                         <span style="color: #38bdf8;">${l.sellerTeamName}</span> • <span>Valor: ${formatCurrency(p.price)}</span>
                     </div>
@@ -3909,7 +3916,7 @@ async function loadMarketBids() {
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td>
-                        <div style="font-weight: 700; color: #f8fafc;">${b.eaPlayerName}</div>
+                        <div class="clickable-player-name" style="font-weight: 700; color: #38bdf8; cursor: pointer; text-decoration: underline;" onclick="openPlayerStatsModalByName('${b.eaPlayerName.replace(/'/g, "\\'")}')">${b.eaPlayerName}</div>
                         <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
                             <span style="color: #38bdf8;">${b.bidderDiscordId === 'liga' ? 'La Liga' : b.bidderTeamName}</span> • <span>Valor: ${formatCurrency(p.price)}</span>
                         </div>
@@ -3960,7 +3967,7 @@ async function loadMarketBids() {
 
                 row.innerHTML = `
                     <td>
-                        <div style="font-weight: 700; color: #f8fafc;">${b.eaPlayerName}</div>
+                        <div class="clickable-player-name" style="font-weight: 700; color: #38bdf8; cursor: pointer; text-decoration: underline;" onclick="openPlayerStatsModalByName('${b.eaPlayerName.replace(/'/g, "\\'")}')">${b.eaPlayerName}</div>
                         <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
                             <span style="color: #38bdf8;">${b.sellerTeamName}</span> • <span>Valor: ${formatCurrency(p.price)}</span>
                         </div>
@@ -4374,5 +4381,128 @@ function stopAutoRefresh() {
         clearInterval(autoRefreshInterval);
         autoRefreshInterval = null;
     }
+}
+
+async function openPlayerStatsModalByName(playerName) {
+    if (!playerName) return;
+    
+    // Find player in allPlayers
+    const p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === playerName.toLowerCase());
+    if (!p) {
+        showToast('No se encontró información de este jugador.', 'error');
+        return;
+    }
+
+    // Determine clauseVal
+    let clauseVal = p.clause || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
+    
+    // If not set on player profile directly, look if any team owns him to fetch their customized clause
+    if (!p.clause) {
+        try {
+            const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/teams`);
+            if (res.ok) {
+                const data = await res.json();
+                const teams = data.teams || [];
+                const ownerTeam = teams.find(t => t.players && t.players.includes(p.eaPlayerName));
+                if (ownerTeam) {
+                    clauseVal = ownerTeam.clauses?.[p.eaPlayerName] || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
+                }
+            }
+        } catch (e) {
+            console.error('Error fetching owner team clause:', e);
+        }
+    }
+
+    const displayedPoints = p ? Math.round(p.points * 10) / 10 : 0;
+    const tierPoints = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
+    const avatarUrl = p.avatar ? `https://virtualprogaming.com/cdn-cgi/imagedelivery/cl8ocWLdmZDs72LEaQYaYw/${p.avatar}/smThumb` : null;
+    const avatarHtml = avatarUrl ? `<img src="${avatarUrl}" alt="" class="player-avatar-img">` : `<i class="fa-solid fa-shield-halved avatar-shield-back" style="font-size: 4rem; opacity: 0.1; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);"></i><i class="fa-solid fa-user" style="font-size: 4rem; color: #64748b; margin-top: 15px;"></i>`;
+    const clubLogoHtml = p.clubLogo ? `<img src="${p.clubLogo}" alt="" class="player-club-logo-img">` : `<i class="fa-solid fa-shield-halved"></i>`;
+    const posKey = p.lastPosition ? p.lastPosition.split(' ')[0] : 'MC';
+
+    const modalBody = document.getElementById('player-stats-modal-body');
+    if (!modalBody) return;
+
+    modalBody.innerHTML = `
+        <div class="fut-card ${getCardTierClass(tierPoints)}" style="margin: 0 auto; transform: scale(1.15); transform-origin: center; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
+            <div class="fut-card-inner">
+                <div class="fut-card-top-section">
+                    <div class="fut-card-left-col">
+                        <div class="fut-card-rating">${displayedPoints}</div>
+                        <div class="fut-card-pos">${posKey}</div>
+                        <div class="fut-card-flag">
+                            <img src="${getFlagUrl(p.nationality)}" alt="${p.nationality || 'es'}" class="fut-card-flag-img">
+                        </div>
+                        <div class="fut-card-club-badge">
+                            ${clubLogoHtml}
+                        </div>
+                    </div>
+                    <div class="fut-card-player-avatar-container">
+                        ${avatarHtml}
+                    </div>
+                </div>
+                <div class="fut-card-player-name">${p.eaPlayerName.trim().split(' ').pop()}</div>
+                <div class="fut-card-stats-grid">
+                    <div class="fut-card-stat-item">
+                        <span class="fut-card-stat-value">${p.matchesPlayed || 0}</span>
+                        <span class="fut-card-stat-label">PJ</span>
+                    </div>
+                    <div class="fut-card-stat-item">
+                        <span class="fut-card-stat-value">${parseFloat(p.avgRating || 0).toFixed(2)}</span>
+                        <span class="fut-card-stat-label">RAT</span>
+                    </div>
+                    <div class="fut-card-stat-item">
+                        <span class="fut-card-stat-value">${p.goals || 0}</span>
+                        <span class="fut-card-stat-label">G</span>
+                    </div>
+                    <div class="fut-card-stat-item">
+                        <span class="fut-card-stat-value">${p.assists || 0}</span>
+                        <span class="fut-card-stat-label">A</span>
+                    </div>
+                    <div class="fut-card-stat-item">
+                        <span class="fut-card-stat-value value-highlight">${formatCompactVal(p.price)}</span>
+                        <span class="fut-card-stat-label">VAL</span>
+                    </div>
+                    <div class="fut-card-stat-item">
+                        <span class="fut-card-stat-value clause-highlight">${formatCompactVal(clauseVal)}</span>
+                        <span class="fut-card-stat-label">CLA</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    playerStatsModal.classList.add('open');
+}
+
+window.openPlayerStatsModalByName = openPlayerStatsModalByName;
+
+function startMarketCountdown() {
+    const timerEl = document.getElementById('market-countdown-timer');
+    if (!timerEl) return;
+
+    function updateTimer() {
+        const now = new Date();
+        
+        // Target: 20:00 Madrid time
+        let target = new Date();
+        target.setHours(20, 0, 0, 0);
+        
+        if (now >= target) {
+            target.setDate(target.getDate() + 1);
+        }
+        
+        const diffMs = target.getTime() - now.getTime();
+        
+        const hours = Math.floor(diffMs / (1000 * 60 * 60));
+        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+        
+        const pad = (num) => String(num).padStart(2, '0');
+        timerEl.textContent = `${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
+    }
+
+    updateTimer();
+    setInterval(updateTimer, 1000);
 }
 
