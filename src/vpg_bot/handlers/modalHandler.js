@@ -309,7 +309,17 @@ module.exports = async (client, interaction) => {
             );
 
             if (process.env.PLAYER_ROLE_ID) await member.roles.add(process.env.PLAYER_ROLE_ID);
-            if (process.env.VERIFIED_ROLE_ID) await member.roles.add(process.env.VERIFIED_ROLE_ID);
+            
+            let verifiedRoleId = process.env.VERIFIED_ROLE_ID;
+            if (!verifiedRoleId) {
+                try {
+                    const config = await import('../../../config.js');
+                    verifiedRoleId = config.VERIFIED_ROLE_ID;
+                } catch (e) {
+                    verifiedRoleId = '1409041757672570890';
+                }
+            }
+            if (verifiedRoleId) await member.roles.add(verifiedRoleId);
 
             const activeDraft = await draftsCollection.findOne({ status: { $nin: ['finalizado', 'torneo_generado', 'cancelado'] } });
 

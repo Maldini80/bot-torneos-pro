@@ -1406,6 +1406,34 @@ app.post('/api/user/verify', async (req, res) => {
         req.user.psnId = psnId;
         req.user.platform = platform;
 
+        // Asignar rol en Discord
+        if (client) {
+            try {
+                const guildId = process.env.GUILD_ID;
+                if (guildId) {
+                    const guild = await client.guilds.fetch(guildId).catch(() => null);
+                    if (guild) {
+                        const member = await guild.members.fetch(req.user.id).catch(() => null);
+                        if (member) {
+                            const { VERIFIED_ROLE_ID } = await import('./config.js');
+                            const roleIdToAssign = process.env.VERIFIED_ROLE_ID || VERIFIED_ROLE_ID;
+                            if (roleIdToAssign) {
+                                const role = await guild.roles.fetch(roleIdToAssign).catch(() => null);
+                                if (role) {
+                                    await member.roles.add(role).catch(err => {
+                                        console.error(`[Verify] Error al dar rol a ${req.user.username}:`, err.message);
+                                    });
+                                    console.log(`[Verify] Rol verificado (${role.name}) asignado a ${member.user.tag}`);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('[Verify] Error al asignar rol en Discord:', err);
+            }
+        }
+
         console.log(`[Verify] Usuario ${req.user.username} verificó su cuenta con ID: ${psnId} (${platform})`);
         res.json({ success: true, message: 'Cuenta verificada correctamente' });
 

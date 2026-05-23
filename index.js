@@ -53,6 +53,36 @@ client.once(Events.ClientReady, async readyClient => {
             console.log('[CACHE] Forzando la carga de la lista de miembros del servidor...');
             const members = await guild.members.fetch({});
             console.log(`[CACHE] Carga completa. ${members.size} miembros están ahora en la caché.`);
+
+            // AUTO-ROLE SYNC: Sync roles for verified users in database
+            try {
+                const db = getDb();
+                if (db) {
+                    const { VERIFIED_ROLE_ID } = await import('./config.js');
+                    const verifiedRole = await guild.roles.fetch(VERIFIED_ROLE_ID).catch(() => null);
+                    if (verifiedRole) {
+                        console.log('[SYNC] Iniciando sincronización de roles verificados...');
+                        const verifiedUsers = await db.collection('verified_users').find({}).toArray();
+                        console.log(`[SYNC] Encontrados ${verifiedUsers.length} usuarios verificados en la base de datos.`);
+                        let syncedCount = 0;
+                        for (const user of verifiedUsers) {
+                            const member = guild.members.cache.get(user.discordId) || await guild.members.fetch(user.discordId).catch(() => null);
+                            if (member && !member.roles.cache.has(VERIFIED_ROLE_ID)) {
+                                await member.roles.add(verifiedRole).catch(err => {
+                                    console.error(`[SYNC] Error al añadir rol verificado a ${member.user.tag}:`, err.message);
+                                });
+                                syncedCount++;
+                                console.log(`[SYNC] Rol verificado (${verifiedRole.name}) asignado a ${member.user.tag} automáticamente.`);
+                            }
+                        }
+                        console.log(`[SYNC] Sincronización finalizada. Se asignaron ${syncedCount} roles.`);
+                    } else {
+                        console.warn('[SYNC] No se encontró el rol verificado con ID:', VERIFIED_ROLE_ID);
+                    }
+                }
+            } catch (syncErr) {
+                console.error('[SYNC] Error durante la sincronización de roles verificados:', syncErr);
+            }
         } else {
             console.error(`[CRASH EN READY] No se pudo encontrar el servidor con ID: ${process.env.GUILD_ID}. Verifica las variables de entorno.`);
         }

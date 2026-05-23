@@ -9,7 +9,7 @@ import { processMatchResult, findMatch, findMatchPath, finalizeMatchThread } fro
 // --- LÍNEA CORREGIDA Y COMPLETA ---
 import { MessageFlags, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, UserSelectMenuBuilder, StringSelectMenuBuilder, ChannelType, PermissionsBitField, TextInputBuilder, TextInputStyle, ModalBuilder, AttachmentBuilder } from 'discord.js';
 import * as xlsx from 'xlsx';
-import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS, ADMIN_APPROVAL_CHANNEL_ID, VERIFICATION_TICKET_CATEGORY_ID } from '../../config.js';
+import { CHANNELS, ARBITRO_ROLE_ID, PAYMENT_CONFIG, DRAFT_POSITIONS, ADMIN_APPROVAL_CHANNEL_ID, VERIFICATION_TICKET_CATEGORY_ID, VERIFIED_ROLE_ID } from '../../config.js';
 import { getLeagueByElo, LEAGUE_EMOJIS } from '../logic/eloLogic.js';
 import { updateTournamentManagementThread, updateDraftManagementPanel } from '../utils/panelManager.js';
 import { createDraftStatusEmbed, createPoolEmbed } from '../utils/embeds.js';
@@ -1128,9 +1128,10 @@ export async function handleModal(interaction) {
         if (!verifiedUser) {
             try {
                 const guild = client.guilds.cache.get(process.env.GUILD_ID);
-                if (guild && process.env.VERIFIED_ROLE_ID) {
+                const roleIdToAssign = process.env.VERIFIED_ROLE_ID || VERIFIED_ROLE_ID;
+                if (guild && roleIdToAssign) {
                     const memberToVerify = await guild.members.fetch(discordId);
-                    if (memberToVerify) await memberToVerify.roles.add(process.env.VERIFIED_ROLE_ID);
+                    if (memberToVerify) await memberToVerify.roles.add(roleIdToAssign);
                 }
             } catch (err) { console.error(`No se pudo dar rol a ${discordId}`, err); }
         }
@@ -1290,9 +1291,10 @@ export async function handleModal(interaction) {
         if (!verifiedUser) {
             try {
                 const guild = client.guilds.cache.get(process.env.GUILD_ID);
-                if (guild && process.env.VERIFIED_ROLE_ID) {
+                const roleIdToAssign = process.env.VERIFIED_ROLE_ID || VERIFIED_ROLE_ID;
+                if (guild && roleIdToAssign) {
                     const memberToVerify = await guild.members.fetch(discordId);
-                    if (memberToVerify) await memberToVerify.roles.add(process.env.VERIFIED_ROLE_ID);
+                    if (memberToVerify) await memberToVerify.roles.add(roleIdToAssign);
                 }
             } catch (err) { console.error(`No se pudo dar rol a ${discordId}`, err); }
         }
@@ -1358,9 +1360,10 @@ export async function handleModal(interaction) {
         if (!verifiedUser) {
             try {
                 const guild = client.guilds.cache.get(process.env.GUILD_ID);
-                if (guild && process.env.VERIFIED_ROLE_ID) {
+                const roleIdToAssign = process.env.VERIFIED_ROLE_ID || VERIFIED_ROLE_ID;
+                if (guild && roleIdToAssign) {
                     const memberToVerify = await guild.members.fetch(discordId);
-                    if (memberToVerify) await memberToVerify.roles.add(process.env.VERIFIED_ROLE_ID);
+                    if (memberToVerify) await memberToVerify.roles.add(roleIdToAssign);
                 }
             } catch (err) { console.error(`No se pudo dar rol a ${discordId}`, err); }
         }
