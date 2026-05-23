@@ -64,6 +64,32 @@ client.once(Events.ClientReady, async readyClient => {
                         console.log('[SYNC] Iniciando sincronización de roles verificados...');
                         const verifiedUsers = await db.collection('verified_users').find({}).toArray();
                         console.log(`[SYNC] Encontrados ${verifiedUsers.length} usuarios verificados en la base de datos.`);
+
+                        // DEBUG LOG FOR NAU
+                        try {
+                            const nauUsersInDb = verifiedUsers.filter(u => 
+                                (u.username && u.username.toLowerCase().includes('nau')) || 
+                                (u.psnId && u.psnId.toLowerCase().includes('nau')) ||
+                                (u.discordUsername && u.discordUsername.toLowerCase().includes('nau'))
+                            );
+                            console.log('[DEBUG NAU] Users in DB matching "nau":', JSON.stringify(nauUsersInDb.map(u => ({
+                                discordId: u.discordId,
+                                username: u.username,
+                                discordUsername: u.discordUsername,
+                                psnId: u.psnId,
+                                gameId: u.gameId
+                            })), null, 2));
+
+                            const nauMemberInGuild = guild.members.cache.get('435171084577538059') || await guild.members.fetch('435171084577538059').catch(() => null);
+                            console.log('[DEBUG NAU] Member 435171084577538059 in guild:', nauMemberInGuild ? {
+                                tag: nauMemberInGuild.user.tag,
+                                username: nauMemberInGuild.user.username,
+                                roles: nauMemberInGuild.roles.cache.map(r => r.name)
+                            } : 'NOT FOUND');
+                        } catch (debugErr) {
+                            console.error('[DEBUG NAU] Error gathering debug data:', debugErr);
+                        }
+
                         let syncedCount = 0;
                         for (const user of verifiedUsers) {
                             const member = guild.members.cache.get(user.discordId) || await guild.members.fetch(user.discordId).catch(() => null);
