@@ -59,6 +59,27 @@ function findDbTeam(vpgTeam, dbTeams) {
     return null;
 }
 
+function getLeagueDivisionMultiplier(slug) {
+    if (!slug) return 1.0;
+    const s = slug.toLowerCase().trim();
+    if (s === 'superliga-spain-a') {
+        return 1.0; // 1ª División
+    }
+    if (s === 'superliga-spain-b' || s.includes('segunda')) {
+        return 0.75; // 2ª División (-25%)
+    }
+    if (s.includes('tercera')) {
+        return 0.55; // 3ª División (-45%)
+    }
+    if (s.includes('cuarta')) {
+        return 0.40; // 4ª División (-60%)
+    }
+    if (s.includes('quinta')) {
+        return 0.30; // 5ª División (-70%)
+    }
+    return 1.0; // default/fallback
+}
+
 export function calculatePlayerPointsAndPrice(p) {
     const stats = p.stats || {};
     const vpgPoints = stats.vpgPoints || 0;
@@ -101,6 +122,10 @@ export function calculatePlayerPointsAndPrice(p) {
 
         // Multiplicador de escala de presupuesto (factor x5.33333333)
         price *= 5.33333333;
+
+        // Aplicar multiplicador por división/liga
+        const divMult = getLeagueDivisionMultiplier(p.vpgLeagueSlug);
+        price *= divMult;
     }
 
     // Límites y Redondeo
