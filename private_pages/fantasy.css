@@ -2939,20 +2939,24 @@ body {
 }
 .icon.fut-card .fut-card-inner {
     background: 
-        /* Fire ember 1 (White-hot core, gold body, orange-red glow) */
-        radial-gradient(circle, rgba(255, 255, 255, 0.95) 1.5px, rgba(255, 180, 0, 0.9) 4px, rgba(255, 69, 0, 0.6) 8px, transparent 15px),
-        /* Fire ember 2 (White-hot core, yellow body, orange glow) */
-        radial-gradient(circle, rgba(255, 255, 255, 0.95) 2px, rgba(255, 215, 0, 0.95) 5px, rgba(255, 140, 0, 0.5) 10px, transparent 18px),
-        /* Fire ember 3 (Golden sparks) */
-        radial-gradient(circle, rgba(255, 215, 0, 0.95) 1.5px, rgba(255, 69, 0, 0.7) 5px, transparent 10px),
-        /* Fire ember 4 (Orange sparks) */
-        radial-gradient(circle, rgba(255, 255, 255, 0.9) 1px, rgba(255, 69, 0, 0.8) 3.5px, transparent 8px),
+        /* Spark 1 (Left-bottom) */
+        radial-gradient(circle at 15% 85%, rgba(255, 255, 255, 0.95) 1.5px, rgba(255, 180, 0, 0.9) 4px, rgba(255, 69, 0, 0.6) 8px, transparent 15px),
+        /* Spark 2 (Right-bottom) */
+        radial-gradient(circle at 85% 90%, rgba(255, 255, 255, 0.95) 2px, rgba(255, 215, 0, 0.95) 5px, rgba(255, 140, 0, 0.5) 10px, transparent 18px),
+        /* Spark 3 (Center-left) */
+        radial-gradient(circle at 35% 75%, rgba(255, 215, 0, 0.95) 1.5px, rgba(255, 69, 0, 0.7) 5px, transparent 10px),
+        /* Spark 4 (Center-right) */
+        radial-gradient(circle at 65% 65%, rgba(255, 255, 255, 0.9) 1px, rgba(255, 69, 0, 0.8) 3.5px, transparent 8px),
+        /* Spark 5 (Left-mid) */
+        radial-gradient(circle at 20% 45%, rgba(255, 215, 0, 0.9) 2px, rgba(255, 69, 0, 0.7) 6px, transparent 11px),
+        /* Spark 6 (Right-mid) */
+        radial-gradient(circle at 80% 35%, rgba(255, 255, 255, 0.9) 1.5px, rgba(255, 180, 0, 0.85) 4px, transparent 9px),
         /* Bottom hot fire glow overlay */
         radial-gradient(ellipse at 50% 100%, rgba(255, 69, 0, 0.45) 0%, rgba(255, 140, 0, 0.25) 45%, transparent 80%),
         /* Pearl White base */
         linear-gradient(180deg, #ffffff 0%, #f1f5f9 60%, #e2e8f0 100%);
-    background-size: 150px 200px, 200px 250px, 180px 220px, 160px 180px, 100% 100%, 100% 100%;
-    background-position: 0px 0px, 0px 0px, 0px 0px, 0px 0px, center center, center center;
+    background-size: 150px 200px, 200px 250px, 180px 220px, 160px 180px, 170px 210px, 190px 230px, 100% 100%, 100% 100%;
+    background-position: 0px 0px, 0px 0px, 0px 0px, 0px 0px, 0px 0px, 0px 0px, center center, center center;
     animation: icon-fire-particles 4s infinite linear;
     z-index: 2;
 }
@@ -3009,26 +3013,25 @@ body {
     z-index: 1 !important;
 }
 /* Holographic Gold sweep */
-.icon .fut-card-inner::after {
-    content: '' !important;
-    position: absolute !important;
-    top: 0 !important;
-    left: -150% !important;
-    width: 100% !important;
-    height: 100% !important;
+.icon.fut-card .fut-card-inner::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 100%;
+    height: 100%;
     background: linear-gradient(
         90deg,
         transparent,
-        rgba(255, 255, 255, 0.5),
-        rgba(255, 224, 102, 0.5),
-        rgba(212, 175, 55, 0.5),
-        rgba(255, 255, 255, 0.5),
+        rgba(255, 255, 255, 0.65),
+        rgba(255, 224, 102, 0.55),
+        rgba(255, 255, 255, 0.65),
         transparent
-    ) !important;
-    transform: skewX(-20deg) !important;
-    animation: icon-shine 4s infinite linear !important;
-    pointer-events: none !important;
-    z-index: 5 !important;
+    );
+    transform: skewX(-20deg);
+    animation: icon-shine 3.5s infinite linear;
+    pointer-events: none;
+    z-index: 5;
 }
 .icon .fut-card-rating {
     color: #0f172a !important;
