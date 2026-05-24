@@ -8170,12 +8170,20 @@ export async function startVisualizerServer(discordClient) {
                 excluded: { $ne: true }
             };
 
+            const andConditions = [];
+
             if (vpgLeagueSlug) {
-                queryObj.vpgLeagueSlug = vpgLeagueSlug;
+                andConditions.push({ vpgLeagueSlug: vpgLeagueSlug });
             } else {
                 const { activeLeagues } = await getActiveFantasyTeams(db, customLeagues);
                 const leaguesToQuery = customLeagues || activeLeagues;
-                queryObj.vpgLeagueSlug = { $in: leaguesToQuery };
+                andConditions.push({
+                    $or: [
+                        { vpgLeagueSlug: { $in: leaguesToQuery } },
+                        { vpgLeagueSlug: { $exists: false } },
+                        { vpgLeagueSlug: null }
+                    ]
+                });
             }
 
             const hasQuery = query && query.trim().length >= 2;
@@ -8188,10 +8196,12 @@ export async function startVisualizerServer(discordClient) {
 
             if (hasQuery) {
                 const regex = new RegExp(sanitizeInput(query.trim()), 'i');
-                queryObj.$or = [
-                    { eaPlayerName: regex },
-                    { lastClub: regex }
-                ];
+                andConditions.push({
+                    $or: [
+                        { eaPlayerName: regex },
+                        { lastClub: regex }
+                    ]
+                });
             }
             if (hasPos) {
                 const posUpper = position.toUpperCase();
@@ -8202,11 +8212,17 @@ export async function startVisualizerServer(discordClient) {
                 else if (posUpper === 'MC') allowedPositions = ['MC', 'MCD', 'MCO', 'MD', 'MI'];
                 else if (posUpper === 'DC') allowedPositions = ['DC', 'ED', 'EI', 'MP'];
                 
-                queryObj.lastPosition = { $in: allowedPositions };
+                andConditions.push({ lastPosition: { $in: allowedPositions } });
             }
             if (isOnlyNew) {
-                queryObj.isNew = true;
-                queryObj.newUntil = { $gt: new Date() };
+                andConditions.push({
+                    isNew: true,
+                    newUntil: { $gt: new Date() }
+                });
+            }
+
+            if (andConditions.length > 0) {
+                queryObj.$and = andConditions;
             }
 
             const players = await db.collection('player_profiles').find(queryObj).limit(100).toArray();
