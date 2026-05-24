@@ -290,6 +290,16 @@ export async function syncFantasyWithVpg() {
 
         // 3. Procesar cada liga activa
         for (const leagueSlug of activeLeagues) {
+            // Check if this league already has players in our database before syncing
+            let wasLeagueActive = false;
+            try {
+                const count = await playerColl.countDocuments({ vpgLeagueSlug: leagueSlug });
+                wasLeagueActive = count > 0;
+                console.log(`[VPG SYNC] Liga ${leagueSlug} - Jugadores existentes antes de sync: ${count} (wasLeagueActive: ${wasLeagueActive})`);
+            } catch (e) {
+                console.error(`[VPG SYNC] Error contando jugadores de la liga ${leagueSlug}:`, e);
+            }
+
             // Quitar vpgLeagueSlug de los jugadores que tuvieran asignada esta liga antes,
             // para evitar que queden jugadores del pasado que ya no están activos en VPG.
             try {
@@ -556,13 +566,16 @@ export async function syncFantasyWithVpg() {
                 });
 
                 if (existingPlayer) {
+                    if (existingPlayer.excluded === true) {
+                        continue;
+                    }
                     await playerColl.updateOne(
                         { _id: existingPlayer._id },
                         { $set: updateData }
                     );
                 } else {
                     // Insertar nuevo jugador
-                    await playerColl.insertOne({
+                    const newPlayerDoc = {
                         eaPlayerName: username,
                         ...updateData,
                         build: {
@@ -571,7 +584,12 @@ export async function syncFantasyWithVpg() {
                             perks: {},
                             vproattr: "NH"
                         }
-                    });
+                    };
+                    if (wasLeagueActive) {
+                        newPlayerDoc.isNew = true;
+                        newPlayerDoc.newUntil = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+                    }
+                    await playerColl.insertOne(newPlayerDoc);
                 }
 
                 totalPlayersUpdated++;

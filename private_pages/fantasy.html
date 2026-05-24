@@ -191,7 +191,7 @@
             </div>
             <div class="card-body">
                 <p class="text-muted">Busca cualquier jugador registrado por su nombre o club para consultar su precio de mercado, puntos y posición actual. (Los administradores y árbitros pueden modificar o corregir estos valores manualmente).</p>
-                <div style="display: flex; gap: 8px; margin-bottom: 16px; max-width: 650px; flex-wrap: wrap;">
+                <div style="display: flex; gap: 8px; margin-bottom: 16px; max-width: 850px; flex-wrap: wrap; align-items: center;">
                     <input type="text" id="admin-search-player-input" placeholder="Buscar jugador o club (mín. 2 letras)..." style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; flex: 2; min-width: 200px; box-sizing: border-box;">
                     <select id="admin-search-player-pos" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; flex: 1; min-width: 120px; box-sizing: border-box;">
                         <option value="">Posiciones (Todas)</option>
@@ -201,6 +201,15 @@
                         <option value="MC">Medio (MC)</option>
                         <option value="DC">Delantero (DC)</option>
                     </select>
+                    <select id="admin-search-player-league" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 6px; padding: 10px; flex: 1.5; min-width: 150px; box-sizing: border-box;">
+                        <option value="">Divisiones (Todas)</option>
+                    </select>
+                    <div class="admin-only-block" id="admin-search-player-only-new-wrapper" style="display: none; align-items: center; gap: 6px; background: rgba(30, 41, 59, 0.4); border: 1px solid #475569; border-radius: 6px; padding: 10px; min-width: 150px; box-sizing: border-box;">
+                        <label style="display: inline-flex; align-items: center; gap: 8px; cursor: pointer; color: #fff; font-size: 0.85rem; margin: 0; user-select: none; width: 100%;">
+                            <input type="checkbox" id="admin-search-player-only-new" style="cursor: pointer; width: 16px; height: 16px;">
+                            <span>Solo nuevos</span>
+                        </label>
+                    </div>
                     <button id="btn-admin-search-player" class="btn btn-primary" style="padding: 10px 16px;"><i class="fa-solid fa-magnifying-glass"></i> Buscar</button>
                 </div>
                 <div class="table-scroll-container">
@@ -896,6 +905,35 @@
             </div>
             <div class="modal-body" id="player-stats-modal-body" style="display: flex; justify-content: center; align-items: center; padding: 10px 0 20px 0;">
                 <!-- FUT Card injected here dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 9: Sustituir/Fusionar Jugador (Admin/Árbitro) -->
+    <div class="modal-overlay" id="replace-player-modal">
+        <div class="modal-content" style="max-width: 480px;">
+            <div class="modal-header">
+                <h3>Sustituir Jugador: <span id="replace-player-name-title" class="text-yellow">Nombre</span></h3>
+                <button class="modal-close" id="replace-player-modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 12px;">
+                    Busca al jugador antiguo que deseas sustituir. Al confirmar, se reemplazará su nombre y se actualizarán las plantillas, alineaciones, transferibles y ofertas de forma global en todo el Fantasy.
+                </p>
+                <div class="form-group" style="position: relative;">
+                    <label for="replace-player-search-input">Buscar jugador antiguo (escribe nombre):</label>
+                    <input type="text" id="replace-player-search-input" placeholder="Escribe parte del nombre del jugador..." autocomplete="off">
+                    <!-- Contenedor de autocompletado -->
+                    <div id="replace-player-autocomplete-results" class="autocomplete-dropdown"></div>
+                </div>
+                <div id="selected-target-player-container" style="display: none; background: rgba(30, 41, 59, 0.6); padding: 12px; border-radius: 8px; border: 1px solid rgba(255, 255, 255, 0.1); margin-top: 15px; margin-bottom: 15px;">
+                    <span style="font-size: 0.8rem; color: #94a3b8; font-weight: 600; display: block; margin-bottom: 4px;">Jugador antiguo seleccionado para reemplazar:</span>
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <span id="selected-target-player-name" style="font-weight: 700; color: #f59e0b; font-size: 1rem;">-</span>
+                        <button class="btn btn-secondary btn-xs" id="btn-clear-target-selection" style="padding: 2px 6px;">Quitar</button>
+                    </div>
+                </div>
+                <button id="btn-confirm-replace-player" class="btn btn-primary btn-block" disabled><i class="fa-solid fa-arrows-spin"></i> Confirmar Sustitución</button>
             </div>
         </div>
     </div>

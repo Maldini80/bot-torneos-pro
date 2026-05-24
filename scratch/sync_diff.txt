@@ -1,0 +1,345 @@
+﻿diff --git a/src/utils/fantasyVpgSync.js b/src/utils/fantasyVpgSync.js
+index 0a196a2..2232a3d 100644
+--- a/src/utils/fantasyVpgSync.js
++++ b/src/utils/fantasyVpgSync.js
+@@ -631,12 +631,203 @@ export const FORMATION_STARTERS = {
+ export function mapPositionToMain(pos) {
+     const posUpper = (pos || '').toUpperCase().trim();
+     if (['POR', 'GK'].includes(posUpper)) return 'POR';
+-    if (['DFC', 'LD', 'LI', 'CARR', 'CAD', 'CAI'].includes(posUpper)) return 'DFC';
++    if (['DFC', 'LD', 'LI', 'CARR', 'CAD', 'CAI', 'LTD', 'LTI', 'DFD', 'DFI'].includes(posUpper)) return 'DFC';
+     if (['MC', 'MCD', 'MCO', 'MD', 'MI'].includes(posUpper)) return 'MC';
+     if (['DC', 'ED', 'EI', 'MP'].includes(posUpper)) return 'DC';
+     return 'MC'; // default
+ }
+ 
++const FANTASY_FORMATIONS = {
++    '4-4-2': {
++        POR: [{ label: 'POR' }],
++        DFC: [{ label: 'DFC L' }, { label: 'DFC CL' }, { label: 'DFC CR' }, { label: 'DFC R' }],
++        MC: [{ label: 'MC L' }, { label: 'MC CL' }, { label: 'MC CR' }, { label: 'MC R' }],
++        DC: [{ label: 'DC L' }, { label: 'DC R' }]
++    },
++    '4-3-3': {
++        POR: [{ label: 'POR' }],
++        DFC: [{ label: 'DFC L' }, { label: 'DFC CL' }, { label: 'DFC CR' }, { label: 'DFC R' }],
++        MC: [{ label: 'MC L' }, { label: 'MC C' }, { label: 'MC R' }],
++        DC: [{ label: 'EI' }, { label: 'DC' }, { label: 'ED' }]
++    },
++    '3-5-2': {
++        POR: [{ label: 'POR' }],
++        DFC: [{ label: 'DFC L' }, { label: 'DFC C' }, { label: 'DFC R' }],
++        MC: [{ label: 'MI' }, { label: 'MCD L' }, { label: 'MCO' }, { label: 'MCD R' }, { label: 'MD' }],
++        DC: [{ label: 'DC L' }, { label: 'DC R' }]
++    },
++    '4-5-1': {
++        POR: [{ label: 'POR' }],
++        DFC: [{ label: 'DFC L' }, { label: 'DFC CL' }, { label: 'DFC CR' }, { label: 'DFC R' }],
++        MC: [{ label: 'MI' }, { label: 'MC L' }, { label: 'MCO' }, { label: 'MC R' }, { label: 'MD' }],
++        DC: [{ label: 'DC' }]
++    },
++    '5-3-2': {
++        POR: [{ label: 'POR' }],
++        DFC: [{ label: 'LI' }, { label: 'DFC L' }, { label: 'DFC C' }, { label: 'DFC R' }, { label: 'LD' }],
++        MC: [{ label: 'MC L' }, { label: 'MC C' }, { label: 'MC R' }],
++        DC: [{ label: 'DC L' }, { label: 'DC R' }]
++    },
++    '5-4-1': {
++        POR: [{ label: 'POR' }],
++        DFC: [{ label: 'LI' }, { label: 'DFC L' }, { label: 'DFC C' }, { label: 'DFC R' }, { label: 'LD' }],
++        MC: [{ label: 'MC L' }, { label: 'MC CL' }, { label: 'MC CR' }, { label: 'MC R' }],
++        DC: [{ label: 'DC' }]
++    },
++    '3-1-4-2': {
++        POR: [{ label: 'POR' }],
++        DFC: [{ label: 'DFC L' }, { label: 'DFC C' }, { label: 'DFC R' }],
++        MC: [{ label: 'MCD' }, { label: 'MI' }, { label: 'MC L' }, { label: 'MC R' }, { label: 'MD' }],
++        DC: [{ label: 'DC L' }, { label: 'DC R' }]
++    },
++    '3-4-3': {
++        POR: [{ label: 'POR' }],
++        DFC: [{ label: 'DFC L' }, { label: 'DFC C' }, { label: 'DFC R' }],
++        MC: [{ label: 'MI' }, { label: 'MC L' }, { label: 'MC R' }, { label: 'MD' }],
++        DC: [{ label: 'EI' }, { label: 'DC' }, { label: 'ED' }]
++    }
++};
++
++function isCentralDefender(pos) {
++    return pos === 'DFC';
++}
++
++function isLateral(pos) {
++    return ['LD', 'LI', 'LTD', 'LTI', 'CARR', 'CAD', 'CAI', 'DFD', 'DFI'].includes(pos);
++}
++
++function isMidfielder(pos) {
++    return ['MC', 'MCD', 'MCO', 'MD', 'MI'].includes(pos);
++}
++
++function isForward(pos) {
++    return ['DC', 'ED', 'EI', 'MP'].includes(pos);
++}
++
++function isGoalkeeper(pos) {
++    return ['POR', 'GK'].includes(pos);
++}
++
++function isPlayerEligibleForSlot(playerPosition, slotKey, formation, slotIndex) {
++    if (!playerPosition || !slotKey || !formation) return false;
++    const pos = playerPosition.toUpperCase();
++    const slot = slotKey.toUpperCase();
++    
++    if (slot === 'POR') {
++        return isGoalkeeper(pos);
++    }
++    
++    if (slot === 'DFC') {
++        if (!isCentralDefender(pos) && !isLateral(pos)) {
++            return false;
++        }
++        if (['3-5-2', '3-1-4-2', '3-4-3'].includes(formation)) {
++            return isCentralDefender(pos);
++        }
++        if (['4-4-2', '4-3-3', '4-5-1'].includes(formation)) {
++            if (slotIndex === 1 || slotIndex === 2) {
++                return isCentralDefender(pos);
++            }
++            return true;
++        }
++        if (['5-3-2', '5-4-1'].includes(formation)) {
++            if (slotIndex === 1 || slotIndex === 2 || slotIndex === 3) {
++                return isCentralDefender(pos);
++            }
++            return true;
++        }
++        return true;
++    }
++    
++    const layout = FANTASY_FORMATIONS[formation];
++    const slotConfig = layout?.[slotKey]?.[slotIndex];
++    if (!slotConfig) return false;
++    const label = slotConfig.label.toUpperCase();
++    
++    if (slot === 'MC') {
++        if (label === 'MI' || label === 'MD') {
++            return isLateral(pos) || ['MI', 'MD'].includes(pos);
++        } else {
++            return isMidfielder(pos);
++        }
++    }
++    
++    if (slot === 'DC') {
++        if (label === 'EI' || label === 'ED') {
++            return isLateral(pos) || isForward(pos);
++        } else {
++            return isForward(pos);
++        }
++    }
++    
++    return false;
++}
++
++function allocateLineup(squadPlayers, formation) {
++    const layout = FANTASY_FORMATIONS[formation];
++    if (!layout) return null;
++
++    const slots = [];
++    slots.push({ key: 'POR', index: 0 });
++    for (let i = 0; i < (layout.DFC ? layout.DFC.length : 0); i++) {
++        slots.push({ key: 'DFC', index: i });
++    }
++    for (let i = 0; i < (layout.MC ? layout.MC.length : 0); i++) {
++        slots.push({ key: 'MC', index: i });
++    }
++    for (let i = 0; i < (layout.DC ? layout.DC.length : 0); i++) {
++        slots.push({ key: 'DC', index: i });
++    }
++
++    const assigned = new Array(slots.length).fill(null);
++    const used = new Set();
++
++    function backtrack(slotIdx) {
++        if (slotIdx === slots.length) return true;
++
++        const slot = slots[slotIdx];
++        for (const player of squadPlayers) {
++            if (used.has(player.eaPlayerName)) continue;
++
++            if (isPlayerEligibleForSlot(player.lastPosition, slot.key, formation, slot.index)) {
++                assigned[slotIdx] = player.eaPlayerName;
++                used.add(player.eaPlayerName);
++
++                if (backtrack(slotIdx + 1)) return true;
++
++                used.delete(player.eaPlayerName);
++                assigned[slotIdx] = null;
++            }
++        }
++        return false;
++    }
++
++    if (backtrack(0)) {
++        const lineup = {
++            POR: assigned[0],
++            DFC: [],
++            MC: [],
++            DC: []
++        };
++        let idx = 1;
++        const dfcLen = layout.DFC ? layout.DFC.length : 0;
++        for (let i = 0; i < dfcLen; i++) {
++            lineup.DFC.push(assigned[idx++]);
++        }
++        const mcLen = layout.MC ? layout.MC.length : 0;
++        for (let i = 0; i < mcLen; i++) {
++            lineup.MC.push(assigned[idx++]);
++        }
++        const dcLen = layout.DC ? layout.DC.length : 0;
++        for (let i = 0; i < dcLen; i++) {
++            lineup.DC.push(assigned[idx++]);
++        }
++        return lineup;
++    }
++
++    return null;
++}
++
+ /**
+  * Genera una plantilla aleatoria completa de 11 titulares + 4 suplentes
+  * respetando la formaci├│n, individual < 40M y coste total ~100M
+@@ -651,14 +842,6 @@ export async function generateRandomSquadForTeam(db, leagueId, teamId) {
+ 
+     const formation = team.formation || '3-1-4-2';
+     const startersConf = FORMATION_STARTERS[formation] || FORMATION_STARTERS['3-1-4-2'];
+-    
+-    // Total needed per position (11 starters + 4 subs, 1 sub of each main line)
+-    const requiredCounts = {
+-        POR: startersConf.POR + 1,
+-        DFC: startersConf.DFC + 1,
+-        MC: startersConf.MC + 1,
+-        DC: startersConf.DC + 1
+-    };
+ 
+     // 2. Fetch all eligible players
+     const vpgLeagues = leagueDoc.vpgLeagues || [];
+@@ -701,12 +884,17 @@ export async function generateRandomSquadForTeam(db, leagueId, teamId) {
+         return true;
+     });
+ 
+-    // Group available pool by main position
+-    const playersByPosition = { POR: [], DFC: [], MC: [], DC: [] };
+-    pool.forEach(p => {
+-        const mainPos = mapPositionToMain(p.lastPosition);
+-        playersByPosition[mainPos].push(p);
+-    });
++    // Partition available pool by position constraints
++    const poolPOR = pool.filter(p => isGoalkeeper(p.lastPosition));
++    const poolCB = pool.filter(p => isCentralDefender(p.lastPosition));
++    const poolDC = pool.filter(p => p.lastPosition === 'DC');
++    const poolMCStrict = pool.filter(p => ['MC', 'MCD', 'MCO'].includes(p.lastPosition));
++    const poolCARR = pool.filter(p => isLateral(p.lastPosition));
++
++    // Validate that we have enough candidates in the database
++    if (poolPOR.length < 1 || poolCB.length < 3 || poolDC.length < 2 || poolMCStrict.length < 3 || poolCARR.length < 3) {
++        throw new Error('No hay suficientes jugadores en la base de datos con las posiciones m├¡nimas requeridas para generar una plantilla.');
++    }
+ 
+     // 4. Randomized selection targeting total squad cost around 100M (range: 90M to 110M)
+     // We can do a fast Monte Carlo search (up to 2000 iterations)
+@@ -716,25 +904,43 @@ export async function generateRandomSquadForTeam(db, leagueId, teamId) {
+ 
+     for (let iter = 0; iter < 2000; iter++) {
+         const currentSquad = [];
+-        let totalCost = 0;
+-        let valid = true;
+-
+-        for (const pos of ['POR', 'DFC', 'MC', 'DC']) {
+-            const needed = requiredCounts[pos];
+-            const available = playersByPosition[pos];
+-            if (available.length < needed) {
+-                valid = false;
+-                break;
++        const usedNames = new Set();
++
++        // Helper to pick from sub-pool without duplicates
++        function pickFromPool(subPool, count) {
++            const shuffled = [...subPool].sort(() => 0.5 - Math.random());
++            const picked = [];
++            for (const p of shuffled) {
++                if (usedNames.has(p.eaPlayerName)) continue;
++                picked.push(p);
++                usedNames.add(p.eaPlayerName);
++                if (picked.length === count) break;
+             }
+-            // Shuffle and pick
+-            const shuffled = [...available].sort(() => 0.5 - Math.random());
+-            const picked = shuffled.slice(0, needed);
+-            currentSquad.push(...picked);
+-            totalCost += picked.reduce((acc, p) => acc + p.price, 0);
++            if (picked.length < count) return null;
++            return picked;
++        }
++
++        // 1. Pick minimum required ones
++        const gks = pickFromPool(poolPOR, 1);
++        const cbs = pickFromPool(poolCB, 3);
++        const dcs = pickFromPool(poolDC, 2);
++        const mcs = pickFromPool(poolMCStrict, 3);
++        const carrs = pickFromPool(poolCARR, 3);
++
++        if (!gks || !cbs || !dcs || !mcs || !carrs) {
++            continue;
+         }
+ 
+-        if (!valid) continue;
++        currentSquad.push(...gks, ...cbs, ...dcs, ...mcs, ...carrs); // 12 players
+ 
++        // 2. Pick remaining 3 players from the rest of the pool
++        const restPool = pool.filter(p => !usedNames.has(p.eaPlayerName));
++        const extra = pickFromPool(restPool, 3);
++        if (!extra) continue;
++
++        currentSquad.push(...extra); // 15 players total
++
++        const totalCost = currentSquad.reduce((acc, p) => acc + p.price, 0);
+         const diff = Math.abs(totalCost - 100000000);
+         if (diff < closestDiff) {
+             closestDiff = diff;
+@@ -755,21 +961,23 @@ export async function generateRandomSquadForTeam(db, leagueId, teamId) {
+ 
+     // 5. Build lineup
+     const playersList = squadToUse.players.map(p => p.eaPlayerName);
+-    
+-    // Group squad players by position to allocate lineup
+-    const squadByPos = { POR: [], DFC: [], MC: [], DC: [] };
+-    squadToUse.players.forEach(p => {
+-        const mainPos = mapPositionToMain(p.lastPosition);
+-        squadByPos[mainPos].push(p.eaPlayerName);
+-    });
+ 
+-    // Allocate starters
+-    const lineup = {
+-        POR: squadByPos.POR[0] || null,
+-        DFC: squadByPos.DFC.slice(0, startersConf.DFC),
+-        MC: squadByPos.MC.slice(0, startersConf.MC),
+-        DC: squadByPos.DC.slice(0, startersConf.DC),
+-    };
++    // Try to allocate starters with strict position checks
++    let lineup = allocateLineup(squadToUse.players, formation);
++    if (!lineup) {
++        // Fallback to old behavior
++        const squadByPos = { POR: [], DFC: [], MC: [], DC: [] };
++        squadToUse.players.forEach(p => {
++            const mainPos = mapPositionToMain(p.lastPosition);
++            squadByPos[mainPos].push(p.eaPlayerName);
++        });
++        lineup = {
++            POR: squadByPos.POR[0] || null,
++            DFC: squadByPos.DFC.slice(0, startersConf.DFC),
++            MC: squadByPos.MC.slice(0, startersConf.MC),
++            DC: squadByPos.DC.slice(0, startersConf.DC),
++        };
++    }
+ 
+     // Calculate initial clauses for squad players (using player.price * clauseMultiplier)
+     const clauseMultiplier = leagueDoc.clauseMultiplier || 1.5;

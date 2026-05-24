@@ -8150,7 +8150,7 @@ export async function startVisualizerServer(discordClient) {
     // Search players in admin panel
     app.get('/api/fantasy/admin/players/search', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
-            const { query, position, leagueId } = req.query;
+            const { query, position, leagueId, vpgLeagueSlug, onlyNew } = req.query;
             
             const db = getDb();
             let customLeagues = null;
@@ -8166,17 +8166,23 @@ export async function startVisualizerServer(discordClient) {
                 }
             }
 
-            const { activeLeagues } = await getActiveFantasyTeams(db, customLeagues);
-            const leaguesToQuery = customLeagues || activeLeagues;
-
             const queryObj = {
-                vpgLeagueSlug: { $in: leaguesToQuery }
+                excluded: { $ne: true }
             };
+
+            if (vpgLeagueSlug) {
+                queryObj.vpgLeagueSlug = vpgLeagueSlug;
+            } else {
+                const { activeLeagues } = await getActiveFantasyTeams(db, customLeagues);
+                const leaguesToQuery = customLeagues || activeLeagues;
+                queryObj.vpgLeagueSlug = { $in: leaguesToQuery };
+            }
 
             const hasQuery = query && query.trim().length >= 2;
             const hasPos = !!position;
+            const isOnlyNew = onlyNew === 'true' || onlyNew === true;
 
-            if (!hasQuery && !hasPos) {
+            if (!hasQuery && !hasPos && !isOnlyNew) {
                 return res.json([]);
             }
 
@@ -8197,6 +8203,10 @@ export async function startVisualizerServer(discordClient) {
                 else if (posUpper === 'DC') allowedPositions = ['DC', 'ED', 'EI', 'MP'];
                 
                 queryObj.lastPosition = { $in: allowedPositions };
+            }
+            if (isOnlyNew) {
+                queryObj.isNew = true;
+                queryObj.newUntil = { $gt: new Date() };
             }
 
             const players = await db.collection('player_profiles').find(queryObj).limit(100).toArray();
@@ -8250,7 +8260,8 @@ export async function startVisualizerServer(discordClient) {
                     assists: stats.assists || 0,
                     clubLogo: (p.lastClub ? teamLogoMap[p.lastClub.toLowerCase().trim()] : null) || (displayClub ? teamLogoMap[displayClub.toLowerCase().trim()] : null) || null,
                     avatar: p.avatar || null,
-                    nationality: p.nationality || p.user_nationality || null
+                    nationality: p.nationality || p.user_nationality || null,
+                    isNew: !!(p.isNew && p.newUntil && new Date(p.newUntil) > new Date())
                 };
             });
 
@@ -8377,6 +8388,246 @@ export async function startVisualizerServer(discordClient) {
         } catch (e) {
             console.error('[API Admin Update Player Unified] Error:', e);
             res.status(500).json({ error: 'Error al actualizar jugador.' });
+        }
+    });
+
+    // Exclude/Delete player permanently
+    app.delete('/api/fantasy/admin/players/:playerName/exclude', isAuthenticated, isFantasyAdmin, async (req, res) => {
+        try {
+            const { playerName } = req.params;
+            const db = getDb();
+
+            // 1. Mark player as excluded and unset vpgLeagueSlug
+            const result = await db.collection('player_profiles').updateOne(
+                { eaPlayerName: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } },
+                { 
+                    $set: { excluded: true },
+                    $unset: { vpgLeagueSlug: "" }
+                }
+            );
+
+            if (result.matchedCount === 0) {
+                return res.status(404).json({ error: 'Jugador no encontrado.' });
+            }
+
+            // 2. Remove player from all teams' players lists and lineups
+            const affectedTeams = await db.collection('fantasy_teams').find({
+                players: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+            }).toArray();
+
+            for (const team of affectedTeams) {
+                const exactName = team.players.find(p => p.toLowerCase() === playerName.toLowerCase()) || playerName;
+                const updatedLineup = { ...team.lineup };
+                for (const pos in updatedLineup) {
+                    if (Array.isArray(updatedLineup[pos])) {
+                        updatedLineup[pos] = updatedLineup[pos].filter(p => p.toLowerCase() !== playerName.toLowerCase());
+                    } else if (updatedLineup[pos] && updatedLineup[pos].toLowerCase() === playerName.toLowerCase()) {
+                        updatedLineup[pos] = null;
+                    }
+                }
+                
+                await db.collection('fantasy_teams').updateOne(
+                    { _id: team._id },
+                    {
+                        $pull: { players: exactName },
+                        $set: { lineup: updatedLineup },
+                        $unset: { 
+                            [`clauses.${exactName}`]: "",
+                            [`clausesProtectedUntil.${exactName}`]: ""
+                        }
+                    }
+                );
+            }
+
+            // 3. Remove player from all market listings
+            await db.collection('fantasy_market_listings').deleteMany({
+                eaPlayerName: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+            });
+
+            // 4. Refund and remove all pending bids for the player
+            const pendingBids = await db.collection('fantasy_market_bids').find({ 
+                eaPlayerName: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') },
+                status: 'pending'
+            }).toArray();
+
+            for (const bid of pendingBids) {
+                if (bid.bidderDiscordId !== 'liga') {
+                    await db.collection('fantasy_teams').updateOne(
+                        { discordId: bid.bidderDiscordId, leagueId: bid.leagueId },
+                        { $inc: { balance: Math.round(bid.bidAmount) } }
+                    );
+                }
+            }
+            await db.collection('fantasy_market_bids').deleteMany({
+                eaPlayerName: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+            });
+
+            // 5. Pull player from all leagues' marketFreeAgents
+            await db.collection('fantasy_leagues').updateMany(
+                {},
+                { $pull: { marketFreeAgents: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } } }
+            );
+
+            res.json({ success: true, message: `El jugador ${playerName} ha sido excluido y eliminado globalmente.` });
+        } catch (e) {
+            console.error('[API Admin Exclude Player] Error:', e);
+            res.status(500).json({ error: 'Error al excluir al jugador.' });
+        }
+    });
+
+    // Replace/Merge player (playerName = new crawled name, targetName = old existing name)
+    app.post('/api/fantasy/admin/players/:playerName/replace', isAuthenticated, isFantasyAdmin, async (req, res) => {
+        try {
+            const { playerName } = req.params; // new name
+            const { targetName } = req.body; // old name
+            if (!targetName) {
+                return res.status(400).json({ error: 'El nombre del jugador a sustituir (antiguo) es requerido.' });
+            }
+
+            const db = getDb();
+
+            // 1. Find old player profile
+            const oldPlayer = await db.collection('player_profiles').findOne({
+                eaPlayerName: { $regex: new RegExp('^' + targetName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+            });
+            if (!oldPlayer) {
+                return res.status(404).json({ error: `Jugador antiguo "${targetName}" no encontrado.` });
+            }
+
+            // 2. Find new player profile (if exists)
+            const newPlayer = await db.collection('player_profiles').findOne({
+                eaPlayerName: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+            });
+
+            const oldPlayerNameExact = oldPlayer.eaPlayerName;
+            const newPlayerNameExact = newPlayer ? newPlayer.eaPlayerName : playerName;
+
+            // 3. Update old profile with new name and new stats, then delete new profile
+            const updateDoc = {
+                eaPlayerName: newPlayerNameExact
+            };
+            if (newPlayer) {
+                if (newPlayer.stats) updateDoc.stats = newPlayer.stats;
+                if (newPlayer.vpgLeagueSlug) updateDoc.vpgLeagueSlug = newPlayer.vpgLeagueSlug;
+                if (newPlayer.lastPosition) updateDoc.lastPosition = newPlayer.lastPosition;
+                if (newPlayer.lastClub) updateDoc.lastClub = newPlayer.lastClub;
+                if (newPlayer.avatar) updateDoc.avatar = newPlayer.avatar;
+                if (newPlayer.nationality) updateDoc.nationality = newPlayer.nationality;
+                if (newPlayer.isNew !== undefined) updateDoc.isNew = newPlayer.isNew;
+                if (newPlayer.newUntil) updateDoc.newUntil = newPlayer.newUntil;
+            }
+
+            await db.collection('player_profiles').updateOne({ _id: oldPlayer._id }, { $set: updateDoc });
+
+            if (newPlayer) {
+                await db.collection('player_profiles').deleteOne({ _id: newPlayer._id });
+            }
+
+            // 4. Replace name in all fantasy teams
+            const affectedTeams = await db.collection('fantasy_teams').find({
+                players: { $regex: new RegExp('^' + oldPlayerNameExact.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+            }).toArray();
+
+            for (const team of affectedTeams) {
+                const updatedPlayers = team.players.map(p => {
+                    if (p.toLowerCase() === oldPlayerNameExact.toLowerCase()) {
+                        return newPlayerNameExact;
+                    }
+                    return p;
+                });
+
+                const updatedLineup = { ...team.lineup };
+                for (const pos in updatedLineup) {
+                    if (Array.isArray(updatedLineup[pos])) {
+                        updatedLineup[pos] = updatedLineup[pos].map(p => {
+                            if (p && p.toLowerCase() === oldPlayerNameExact.toLowerCase()) {
+                                return newPlayerNameExact;
+                            }
+                            return p;
+                        });
+                    } else if (updatedLineup[pos] && updatedLineup[pos].toLowerCase() === oldPlayerNameExact.toLowerCase()) {
+                        updatedLineup[pos] = newPlayerNameExact;
+                    }
+                }
+
+                const updatedClauses = { ...team.clauses || {} };
+                const updatedClausesProtected = { ...team.clausesProtectedUntil || {} };
+                
+                const clauseKey = Object.keys(updatedClauses).find(k => k.toLowerCase() === oldPlayerNameExact.toLowerCase());
+                if (clauseKey) {
+                    updatedClauses[newPlayerNameExact] = updatedClauses[clauseKey];
+                    delete updatedClauses[clauseKey];
+                }
+                const protectKey = Object.keys(updatedClausesProtected).find(k => k.toLowerCase() === oldPlayerNameExact.toLowerCase());
+                if (protectKey) {
+                    updatedClausesProtected[newPlayerNameExact] = updatedClausesProtected[protectKey];
+                    delete updatedClausesProtected[protectKey];
+                }
+
+                await db.collection('fantasy_teams').updateOne(
+                    { _id: team._id },
+                    {
+                        $set: {
+                            players: updatedPlayers,
+                            lineup: updatedLineup,
+                            clauses: updatedClauses,
+                            clausesProtectedUntil: updatedClausesProtected
+                        }
+                    }
+                );
+            }
+
+            // 5. Replace name in market listings and bids
+            await db.collection('fantasy_market_listings').updateMany(
+                { eaPlayerName: { $regex: new RegExp('^' + oldPlayerNameExact.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } },
+                { $set: { eaPlayerName: newPlayerNameExact } }
+            );
+
+            await db.collection('fantasy_market_bids').updateMany(
+                { eaPlayerName: { $regex: new RegExp('^' + oldPlayerNameExact.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } },
+                { $set: { eaPlayerName: newPlayerNameExact } }
+            );
+
+            // 6. Replace name in fantasy leagues' marketFreeAgents and basePoints (for ZERO mode)
+            const affectedLeagues = await db.collection('fantasy_leagues').find({
+                $or: [
+                    { marketFreeAgents: { $regex: new RegExp('^' + oldPlayerNameExact.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } },
+                    { [`basePoints.${oldPlayerNameExact}`]: { $exists: true } }
+                ]
+            }).toArray();
+
+            for (const league of affectedLeagues) {
+                const updateOps = {};
+                
+                if (Array.isArray(league.marketFreeAgents)) {
+                    updateOps.marketFreeAgents = league.marketFreeAgents.map(p => {
+                        if (p.toLowerCase() === oldPlayerNameExact.toLowerCase()) {
+                            return newPlayerNameExact;
+                        }
+                        return p;
+                    });
+                }
+                
+                if (league.basePoints) {
+                    const updatedBasePoints = { ...league.basePoints };
+                    const baseKey = Object.keys(updatedBasePoints).find(k => k.toLowerCase() === oldPlayerNameExact.toLowerCase());
+                    if (baseKey) {
+                        updatedBasePoints[newPlayerNameExact] = updatedBasePoints[baseKey];
+                        delete updatedBasePoints[baseKey];
+                        updateOps.basePoints = updatedBasePoints;
+                    }
+                }
+
+                await db.collection('fantasy_leagues').updateOne(
+                    { _id: league._id },
+                    { $set: updateOps }
+                );
+            }
+
+            res.json({ success: true, message: `Sustitución completada. Se ha renombrado globalmente a ${oldPlayerNameExact} por ${newPlayerNameExact}.` });
+        } catch (e) {
+            console.error('[API Admin Replace Player] Error:', e);
+            res.status(500).json({ error: 'Error al realizar la sustitución.' });
         }
     });
 

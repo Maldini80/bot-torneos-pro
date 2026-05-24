@@ -395,6 +395,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
     
     startMarketCountdown();
+    initPlayerSearchLeagueDropdown();
 });
 
 // User auth session check
@@ -779,10 +780,124 @@ function setupEventHandlers() {
     if (adminSearchPlayerPos) {
         adminSearchPlayerPos.addEventListener('change', handleAdminPlayerSearch);
     }
+    if (adminSearchPlayerLeague) {
+        adminSearchPlayerLeague.addEventListener('change', handleAdminPlayerSearch);
+    }
+    if (adminSearchPlayerOnlyNew) {
+        adminSearchPlayerOnlyNew.addEventListener('change', handleAdminPlayerSearch);
+    }
     if (adminSearchPlayerInput) {
         adminSearchPlayerInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 handleAdminPlayerSearch();
+            }
+        });
+    }
+
+    // Modal replace player events
+    if (replacePlayerModalCloseBtn) {
+        replacePlayerModalCloseBtn.addEventListener('click', () => {
+            replacePlayerModal.classList.remove('open');
+        });
+    }
+    if (replacePlayerModal) {
+        replacePlayerModal.addEventListener('click', (e) => {
+            if (e.target === replacePlayerModal) {
+                replacePlayerModal.classList.remove('open');
+            }
+        });
+    }
+
+    let autocompleteTimeout = null;
+    if (replacePlayerSearchInput) {
+        replacePlayerSearchInput.addEventListener('input', () => {
+            clearTimeout(autocompleteTimeout);
+            const query = replacePlayerSearchInput.value.trim();
+            if (query.length < 2) {
+                replacePlayerAutocompleteResults.innerHTML = '';
+                replacePlayerAutocompleteResults.style.display = 'none';
+                return;
+            }
+
+            autocompleteTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/api/fantasy/admin/players/search?query=${encodeURIComponent(query)}`);
+                    if (!res.ok) throw new Error('Error al buscar para autocompletar.');
+                    const players = await res.json();
+
+                    replacePlayerAutocompleteResults.innerHTML = '';
+                    if (players.length === 0) {
+                        replacePlayerAutocompleteResults.innerHTML = '<div style="padding: 10px; color: #64748b; font-size: 0.85rem;">No se encontraron resultados</div>';
+                        replacePlayerAutocompleteResults.style.display = 'block';
+                        return;
+                    }
+
+                    players.forEach(p => {
+                        if (p.eaPlayerName.toLowerCase() === selectedNewPlayerName.toLowerCase()) {
+                            return;
+                        }
+                        const item = document.createElement('div');
+                        item.className = 'autocomplete-item';
+                        item.innerHTML = `
+                            <span style="font-weight:600; color: #fff;">${p.eaPlayerName}</span>
+                            <span style="font-size:0.75rem; color:#64748b;">${p.lastClub} - ${p.lastPosition}</span>
+                        `;
+                        item.addEventListener('click', () => {
+                            selectedOldPlayerName = p.eaPlayerName;
+                            selectedTargetPlayerName.textContent = p.eaPlayerName;
+                            selectedTargetPlayerContainer.style.display = 'block';
+                            btnConfirmReplacePlayer.disabled = false;
+                            replacePlayerAutocompleteResults.style.display = 'none';
+                            replacePlayerSearchInput.value = '';
+                        });
+                        replacePlayerAutocompleteResults.appendChild(item);
+                    });
+                    replacePlayerAutocompleteResults.style.display = 'block';
+                } catch (e) {
+                    console.error('Autocomplete search error:', e);
+                }
+            }, 300);
+        });
+    }
+
+    if (btnClearTargetSelection) {
+        btnClearTargetSelection.addEventListener('click', () => {
+            selectedOldPlayerName = '';
+            selectedTargetPlayerName.textContent = '-';
+            selectedTargetPlayerContainer.style.display = 'none';
+            btnConfirmReplacePlayer.disabled = true;
+        });
+    }
+
+    if (btnConfirmReplacePlayer) {
+        btnConfirmReplacePlayer.addEventListener('click', async () => {
+            if (!selectedNewPlayerName || !selectedOldPlayerName) return;
+            if (!confirm(`¿Confirmas que deseas sustituir permanentemente a ${selectedOldPlayerName} por ${selectedNewPlayerName}?\nEsta acción es irreversible y afectará a todas las ligas, plantillas, alineaciones, transferibles y ofertas.`)) {
+                return;
+            }
+
+            try {
+                btnConfirmReplacePlayer.disabled = true;
+                btnConfirmReplacePlayer.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Sustituyendo...';
+
+                const res = await fetch(`/api/fantasy/admin/players/${encodeURIComponent(selectedNewPlayerName)}/replace`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ targetName: selectedOldPlayerName })
+                });
+
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Error al sustituir jugador.');
+
+                showToast(data.message || 'Sustitución realizada correctamente.', 'success');
+                replacePlayerModal.classList.remove('open');
+                await handleAdminPlayerSearch();
+            } catch (e) {
+                console.error(e);
+                showToast(e.message, 'error');
+            } finally {
+                btnConfirmReplacePlayer.disabled = false;
+                btnConfirmReplacePlayer.innerHTML = '<i class="fa-solid fa-arrows-spin"></i> Confirmar Sustitución';
             }
         });
     }
@@ -4103,9 +4218,11 @@ async function cancelBid(bidId) {
 async function handleAdminPlayerSearch() {
     const query = adminSearchPlayerInput.value.trim();
     const position = adminSearchPlayerPos ? adminSearchPlayerPos.value : '';
+    const vpgLeagueSlug = adminSearchPlayerLeague ? adminSearchPlayerLeague.value : '';
+    const onlyNew = adminSearchPlayerOnlyNew ? adminSearchPlayerOnlyNew.checked : false;
     
-    if (query.length < 2 && !position) {
-        alert('Por favor, introduce al menos 2 letras o selecciona una posición.');
+    if (query.length < 2 && !position && !onlyNew) {
+        alert('Por favor, introduce al menos 2 letras, selecciona una posición o activa "Solo nuevos".');
         return;
     }
     
@@ -4118,6 +4235,12 @@ async function handleAdminPlayerSearch() {
         let url = `/api/fantasy/admin/players/search?query=${encodeURIComponent(query)}`;
         if (position) {
             url += `&position=${encodeURIComponent(position)}`;
+        }
+        if (vpgLeagueSlug) {
+            url += `&vpgLeagueSlug=${encodeURIComponent(vpgLeagueSlug)}`;
+        }
+        if (onlyNew) {
+            url += `&onlyNew=true`;
         }
         if (typeof currentLeagueId !== 'undefined' && currentLeagueId) {
             url += `&leagueId=${currentLeagueId}`;
@@ -4140,6 +4263,7 @@ async function handleAdminPlayerSearch() {
             const hasManualPrice = p.manualPrice !== null;
             const hasManualPosition = p.manualPosition !== null;
             const priceText = formatCurrency(p.price);
+            const newBadgeHtml = p.isNew ? ` <span class="new-player-badge"><i class="fa-solid fa-sparkles"></i> NUEVO</span>` : '';
 
             if (isAdmin) {
                 // Build options for position select
@@ -4152,7 +4276,10 @@ async function handleAdminPlayerSearch() {
                 
                 row.innerHTML = `
                     <td>
-                        <div class="clickable-player-name" style="font-weight: 700; color: #38bdf8; cursor: pointer; text-decoration: underline;" onclick="openPlayerStatsModalByName('${p.eaPlayerName.replace(/'/g, "\\'")}')">${p.eaPlayerName}</div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <div class="clickable-player-name" style="font-weight: 700; color: #38bdf8; cursor: pointer; text-decoration: underline;" onclick="openPlayerStatsModalByName('${p.eaPlayerName.replace(/'/g, "\\'")}')">${p.eaPlayerName}</div>
+                            ${newBadgeHtml}
+                        </div>
                         <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
                             ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${p.points} pts</span>
                         </div>
@@ -4171,9 +4298,11 @@ async function handleAdminPlayerSearch() {
                         <input type="number" class="manual-price-input" data-player-name="${p.eaPlayerName}" value="${p.manualPrice !== null ? p.manualPrice : ''}" placeholder="Ej. 1500000" style="background: #1e293b; border: 1px solid #475569; color: #fff; border-radius: 4px; padding: 4px 8px; width: 120px; box-sizing: border-box; ${hasManualPrice ? 'border-color: #f59e0b; color: #f59e0b; font-weight: 600;' : ''}">
                     </td>
                     <td class="text-center">
-                        <div style="display: flex; gap: 4px; justify-content: center;">
+                        <div style="display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;">
                             <button class="btn btn-primary btn-xs btn-save-manual-price" data-player-name="${p.eaPlayerName}"><i class="fa-solid fa-floppy-disk"></i> Guardar</button>
                             ${isManual ? `<button class="btn btn-secondary btn-xs btn-reset-manual-price" data-player-name="${p.eaPlayerName}"><i class="fa-solid fa-rotate-left"></i> Restablecer</button>` : ''}
+                            <button class="btn btn-warning btn-xs btn-replace-player" data-player-name="${p.eaPlayerName}"><i class="fa-solid fa-arrows-spin"></i> Sustituir</button>
+                            <button class="btn btn-danger btn-xs btn-delete-player" data-player-name="${p.eaPlayerName}"><i class="fa-solid fa-trash"></i> Eliminar</button>
                         </div>
                     </td>
                 `;
@@ -4194,11 +4323,26 @@ async function handleAdminPlayerSearch() {
                         await handleUpdatePlayer(p.eaPlayerName, null, null);
                     });
                 }
+
+                const replaceBtn = row.querySelector('.btn-replace-player');
+                replaceBtn.addEventListener('click', () => {
+                    openReplacePlayerModal(p.eaPlayerName);
+                });
+
+                const deleteBtn = row.querySelector('.btn-delete-player');
+                deleteBtn.addEventListener('click', async () => {
+                    if (confirm(`¿Estás seguro de que deseas eliminar permanentemente a ${p.eaPlayerName}?\nSe sacará del mercado, plantillas y alineaciones de todas las ligas, y quedará excluido de futuras sincronizaciones.`)) {
+                        await handleExcludePlayer(p.eaPlayerName);
+                    }
+                });
             } else {
                 const displayPos = p.manualPosition || p.lastPosition || 'MC';
                 row.innerHTML = `
                     <td>
-                        <div class="clickable-player-name" style="font-weight: 700; color: #38bdf8; cursor: pointer; text-decoration: underline;" onclick="openPlayerStatsModalByName('${p.eaPlayerName.replace(/'/g, "\\'")}')">${p.eaPlayerName}</div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <div class="clickable-player-name" style="font-weight: 700; color: #38bdf8; cursor: pointer; text-decoration: underline;" onclick="openPlayerStatsModalByName('${p.eaPlayerName.replace(/'/g, "\\'")}')">${p.eaPlayerName}</div>
+                            ${newBadgeHtml}
+                        </div>
                         <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
                             ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${p.points} pts</span>
                         </div>
@@ -4221,6 +4365,58 @@ async function handleAdminPlayerSearch() {
     } catch (e) {
         console.error(e);
         adminSearchPlayerResults.innerHTML = `<tr><td colspan="${colspanVal}" class="text-center py-4 text-red">Error al realizar la búsqueda.</td></tr>`;
+    }
+}
+
+function openReplacePlayerModal(playerName) {
+    selectedNewPlayerName = playerName;
+    selectedOldPlayerName = '';
+    replacePlayerNameTitle.textContent = playerName;
+    replacePlayerSearchInput.value = '';
+    replacePlayerAutocompleteResults.innerHTML = '';
+    replacePlayerAutocompleteResults.style.display = 'none';
+    selectedTargetPlayerContainer.style.display = 'none';
+    btnConfirmReplacePlayer.disabled = true;
+    replacePlayerModal.classList.add('open');
+}
+
+async function handleExcludePlayer(playerName) {
+    try {
+        const res = await fetch(`/api/fantasy/admin/players/${encodeURIComponent(playerName)}/exclude`, {
+            method: 'DELETE'
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al eliminar jugador.');
+
+        showToast(data.message || 'Jugador eliminado correctamente.', 'success');
+        await handleAdminPlayerSearch();
+    } catch (e) {
+        console.error(e);
+        showToast('Error: ' + e.message, 'error');
+    }
+}
+
+async function initPlayerSearchLeagueDropdown() {
+    if (!adminSearchPlayerLeague) return;
+    try {
+        const res = await fetch('/api/fantasy/active-leagues');
+        if (res.ok) {
+            const data = await res.json();
+            const activeLeaguesSlugs = data.activeLeagues || [];
+            const allLeagues = data.allLeagues || [];
+
+            adminSearchPlayerLeague.innerHTML = '<option value="">Divisiones (Todas)</option>';
+            activeLeaguesSlugs.forEach(slug => {
+                const matched = allLeagues.find(l => l.slug === slug);
+                const title = matched ? (matched.title || slug) : slug;
+                const opt = document.createElement('option');
+                opt.value = slug;
+                opt.textContent = title;
+                adminSearchPlayerLeague.appendChild(opt);
+            });
+        }
+    } catch (e) {
+        console.error('Error loading search league filter:', e);
     }
 }
 
