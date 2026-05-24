@@ -2961,8 +2961,8 @@ body {
         radial-gradient(circle at 80% 35%, rgba(255, 255, 255, 0.9) 1.5px, rgba(255, 180, 0, 0.85) 4px, transparent 9px),
         /* Bottom hot fire glow overlay */
         radial-gradient(ellipse at 50% 100%, rgba(255, 69, 0, 0.45) 0%, rgba(255, 140, 0, 0.25) 45%, transparent 80%),
-        /* Pearl White base */
-        linear-gradient(180deg, #ffffff 0%, #f1f5f9 60%, #e2e8f0 100%);
+        /* Pearl White base -> Changed to deep black/obsidian */
+        linear-gradient(180deg, #09090b 0%, #18181b 60%, #09090b 100%);
     background-size: 150px 200px, 200px 240px, 180px 220px, 160px 180px, 170px 210px, 190px 230px, 100% 100%, 100% 100%;
     background-position: 0px 0px, 0px 0px, 0px 0px, 0px 0px, 0px 0px, 0px 0px, center center, center center;
     background-repeat: repeat, repeat, repeat, repeat, repeat, repeat, no-repeat, no-repeat !important;
@@ -3021,7 +3021,7 @@ body {
     transform-origin: center center !important;
     z-index: 1 !important;
 }
-/* Holographic Gold/Rainbow sweep */
+/* Holographic Gold/Rainbow sweep -> Redesigned to metallic silver-red sweep */
 .icon.fut-card .fut-card-inner::after {
     content: '' !important;
     position: absolute !important;
@@ -3032,13 +3032,11 @@ body {
     background: linear-gradient(
         90deg,
         transparent,
-        rgba(255, 215, 0, 0.2),      /* Gold */
-        rgba(255, 127, 80, 0.35),     /* Coral */
-        rgba(0, 245, 155, 0.35),      /* Magic Mint */
-        rgba(0, 242, 254, 0.35),      /* Cyan */
-        rgba(255, 224, 102, 0.55),     /* Bright Gold */
-        rgba(255, 255, 255, 0.75),     /* Diamond Shine */
-        rgba(255, 224, 102, 0.55),     /* Bright Gold */
+        rgba(255, 0, 0, 0.15),
+        rgba(255, 50, 50, 0.35),
+        rgba(255, 255, 255, 0.75), /* Diamond Shine Core */
+        rgba(255, 50, 50, 0.35),
+        rgba(255, 0, 0, 0.15),
         transparent
     ) !important;
     transform: skewX(-25deg) !important;
@@ -3048,23 +3046,24 @@ body {
     mix-blend-mode: color-dodge !important;
 }
 .icon .fut-card-rating {
-    color: #0f172a !important;
-    text-shadow: 0 0 6px rgba(255, 165, 0, 0.6), 0 0 1px rgba(255, 215, 0, 0.3) !important;
+    color: #ff3333 !important;
+    text-shadow: 0 0 8px rgba(255, 0, 0, 0.85), 0 0 2px rgba(255, 0, 0, 0.4) !important;
 }
 .icon .fut-card-pos, 
 .icon .fut-card-player-name {
-    color: #1e293b !important;
-    border-bottom-color: rgba(255, 140, 0, 0.35) !important;
-    text-shadow: 0 0 3px rgba(255, 165, 0, 0.2) !important;
+    color: #ff3333 !important;
+    border-bottom-color: rgba(255, 0, 0, 0.4) !important;
+    text-shadow: 0 0 6px rgba(255, 0, 0, 0.7), 0 0 2px rgba(255, 0, 0, 0.3) !important;
 }
 .icon .fut-card-stat-value {
-    color: #0f172a !important;
+    color: #ff4d4d !important;
+    text-shadow: 0 0 4px rgba(255, 0, 0, 0.5) !important;
 }
 .icon .fut-card-stat-label {
-    color: #475569 !important;
+    color: #94a3b8 !important;
 }
 .icon .fut-card-stats-grid::before {
-    background: linear-gradient(to bottom, transparent, rgba(255, 140, 0, 0.35), transparent) !important;
+    background: linear-gradient(to bottom, transparent, rgba(255, 0, 0, 0.4), transparent) !important;
 }
 
 /* Small Icon Card on Pitch */
@@ -3084,14 +3083,14 @@ body {
         radial-gradient(circle, rgba(255, 255, 255, 0.9) 1.5px, rgba(255, 165, 0, 0.85) 3.5px, transparent 8px),
         /* Bottom hot fire glow overlay */
         radial-gradient(ellipse at 50% 100%, rgba(255, 69, 0, 0.35) 0%, rgba(255, 140, 0, 0.2) 45%, transparent 80%),
-        /* Pearl White base */
-        linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+        /* Pearl White base -> Changed to deep black/obsidian */
+        linear-gradient(180deg, #09090b 0%, #121214 100%);
     background-size: 80px 100px, 100px 120px, 100% 100%, 100% 100%;
     background-position: 0px 0px, 0px 0px, center center, center center;
     background-repeat: repeat, repeat, no-repeat, no-repeat !important;
     animation: icon-fire-particles-small 6s infinite linear;
 }
-/* Holographic Gold/Rainbow sweep */
+/* Holographic Gold/Rainbow sweep -> Redesigned to metallic silver-red sweep */
 .icon.player-card-ut.occupied .player-card-ut-inner::after {
     content: '' !important;
     position: absolute !important;
@@ -3102,13 +3101,11 @@ body {
     background: linear-gradient(
         90deg,
         transparent,
-        rgba(255, 215, 0, 0.2),      /* Gold */
-        rgba(255, 127, 80, 0.35),     /* Coral */
-        rgba(0, 245, 155, 0.35),      /* Magic Mint */
-        rgba(0, 242, 254, 0.35),      /* Cyan */
-        rgba(255, 224, 102, 0.55),     /* Bright Gold */
-        rgba(255, 255, 255, 0.75),     /* Diamond Shine */
-        rgba(255, 224, 102, 0.55),     /* Bright Gold */
+        rgba(255, 0, 0, 0.15),
+        rgba(255, 50, 50, 0.35),
+        rgba(255, 255, 255, 0.75), /* Diamond Shine Core */
+        rgba(255, 50, 50, 0.35),
+        rgba(255, 0, 0, 0.15),
         transparent
     ) !important;
     transform: skewX(-25deg) !important;
@@ -3118,12 +3115,13 @@ body {
     mix-blend-mode: color-dodge !important;
 }
 .icon.player-card-ut.occupied .player-card-ut-rating {
-    color: #0f172a !important;
-    text-shadow: 0 0 4px rgba(255, 165, 0, 0.4) !important;
+    color: #ff3333 !important;
+    text-shadow: 0 0 6px rgba(255, 0, 0, 0.8), 0 0 2px rgba(255, 0, 0, 0.4) !important;
 }
 .icon.player-card-ut.occupied .player-card-ut-position,
 .icon.player-card-ut.occupied .player-card-ut-name {
-    color: #1e293b !important;
+    color: #ff3333 !important;
+    text-shadow: 0 0 4px rgba(255, 0, 0, 0.7), 0 0 1px rgba(255, 0, 0, 0.3) !important;
 }
 
 /* ==========================================================================
