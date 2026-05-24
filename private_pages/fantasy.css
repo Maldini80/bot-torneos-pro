@@ -2330,19 +2330,20 @@ body {
 
 /* 1. BRONZE TIER (Points < 30) */
 .bronze.fut-card {
-    background: linear-gradient(135deg, #ffedd5 0%, #dcae8f 50%, #b28263 100%) !important;
+    background: linear-gradient(135deg, #d29d7e 0%, #905d40 100%) !important;
 }
 .bronze.fut-card:hover {
-    filter: drop-shadow(0 15px 30px rgba(220, 174, 143, 0.45)) !important;
+    filter: drop-shadow(0 15px 30px rgba(144, 93, 64, 0.6)) !important;
 }
 .bronze .fut-card-inner {
     background: 
-        radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.7), transparent 60%),
-        repeating-linear-gradient(45deg, rgba(120, 70, 30, 0.015) 0px, rgba(120, 70, 30, 0.015) 2px, transparent 2px, transparent 8px),
-        linear-gradient(180deg, #ffffff 0%, #fbf3ec 40%, #eddcd0 100%) !important;
+        radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.25), transparent 70%),
+        repeating-linear-gradient(75deg, rgba(255, 255, 255, 0.08) 0px, rgba(255, 255, 255, 0.08) 2px, transparent 2px, transparent 16px),
+        repeating-linear-gradient(-75deg, rgba(255, 255, 255, 0.04) 0px, rgba(255, 255, 255, 0.04) 2px, transparent 2px, transparent 16px),
+        linear-gradient(180deg, #c79277 0%, #8c583c 100%) !important;
 }
 .bronze .fut-card-inner::before {
-    background: radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.7) 0%, transparent 60%) !important;
+    background: radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.3) 0%, transparent 60%) !important;
 }
 .bronze .fut-card-rating {
     color: #4a2d16 !important;
@@ -2362,16 +2363,16 @@ body {
 
 /* Small Bronze Card on Pitch */
 .bronze.player-card-ut.occupied {
-    background: linear-gradient(135deg, #ffedd5 0%, #b28263 100%) !important;
+    background: linear-gradient(135deg, #d29d7e 0%, #905d40 100%) !important;
 }
 .bronze.player-card-ut.occupied:hover {
-    filter: drop-shadow(0 8px 16px rgba(220, 174, 143, 0.5)) !important;
+    filter: drop-shadow(0 8px 16px rgba(144, 93, 64, 0.6)) !important;
 }
 .bronze.player-card-ut.occupied .player-card-ut-inner {
     background: 
-        radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.7), transparent 60%),
-        repeating-linear-gradient(45deg, rgba(120, 70, 30, 0.015) 0px, rgba(120, 70, 30, 0.015) 1.5px, transparent 1.5px, transparent 6px),
-        linear-gradient(180deg, #ffffff 0%, #fbf3ec 40%, #eddcd0 100%) !important;
+        radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.15), transparent 60%),
+        repeating-linear-gradient(75deg, rgba(255, 255, 255, 0.06) 0px, rgba(255, 255, 255, 0.06) 1.5px, transparent 1.5px, transparent 12px),
+        linear-gradient(180deg, #c79277 0%, #8c583c 100%) !important;
 }
 .bronze.player-card-ut.occupied .player-card-ut-rating {
     color: #4a2d16 !important;
@@ -2864,13 +2865,13 @@ body {
 
 /* Micro FUT Card Tier Specific Styles */
 .micro-fut-card.bronze {
-    background: linear-gradient(135deg, #ffedd5 0%, #b28263 100%) !important;
+    background: linear-gradient(135deg, #d29d7e 0%, #905d40 100%) !important;
 }
 .micro-fut-card.bronze .micro-fut-card-inner {
-    background: linear-gradient(180deg, #ffffff 0%, #eddcd0 100%) !important;
+    background: linear-gradient(180deg, #c79277 0%, #8c583c 100%) !important;
 }
 .micro-fut-card.bronze .micro-fut-card-rating {
-    color: #4a2d16 !important;
+    color: #3a2113 !important;
 }
 
 .micro-fut-card.silver {
