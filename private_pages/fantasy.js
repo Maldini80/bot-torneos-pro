@@ -346,6 +346,15 @@ const selectedTargetPlayerName = document.getElementById('selected-target-player
 const btnClearTargetSelection = document.getElementById('btn-clear-target-selection');
 const btnConfirmReplacePlayer = document.getElementById('btn-confirm-replace-player');
 
+// DOM Elements - Admin Team Roster modal (MODAL 10)
+const adminTeamPlayersModal = document.getElementById('admin-team-players-modal');
+const adminTeamPlayersTitle = document.getElementById('admin-team-players-title');
+const adminTeamPlayersCloseBtn = document.getElementById('admin-team-players-close-btn');
+const adminAddPlayerSearchInput = document.getElementById('admin-add-player-search-input');
+const adminAddPlayerAutocompleteResults = document.getElementById('admin-add-player-autocomplete-results');
+const adminTeamPlayersListContainer = document.getElementById('admin-team-players-list-container');
+
+let currentAdminEditingTeamId = null;
 let selectedNewPlayerName = '';
 let selectedOldPlayerName = '';
 
@@ -990,6 +999,74 @@ function setupEventHandlers() {
             fieldContainer.style.display = 'block';
         });
     }
+
+    // Modal team roster close handlers
+    if (adminTeamPlayersCloseBtn) {
+        adminTeamPlayersCloseBtn.addEventListener('click', () => {
+            adminTeamPlayersModal.classList.remove('open');
+        });
+    }
+    if (adminTeamPlayersModal) {
+        adminTeamPlayersModal.addEventListener('click', (e) => {
+            if (e.target === adminTeamPlayersModal) {
+                adminTeamPlayersModal.classList.remove('open');
+            }
+        });
+    }
+
+    let adminAutocompleteTimeout = null;
+    if (adminAddPlayerSearchInput) {
+        adminAddPlayerSearchInput.addEventListener('input', () => {
+            clearTimeout(adminAutocompleteTimeout);
+            const query = adminAddPlayerSearchInput.value.trim();
+            if (query.length < 2) {
+                adminAddPlayerAutocompleteResults.innerHTML = '';
+                adminAddPlayerAutocompleteResults.style.display = 'none';
+                return;
+            }
+
+            adminAutocompleteTimeout = setTimeout(async () => {
+                try {
+                    const res = await fetch(`/api/fantasy/admin/players/search?query=${encodeURIComponent(query)}`);
+                    if (!res.ok) throw new Error('Error al buscar para autocompletar.');
+                    const players = await res.json();
+
+                    adminAddPlayerAutocompleteResults.innerHTML = '';
+                    if (players.length === 0) {
+                        adminAddPlayerAutocompleteResults.innerHTML = '<div style="padding: 10px; color: #64748b; font-size: 0.85rem;">No se encontraron resultados</div>';
+                        adminAddPlayerAutocompleteResults.style.display = 'block';
+                        return;
+                    }
+
+                    players.forEach(p => {
+                        const item = document.createElement('div');
+                        item.className = 'autocomplete-item';
+                        item.innerHTML = `
+                            <span style="font-weight:600; color: #fff;">${p.eaPlayerName}</span>
+                            <span style="font-size:0.75rem; color:#64748b;">${p.lastClub} - ${p.lastPosition}</span>
+                        `;
+                        item.addEventListener('click', async () => {
+                            if (confirm(`¿Estás seguro de que deseas añadir a ${p.eaPlayerName} a este equipo?`)) {
+                                await handleAdminAddPlayer(p.eaPlayerName);
+                            }
+                            adminAddPlayerAutocompleteResults.style.display = 'none';
+                            adminAddPlayerSearchInput.value = '';
+                        });
+                        adminAddPlayerAutocompleteResults.appendChild(item);
+                    });
+                    adminAddPlayerAutocompleteResults.style.display = 'block';
+                } catch (e) {
+                    console.error('Admin autocomplete search error:', e);
+                }
+            }, 300);
+        });
+    }
+
+    document.addEventListener('click', (e) => {
+        if (adminAddPlayerAutocompleteResults && e.target !== adminAddPlayerSearchInput && e.target !== adminAddPlayerAutocompleteResults) {
+            adminAddPlayerAutocompleteResults.style.display = 'none';
+        }
+    });
 }
 
 // VIEW 1: Show Selector and Fetch All Leagues
@@ -2962,15 +3039,16 @@ async function loadAdminPanelData() {
                         <div style="font-weight: 600; color: #fff;">${team.discordUsername}${roleBadge}</div>
                         <div style="font-size: 0.75rem; color: #64748b;">ID: ${team.discordId}</div>
                         <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
-                            <span>Equipo: ${team.teamName}</span> • <span>${(team.players || []).length} jug.</span> • <span class="text-yellow" style="font-weight: 600;">${team.points} pts</span> • <span>Presupuesto: ${formatCurrency(team.balance)}</span>
+                            <span>Equipo: <span class="rival-team-link" style="cursor: pointer; text-decoration: underline; color: #3b82f6;">${team.teamName}</span></span> • <span>${(team.players || []).length} jug.</span> • <span class="text-yellow" style="font-weight: 600;">${team.points} pts</span> • <span>Presupuesto: ${formatCurrency(team.balance)}</span>
                         </div>
                     </td>
-                    <td class="col-hide-md"><div style="font-weight: 600;">${team.teamName}</div></td>
+                    <td class="col-hide-md"><div class="rival-team-link" style="font-weight: 600; cursor: pointer; text-decoration: underline; color: #3b82f6;">${team.teamName}</div></td>
                     <td class="text-center col-hide-sm">${(team.players || []).length} jugadores</td>
                     <td class="text-right price-text col-hide-sm">${formatCurrency(team.balance)}</td>
                     <td class="text-right text-yellow col-hide-sm" style="font-weight: 700;">${team.points} pts</td>
                     <td class="text-center">
                         <div style="display: flex; gap: 4px; justify-content: center; align-items: center; flex-wrap: wrap;">
+                            <button class="btn btn-primary btn-xs btn-manage-players" data-team-id="${team._id}"><i class="fa-solid fa-users"></i> Jugadores</button>
                             <button class="btn btn-warning btn-xs btn-adjust-budget" data-team-id="${team._id}"><i class="fa-solid fa-coins"></i> Presupuesto</button>
                             <button class="btn btn-danger btn-xs btn-kick-manager" data-team-id="${team._id}"><i class="fa-solid fa-user-minus"></i> Expulsar</button>
                             ${helperBtnHtml}
@@ -2978,6 +3056,20 @@ async function loadAdminPanelData() {
                     </td>
                 `;
                 
+                // Click on rival-team-link opens showRivalTeam
+                row.querySelectorAll('.rival-team-link').forEach(link => {
+                    link.addEventListener('click', () => {
+                        showRivalTeam(team.discordId, team.teamName);
+                    });
+                });
+
+                const managePlayersBtn = row.querySelector('.btn-manage-players');
+                if (managePlayersBtn) {
+                    managePlayersBtn.addEventListener('click', () => {
+                        openAdminTeamPlayersModal(team._id, team.teamName);
+                    });
+                }
+
                 const adjustBtn = row.querySelector('.btn-adjust-budget');
                 if (adjustBtn) {
                     adjustBtn.addEventListener('click', () => {
@@ -4842,5 +4934,132 @@ function startMarketCountdown() {
 
     updateTimer();
     setInterval(updateTimer, 1000);
+}
+
+// MODAL 10 - Admin Team Players Modal Logic
+async function openAdminTeamPlayersModal(teamId, teamName) {
+    currentAdminEditingTeamId = teamId;
+    adminTeamPlayersTitle.textContent = teamName;
+    adminAddPlayerSearchInput.value = '';
+    adminAddPlayerAutocompleteResults.innerHTML = '';
+    adminTeamPlayersListContainer.innerHTML = '<div class="text-center py-3 text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Cargando plantilla...</div>';
+    
+    adminTeamPlayersModal.classList.add('open');
+    
+    await refreshAdminTeamPlayersList();
+}
+
+async function refreshAdminTeamPlayersList() {
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/teams`);
+        if (!res.ok) throw new Error('No se pudieron obtener los participantes.');
+        const data = await res.json();
+        const teams = data.teams || [];
+        const targetTeam = teams.find(t => t._id === currentAdminEditingTeamId);
+        
+        if (!targetTeam) {
+            adminTeamPlayersListContainer.innerHTML = '<div class="text-center py-3 text-red">Equipo no encontrado.</div>';
+            return;
+        }
+        
+        const playersList = targetTeam.players || [];
+        if (playersList.length === 0) {
+            adminTeamPlayersListContainer.innerHTML = '<div class="text-center py-3 text-muted">Este equipo no tiene jugadores asignados.</div>';
+            return;
+        }
+        
+        let html = '<table class="fantasy-table" style="width: 100%; border-collapse: collapse;">';
+        html += '<thead><tr><th>Jugador</th><th>Pos</th><th>Club</th><th class="text-center">Acción</th></tr></thead>';
+        html += '<tbody>';
+        
+        playersList.forEach(name => {
+            let p = allPlayers.find(x => x.eaPlayerName.toLowerCase() === name.toLowerCase());
+            if (!p) {
+                p = {
+                    eaPlayerName: name,
+                    lastPosition: 'MC',
+                    lastClub: 'Desconocido'
+                };
+            }
+            
+            html += `
+                <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                    <td style="padding: 8px 4px; font-weight: 600; color: #fff;">${p.eaPlayerName}</td>
+                    <td style="padding: 8px 4px;"><span class="pos-badge pos-${p.lastPosition}">${p.lastPosition}</span></td>
+                    <td style="padding: 8px 4px; color: #94a3b8; font-size: 0.85rem;">${p.lastClub}</td>
+                    <td class="text-center" style="padding: 8px 4px;">
+                        <button class="btn btn-danger btn-xs btn-remove-player-action" data-player-name="${p.eaPlayerName}">
+                            <i class="fa-solid fa-user-minus"></i> Quitar
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
+        adminTeamPlayersListContainer.innerHTML = html;
+        
+        // Attach delete action listener
+        adminTeamPlayersListContainer.querySelectorAll('.btn-remove-player-action').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const pName = btn.getAttribute('data-player-name');
+                if (confirm(`¿Estás seguro de que deseas retirar a ${pName} de este equipo?`)) {
+                    await handleAdminRemovePlayer(pName);
+                }
+            });
+        });
+        
+    } catch (err) {
+        console.error(err);
+        adminTeamPlayersListContainer.innerHTML = '<div class="text-center py-3 text-red">Error al cargar jugadores de la plantilla.</div>';
+    }
+}
+
+async function handleAdminRemovePlayer(playerName) {
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/teams/${currentAdminEditingTeamId}/players/remove`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ playerName })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showToast(data.error || 'Error al retirar jugador', 'error');
+            return;
+        }
+        showToast(data.message || 'Jugador retirado con éxito', 'success');
+        
+        await refreshAdminTeamPlayersList();
+        await loadLeagueAdminTeams();
+    } catch (err) {
+        console.error(err);
+        showToast('Error de red al retirar jugador', 'error');
+    }
+}
+
+async function handleAdminAddPlayer(playerName) {
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/teams/${currentAdminEditingTeamId}/players/add`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ playerName })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+            showToast(data.error || 'Error al añadir jugador', 'error');
+            return;
+        }
+        showToast(data.message || 'Jugador añadido con éxito', 'success');
+        
+        await refreshAdminTeamPlayersList();
+        await loadLeagueAdminTeams();
+    } catch (err) {
+        console.error(err);
+        showToast('Error de red al añadir jugador', 'error');
+    }
 }
 

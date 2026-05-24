@@ -6380,6 +6380,175 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
+    // Add player to team manually (admin/referee only)
+    app.post('/api/fantasy/leagues/:id/teams/:teamId/players/add', isAuthenticated, canAdminLeague, async (req, res) => {
+        try {
+            const { playerName } = req.body;
+            if (!playerName) {
+                return res.status(400).json({ error: 'Nombre de jugador requerido.' });
+            }
+            const db = getDb();
+            const leagueId = req.params.id;
+            const teamId = req.params.teamId;
+
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+
+            const targetTeam = await db.collection('fantasy_teams').findOne({ _id: new ObjectId(teamId), leagueId });
+            if (!targetTeam) return res.status(404).json({ error: 'Equipo no encontrado.' });
+
+            const player = await db.collection('player_profiles').findOne({
+                eaPlayerName: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+            });
+            if (!player) {
+                return res.status(400).json({ error: 'Jugador no encontrado en la base de datos de perfiles.' });
+            }
+
+            const pName = player.eaPlayerName; // Use exact database case
+            if (targetTeam.players && targetTeam.players.includes(pName)) {
+                return res.status(400).json({ error: 'El jugador ya pertenece a este equipo.' });
+            }
+
+            // Check if player is already owned in this league
+            const ownerTeam = await db.collection('fantasy_teams').findOne({ leagueId, players: pName });
+            if (ownerTeam) {
+                const ownerLineup = { ...ownerTeam.lineup };
+                for (const pos in ownerLineup) {
+                    if (Array.isArray(ownerLineup[pos])) {
+                        ownerLineup[pos] = ownerLineup[pos].filter(p => p !== pName);
+                    } else if (ownerLineup[pos] === pName) {
+                        ownerLineup[pos] = null;
+                    }
+                }
+                await db.collection('fantasy_teams').updateOne(
+                    { _id: ownerTeam._id },
+                    {
+                        $pull: { players: pName },
+                        $set: { lineup: ownerLineup },
+                        $unset: {
+                            [`clauses.${pName}`]: "",
+                            [`clausesProtectedUntil.${pName}`]: ""
+                        }
+                    }
+                );
+                
+                // Notify previous owner via Discord DM
+                if (client && ownerTeam.discordId) {
+                    try {
+                        const user = await client.users.fetch(ownerTeam.discordId);
+                        if (user) {
+                            await user.send(`⚠️ **Modificación de Plantilla:** Un administrador o árbitro ha transferido al jugador **${pName}** fuera de tu equipo **${ownerTeam.teamName}** en la liga **${league.name}**.`);
+                        }
+                    } catch (dmErr) {
+                        console.error('[Admin Transfer DM] No se pudo enviar MD al dueño anterior:', dmErr.message);
+                    }
+                }
+            }
+
+            // Calculate player's dynamic market price to set the initial clause
+            const { price } = calculatePlayerPointsAndPrice(player);
+            const clauseMultiplier = league.clauseMultiplier || 1.2;
+            const initialClause = Math.round(price * clauseMultiplier);
+
+            // Add player to target team
+            await db.collection('fantasy_teams').updateOne(
+                { _id: targetTeam._id },
+                {
+                    $push: { players: pName },
+                    $set: {
+                        [`clauses.${pName}`]: initialClause
+                    }
+                }
+            );
+
+            // Clean listings and pending bids
+            await db.collection('fantasy_market_listings').deleteMany({ leagueId, eaPlayerName: pName });
+            await refundPendingBidsForPlayer(db, leagueId, pName);
+
+            console.log(`[ADMIN ACTION] ${req.user.username} añadió a ${pName} al equipo ${targetTeam.teamName} en liga ${league.name}`);
+
+            res.json({
+                success: true,
+                message: `Jugador ${pName} añadido correctamente al equipo ${targetTeam.teamName}.`
+            });
+        } catch (e) {
+            console.error('[API Admin Add Player] Error:', e);
+            res.status(500).json({ error: 'Error al añadir el jugador.' });
+        }
+    });
+
+    // Remove player from team manually (admin/referee only)
+    app.post('/api/fantasy/leagues/:id/teams/:teamId/players/remove', isAuthenticated, canAdminLeague, async (req, res) => {
+        try {
+            const { playerName } = req.body;
+            if (!playerName) {
+                return res.status(400).json({ error: 'Nombre de jugador requerido.' });
+            }
+            const db = getDb();
+            const leagueId = req.params.id;
+            const teamId = req.params.teamId;
+
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+            if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
+
+            const targetTeam = await db.collection('fantasy_teams').findOne({ _id: new ObjectId(teamId), leagueId });
+            if (!targetTeam) return res.status(404).json({ error: 'Equipo no encontrado.' });
+
+            // Case-insensitive search inside players array
+            const exactPlayerName = targetTeam.players.find(p => p.toLowerCase() === playerName.toLowerCase());
+            if (!exactPlayerName) {
+                return res.status(400).json({ error: `El jugador ${playerName} no pertenece a este equipo.` });
+            }
+
+            const targetLineup = { ...targetTeam.lineup };
+            for (const pos in targetLineup) {
+                if (Array.isArray(targetLineup[pos])) {
+                    targetLineup[pos] = targetLineup[pos].filter(p => p !== exactPlayerName);
+                } else if (targetLineup[pos] === exactPlayerName) {
+                    targetLineup[pos] = null;
+                }
+            }
+
+            await db.collection('fantasy_teams').updateOne(
+                { _id: targetTeam._id },
+                {
+                    $pull: { players: exactPlayerName },
+                    $set: { lineup: targetLineup },
+                    $unset: {
+                        [`clauses.${exactPlayerName}`]: "",
+                        [`clausesProtectedUntil.${exactPlayerName}`]: ""
+                    }
+                }
+            );
+
+            // Clean listings and pending bids
+            await db.collection('fantasy_market_listings').deleteMany({ leagueId, eaPlayerName: exactPlayerName });
+            await refundPendingBidsForPlayer(db, leagueId, exactPlayerName);
+
+            // Notify owner via Discord DM
+            if (client && targetTeam.discordId) {
+                try {
+                    const user = await client.users.fetch(targetTeam.discordId);
+                    if (user) {
+                        await user.send(`⚠️ **Modificación de Plantilla:** Un administrador o árbitro ha retirado al jugador **${exactPlayerName}** de tu equipo **${targetTeam.teamName}** en la liga **${league.name}**.`);
+                    }
+                } catch (dmErr) {
+                    console.error('[Admin Remove DM] No se pudo enviar MD al dueño:', dmErr.message);
+                }
+            }
+
+            console.log(`[ADMIN ACTION] ${req.user.username} retiró a ${exactPlayerName} del equipo ${targetTeam.teamName} en liga ${league.name}`);
+
+            res.json({
+                success: true,
+                message: `Jugador ${exactPlayerName} retirado correctamente del equipo ${targetTeam.teamName}.`
+            });
+        } catch (e) {
+            console.error('[API Admin Remove Player] Error:', e);
+            res.status(500).json({ error: 'Error al retirar el jugador.' });
+        }
+    });
+
     // Recalculate all team points in a league (admin only)
     app.post('/api/fantasy/leagues/:id/recalculate', isAuthenticated, canAdminLeague, async (req, res) => {
         try {
@@ -6834,9 +7003,28 @@ export async function startVisualizerServer(discordClient) {
 
             const { regexes, activeLeagues } = await getActiveFantasyTeams(db, customLeagues);
             const leaguesToQuery = customLeagues || activeLeagues;
-            const rawPlayers = await db.collection('player_profiles').find({
-                vpgLeagueSlug: { $in: leaguesToQuery }
-            }).toArray();
+
+            let extraPlayerNames = [];
+            if (leagueId) {
+                const teams = await db.collection('fantasy_teams').find({ leagueId }).toArray();
+                for (const team of teams) {
+                    if (Array.isArray(team.players)) {
+                        extraPlayerNames.push(...team.players);
+                    }
+                }
+            }
+
+            let playerQuery = { vpgLeagueSlug: { $in: leaguesToQuery } };
+            if (extraPlayerNames.length > 0) {
+                playerQuery = {
+                    $or: [
+                        { vpgLeagueSlug: { $in: leaguesToQuery } },
+                        { eaPlayerName: { $in: extraPlayerNames } }
+                    ]
+                };
+            }
+
+            const rawPlayers = await db.collection('player_profiles').find(playerQuery).toArray();
 
             // Fetch team logos from test db
             const testDb = getDb('test');

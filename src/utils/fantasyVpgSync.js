@@ -465,6 +465,7 @@ export async function syncFantasyWithVpg() {
                                         if (player.user_avatar) existing.avatar = player.user_avatar;
                                         if (player.user_nationality) existing.nationality = player.user_nationality;
                                         if (dbTeam) existing.lastClub = dbTeam.name;
+                                        existing.vpgTeamSlug = pSlug;
                                     }
                                 } else {
                                     // Si es una posición de fantasía diferente, sumamos las estadísticas
@@ -503,6 +504,7 @@ export async function syncFantasyWithVpg() {
                                     if (player.user_avatar) existing.avatar = player.user_avatar;
                                     if (player.user_nationality) existing.nationality = player.user_nationality;
                                     if (dbTeam) existing.lastClub = dbTeam.name;
+                                    existing.vpgTeamSlug = pSlug;
                                 }
                             } else {
                                 const playerStats = {
@@ -535,6 +537,7 @@ export async function syncFantasyWithVpg() {
                                     lastActive: new Date(),
                                     lastPosition: fantasyPos,
                                     vpgLeagueSlug: leagueSlug,
+                                    vpgTeamSlug: pSlug,
                                     avatar: player.user_avatar || null,
                                     nationality: player.user_nationality || null,
                                     stats: playerStats
@@ -569,6 +572,56 @@ export async function syncFantasyWithVpg() {
                     if (existingPlayer.excluded === true) {
                         continue;
                     }
+
+                    // Conflict resolution: check if player is being crawled for a different division
+                    if (existingPlayer.vpgLeagueSlug && existingPlayer.vpgLeagueSlug !== leagueSlug) {
+                        let shouldSkip = false;
+                        try {
+                            console.log(`[VPG SYNC] Conflicto de división para ${username}: existente en "${existingPlayer.vpgLeagueSlug}", barriendo "${leagueSlug}". Verificando contrato activo...`);
+                            const contractsUrl = `https://api.virtualprogaming.com/public/users/${encodeURIComponent(username)}/contracts/`;
+                            const contractRes = await fetch(contractsUrl, { headers: HEADERS });
+                            if (contractRes.ok) {
+                                const contracts = await contractRes.json();
+                                if (Array.isArray(contracts)) {
+                                    const activeContracts = contracts.filter(c => c.status === 'active');
+                                    if (activeContracts.length > 0) {
+                                        // Check if any active contract matches the team we are currently crawling (pData.vpgTeamSlug)
+                                        const matchesActiveContract = activeContracts.some(c => 
+                                            String(c.team_slug || '').toLowerCase().trim() === String(pData.vpgTeamSlug || '').toLowerCase().trim()
+                                        );
+                                        if (!matchesActiveContract) {
+                                            console.log(`[VPG SYNC] Saltando actualización de ${username} para ${leagueSlug} / ${pData.vpgTeamSlug} porque su contrato activo está en otro club (Contratos activos: ${activeContracts.map(c => c.team_slug).join(', ')}).`);
+                                            shouldSkip = true;
+                                        }
+                                    } else {
+                                        console.log(`[VPG SYNC] El jugador ${username} no tiene contratos activos en VPG. Usando división superior como criterio.`);
+                                        if (getLeagueDivisionMultiplier(existingPlayer.vpgLeagueSlug) > getLeagueDivisionMultiplier(leagueSlug)) {
+                                            shouldSkip = true;
+                                        }
+                                    }
+                                } else {
+                                    if (getLeagueDivisionMultiplier(existingPlayer.vpgLeagueSlug) > getLeagueDivisionMultiplier(leagueSlug)) {
+                                        shouldSkip = true;
+                                    }
+                                }
+                            } else {
+                                console.warn(`[VPG SYNC] Error HTTP al obtener contratos de ${username}: ${contractRes.status}. Usando división superior como criterio.`);
+                                if (getLeagueDivisionMultiplier(existingPlayer.vpgLeagueSlug) > getLeagueDivisionMultiplier(leagueSlug)) {
+                                    shouldSkip = true;
+                                }
+                            }
+                        } catch (err) {
+                            console.error(`[VPG SYNC] Excepción al comprobar contratos de ${username}:`, err);
+                            if (getLeagueDivisionMultiplier(existingPlayer.vpgLeagueSlug) > getLeagueDivisionMultiplier(leagueSlug)) {
+                                shouldSkip = true;
+                            }
+                        }
+
+                        if (shouldSkip) {
+                            continue;
+                        }
+                    }
+
                     await playerColl.updateOne(
                         { _id: existingPlayer._id },
                         { $set: updateData }

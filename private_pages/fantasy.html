@@ -948,6 +948,33 @@
         </div>
     </div>
 
+    <!-- MODAL 10: Gestionar Roster/Plantilla de Equipo (Admin/Árbitro) -->
+    <div class="modal-overlay" id="admin-team-players-modal">
+        <div class="modal-content" style="max-width: 550px;">
+            <div class="modal-header">
+                <h3>Gestionar Jugadores: <span id="admin-team-players-title" class="text-green">Nombre del Equipo</span></h3>
+                <button class="modal-close" id="admin-team-players-close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Buscador de nuevos jugadores para añadir -->
+                <div class="form-group" style="position: relative; margin-bottom: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 20px;">
+                    <label for="admin-add-player-search-input"><strong>Añadir Jugador al Equipo:</strong></label>
+                    <div style="display: flex; gap: 8px; margin-top: 6px;">
+                        <input type="text" id="admin-add-player-search-input" placeholder="Buscar jugador por nombre para añadir..." autocomplete="off" style="flex: 1;">
+                    </div>
+                    <!-- Dropdown for search autocomplete results -->
+                    <div id="admin-add-player-autocomplete-results" class="autocomplete-dropdown"></div>
+                </div>
+
+                <!-- Lista de jugadores actuales en el equipo -->
+                <h4>Jugadores en Plantilla:</h4>
+                <div id="admin-team-players-list-container" style="max-height: 250px; overflow-y: auto; margin-top: 10px; padding-right: 4px;">
+                    <!-- Renders dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Client-side script -->
     <script src="/private_pages/fantasy.js"></script>
 </body>
