@@ -881,19 +881,16 @@ function getLeagueCoverImage(vpgLeagues) {
     }
     const divisions = vpgLeagues.map(slug => {
         const s = slug.toLowerCase().trim();
-        if (s === 'superliga-spain-a') return 'primera';
-        if (s === 'superliga-spain-b' || s.includes('segunda')) return 'segunda';
-        if (s.includes('tercera')) return 'tercera';
-        if (s.includes('cuarta')) return 'cuarta';
         if (s.includes('quinta')) return 'quinta';
-        return 'unknown';
+        if (s.includes('cuarta')) return 'cuarta';
+        if (s.includes('tercera')) return 'tercera';
+        if (s.includes('segunda') || s === 'superliga-spain-b') return 'segunda';
+        // Por descarte, si no es de 2ª a 5ª, pertenece a la categoría por defecto (1ª División / Primera)
+        return 'primera';
     });
-    const uniqueDivisions = [...new Set(divisions.filter(d => d !== 'unknown'))];
-    if (uniqueDivisions.length === 0) {
-        return '';
-    }
+    const uniqueDivisions = [...new Set(divisions)];
     if (uniqueDivisions.length > 1) {
-        return '/vpg_mixed_cover.png';
+        return '/vpg_mixed_cover.png'; // Diferentes divisiones mezcladas
     }
     const div = uniqueDivisions[0];
     if (div === 'primera') return '/vpg_primera_cover.png';
