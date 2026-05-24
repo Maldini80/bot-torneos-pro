@@ -7093,6 +7093,21 @@ export async function startVisualizerServer(discordClient) {
                     processed: false
                 });
 
+                // Notificar al dueño original por MD de Discord
+                if (client && ownerTeam.discordId) {
+                    try {
+                        const user = await client.users.fetch(ownerTeam.discordId);
+                        if (user) {
+                            // Obtener el nombre del comprador
+                            const buyerUser = await client.users.fetch(discordId).catch(() => null);
+                            const buyerName = buyerUser ? buyerUser.tag : 'Otro mánager';
+                            await user.send(`⚠️ **¡Clausulazo!** El mánager **${buyerName}** ha pagado la cláusula de rescisión de **${eaPlayerName}** por **${clauseAmount.toLocaleString('es-ES')} €**. El jugador ha sido transferido a su equipo en la liga **${league.name}**.`);
+                        }
+                    } catch (dmErr) {
+                        console.error('[Clausulazo DM] No se pudo enviar MD al dueño original:', dmErr.message);
+                    }
+                }
+
                 return res.json({
                     success: true,
                     message: `¡CLAUSULAZO! Has fichado a ${eaPlayerName} pagando su cláusula de rescisión de ${clauseAmount.toLocaleString('es-ES')} € al mánager del equipo ${ownerTeam.teamName}.`

@@ -2855,12 +2855,20 @@ body {
     }
 }
 
-@keyframes icon-fire-particles {
+@keyframes icon-fire-particles-large {
     0% {
-        background-position: 0px 0px, 0px 0px, 0px 0px, 0px 0px, center center, center center;
+        background-position: 0px 0px, 0px 0px, 0px 0px, 0px 0px, 0px 0px, 0px 0px, center center, center center;
     }
     100% {
-        background-position: 40px -200px, -30px -250px, 25px -220px, -20px -180px, center center, center center;
+        background-position: 0px -200px, 0px -240px, 0px -220px, 0px -180px, 0px -210px, 0px -230px, center center, center center;
+    }
+}
+@keyframes icon-fire-particles-small {
+    0% {
+        background-position: 0px 0px, 0px 0px, center center, center center;
+    }
+    100% {
+        background-position: 0px -200px, 0px -240px, center center, center center;
     }
 }
 @keyframes icon-glow {
@@ -2893,13 +2901,13 @@ body {
 
 @keyframes icon-shine {
     0% {
-        left: -150%;
+        left: -250%;
     }
     40% {
-        left: 150%;
+        left: 250%;
     }
     100% {
-        left: 150%;
+        left: 250%;
     }
 }
 
@@ -2955,9 +2963,10 @@ body {
         radial-gradient(ellipse at 50% 100%, rgba(255, 69, 0, 0.45) 0%, rgba(255, 140, 0, 0.25) 45%, transparent 80%),
         /* Pearl White base */
         linear-gradient(180deg, #ffffff 0%, #f1f5f9 60%, #e2e8f0 100%);
-    background-size: 150px 200px, 200px 250px, 180px 220px, 160px 180px, 170px 210px, 190px 230px, 100% 100%, 100% 100%;
+    background-size: 150px 200px, 200px 240px, 180px 220px, 160px 180px, 170px 210px, 190px 230px, 100% 100%, 100% 100%;
     background-position: 0px 0px, 0px 0px, 0px 0px, 0px 0px, 0px 0px, 0px 0px, center center, center center;
-    animation: icon-fire-particles 4s infinite linear;
+    background-repeat: repeat, repeat, repeat, repeat, repeat, repeat, no-repeat, no-repeat !important;
+    animation: icon-fire-particles-large 4s infinite linear;
     z-index: 2;
 }
 .icon .fut-card-inner::before {
@@ -3012,26 +3021,31 @@ body {
     transform-origin: center center !important;
     z-index: 1 !important;
 }
-/* Holographic Gold sweep */
+/* Holographic Gold/Rainbow sweep */
 .icon.fut-card .fut-card-inner::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -150%;
-    width: 100%;
-    height: 100%;
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: -250% !important;
+    width: 200% !important;
+    height: 100% !important;
     background: linear-gradient(
         90deg,
         transparent,
-        rgba(255, 255, 255, 0.65),
-        rgba(255, 224, 102, 0.55),
-        rgba(255, 255, 255, 0.65),
+        rgba(255, 215, 0, 0.2),      /* Gold */
+        rgba(255, 127, 80, 0.35),     /* Coral */
+        rgba(0, 245, 155, 0.35),      /* Magic Mint */
+        rgba(0, 242, 254, 0.35),      /* Cyan */
+        rgba(255, 224, 102, 0.55),     /* Bright Gold */
+        rgba(255, 255, 255, 0.75),     /* Diamond Shine */
+        rgba(255, 224, 102, 0.55),     /* Bright Gold */
         transparent
-    );
-    transform: skewX(-20deg);
-    animation: icon-shine 3.5s infinite linear;
-    pointer-events: none;
-    z-index: 5;
+    ) !important;
+    transform: skewX(-25deg) !important;
+    animation: icon-shine 4s infinite linear !important;
+    pointer-events: none !important;
+    z-index: 5 !important;
+    mix-blend-mode: color-dodge !important;
 }
 .icon .fut-card-rating {
     color: #0f172a !important;
@@ -3074,26 +3088,34 @@ body {
         linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
     background-size: 80px 100px, 100px 120px, 100% 100%, 100% 100%;
     background-position: 0px 0px, 0px 0px, center center, center center;
-    animation: icon-fire-particles 6s infinite linear;
+    background-repeat: repeat, repeat, no-repeat, no-repeat !important;
+    animation: icon-fire-particles-small 6s infinite linear;
 }
+/* Holographic Gold/Rainbow sweep */
 .icon.player-card-ut.occupied .player-card-ut-inner::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -150%;
-    width: 100%;
-    height: 100%;
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: -250% !important;
+    width: 200% !important;
+    height: 100% !important;
     background: linear-gradient(
         90deg,
         transparent,
-        rgba(255, 255, 255, 0.3),
-        rgba(255, 224, 102, 0.3),
+        rgba(255, 215, 0, 0.2),      /* Gold */
+        rgba(255, 127, 80, 0.35),     /* Coral */
+        rgba(0, 245, 155, 0.35),      /* Magic Mint */
+        rgba(0, 242, 254, 0.35),      /* Cyan */
+        rgba(255, 224, 102, 0.55),     /* Bright Gold */
+        rgba(255, 255, 255, 0.75),     /* Diamond Shine */
+        rgba(255, 224, 102, 0.55),     /* Bright Gold */
         transparent
-    );
-    transform: skewX(-20deg);
-    animation: icon-shine 4s infinite linear;
-    pointer-events: none;
-    z-index: 5;
+    ) !important;
+    transform: skewX(-25deg) !important;
+    animation: icon-shine 4s infinite linear !important;
+    pointer-events: none !important;
+    z-index: 5 !important;
+    mix-blend-mode: color-dodge !important;
 }
 .icon.player-card-ut.occupied .player-card-ut-rating {
     color: #0f172a !important;
