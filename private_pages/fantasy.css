@@ -2857,22 +2857,22 @@ body {
 
 @keyframes icon-fire-particles {
     0% {
-        background-position: 0px 0px, 0px 0px, center center, center center;
+        background-position: 0px 0px, 0px 0px, 0px 0px, 0px 0px, center center, center center;
     }
     100% {
-        background-position: 0px -100px, 50px -150px, center center, center center;
+        background-position: 40px -200px, -30px -250px, 25px -220px, -20px -180px, center center, center center;
     }
 }
 
 @keyframes icon-glow {
     0% {
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4), 0 0 20px rgba(212, 175, 55, 0.5);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 140, 0, 0.5), 0 0 5px rgba(255, 215, 0, 0.4);
     }
     50% {
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4), 0 0 35px rgba(212, 175, 55, 0.8), 0 0 15px rgba(255, 255, 255, 0.6);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 35px rgba(255, 69, 0, 0.9), 0 0 20px rgba(255, 215, 0, 0.9), 0 0 8px rgba(255, 255, 255, 0.9);
     }
     100% {
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4), 0 0 20px rgba(212, 175, 55, 0.5);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 140, 0, 0.5), 0 0 5px rgba(255, 215, 0, 0.4);
     }
 }
 
@@ -2890,37 +2890,42 @@ body {
 
 @keyframes icon-pitch-glow {
     0% {
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4), 0 0 10px rgba(212, 175, 55, 0.4);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 0 10px rgba(255, 140, 0, 0.4), 0 0 4px rgba(255, 215, 0, 0.3);
     }
     50% {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 0 20px rgba(212, 175, 55, 0.7), 0 0 10px rgba(255, 255, 255, 0.5);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 69, 0, 0.8), 0 0 10px rgba(255, 215, 0, 0.8), 0 0 5px rgba(255, 255, 255, 0.6);
     }
     100% {
-        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4), 0 0 10px rgba(212, 175, 55, 0.4);
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 0 10px rgba(255, 140, 0, 0.4), 0 0 4px rgba(255, 215, 0, 0.3);
     }
 }
 
 .icon.fut-card {
-    background: linear-gradient(135deg, #c5a030 0%, #ffe066 30%, #fef9e7 50%, #ffe066 70%, #c5a030 100%) !important;
-    animation: icon-glow 3s infinite ease-in-out;
+    background: linear-gradient(135deg, #ffe066 0%, #ff4500 25%, #ffe066 50%, #ff8c00 75%, #ffe066 100%) !important;
+    animation: icon-glow 2s infinite ease-in-out;
 }
 @media (hover: hover) {
     .icon.fut-card:hover {
-        filter: drop-shadow(0 15px 35px rgba(212, 175, 55, 0.7)) !important;
+        filter: drop-shadow(0 15px 35px rgba(255, 69, 0, 0.8)) !important;
     }
 }
 .icon .fut-card-inner {
     background: 
-        /* Layer 1: Floating sparks moving upwards */
-        radial-gradient(circle, rgba(212, 175, 55, 0.35) 1.5px, transparent 2px),
-        radial-gradient(circle, rgba(212, 175, 55, 0.25) 2.5px, transparent 3.5px),
-        /* Layer 2: Main radial gold gradient from top center */
-        radial-gradient(circle at 50% 30%, rgba(212, 175, 55, 0.15), transparent 70%),
-        /* Layer 3: Pearl White base */
+        /* Fire ember 1 (Orange-red sparks) */
+        radial-gradient(circle, rgba(255, 69, 0, 0.85) 3.5px, transparent 10px),
+        /* Fire ember 2 (Bright golden sparks) */
+        radial-gradient(circle, rgba(255, 180, 0, 0.9) 4.5px, transparent 12px),
+        /* Fire ember 3 (Small gold sparks) */
+        radial-gradient(circle, rgba(255, 215, 0, 0.9) 3px, transparent 8px),
+        /* Fire ember 4 (Orange embers) */
+        radial-gradient(circle, rgba(255, 69, 0, 0.7) 4px, transparent 11px),
+        /* Bottom hot fire glow */
+        radial-gradient(ellipse at 50% 100%, rgba(255, 69, 0, 0.4) 0%, rgba(255, 140, 0, 0.2) 40%, transparent 80%),
+        /* Pearl White base */
         linear-gradient(180deg, #ffffff 0%, #f1f5f9 60%, #e2e8f0 100%) !important;
-    background-size: 100px 100px, 150px 150px, 100% 100%, 100% 100% !important;
-    background-position: 0px 0px, 0px 0px, center center, center center !important;
-    animation: icon-fire-particles 8s infinite linear !important;
+    background-size: 150px 200px, 200px 250px, 180px 220px, 160px 180px, 100% 100%, 100% 100% !important;
+    background-position: 0px 0px, 0px 0px, 0px 0px, 0px 0px, center center, center center !important;
+    animation: icon-fire-particles 5s infinite linear !important;
     z-index: 2;
 }
 .icon .fut-card-inner::before {
@@ -2933,35 +2938,41 @@ body {
     background: conic-gradient(
         from 0deg at 50% 50%,
         transparent 0deg,
-        rgba(212, 175, 55, 0.1) 12deg,
-        transparent 24deg,
-        rgba(212, 175, 55, 0.1) 36deg,
-        transparent 48deg,
-        rgba(212, 175, 55, 0.1) 60deg,
-        transparent 72deg,
-        rgba(212, 175, 55, 0.1) 84deg,
-        transparent 96deg,
-        rgba(212, 175, 55, 0.1) 108deg,
+        rgba(255, 140, 0, 0.08) 10deg,
+        transparent 20deg,
+        rgba(255, 215, 0, 0.12) 30deg,
+        transparent 40deg,
+        rgba(255, 140, 0, 0.08) 50deg,
+        transparent 60deg,
+        rgba(255, 215, 0, 0.12) 70deg,
+        transparent 80deg,
+        rgba(255, 140, 0, 0.08) 90deg,
+        transparent 100deg,
+        rgba(255, 215, 0, 0.12) 110deg,
         transparent 120deg,
-        rgba(212, 175, 55, 0.1) 132deg,
-        transparent 144deg,
-        rgba(212, 175, 55, 0.1) 156deg,
-        transparent 168deg,
-        rgba(212, 175, 55, 0.1) 180deg,
-        transparent 192deg,
-        rgba(212, 175, 55, 0.1) 204deg,
-        transparent 216deg,
-        rgba(212, 175, 55, 0.1) 228deg,
+        rgba(255, 140, 0, 0.08) 130deg,
+        transparent 140deg,
+        rgba(255, 215, 0, 0.12) 150deg,
+        transparent 160deg,
+        rgba(255, 140, 0, 0.08) 170deg,
+        transparent 180deg,
+        rgba(255, 215, 0, 0.12) 190deg,
+        transparent 200deg,
+        rgba(255, 140, 0, 0.08) 210deg,
+        transparent 220deg,
+        rgba(255, 215, 0, 0.12) 230deg,
         transparent 240deg,
-        rgba(212, 175, 55, 0.1) 252deg,
-        transparent 264deg,
-        rgba(212, 175, 55, 0.1) 276deg,
-        transparent 288deg,
-        rgba(212, 175, 55, 0.1) 300deg,
-        transparent 312deg,
-        rgba(212, 175, 55, 0.1) 324deg,
-        transparent 336deg,
-        rgba(212, 175, 55, 0.1) 348deg,
+        rgba(255, 140, 0, 0.08) 250deg,
+        transparent 260deg,
+        rgba(255, 215, 0, 0.12) 270deg,
+        transparent 280deg,
+        rgba(255, 140, 0, 0.08) 290deg,
+        transparent 300deg,
+        rgba(255, 215, 0, 0.12) 310deg,
+        transparent 320deg,
+        rgba(255, 140, 0, 0.08) 330deg,
+        transparent 340deg,
+        rgba(255, 215, 0, 0.12) 350deg,
         transparent 360deg
     ) !important;
     animation: icon-rays-rotate 25s infinite linear !important;
@@ -2980,10 +2991,10 @@ body {
     background: linear-gradient(
         90deg,
         transparent,
-        rgba(255, 255, 255, 0.4),
-        rgba(255, 224, 102, 0.4),
-        rgba(212, 175, 55, 0.4),
-        rgba(255, 255, 255, 0.4),
+        rgba(255, 255, 255, 0.5),
+        rgba(255, 224, 102, 0.5),
+        rgba(212, 175, 55, 0.5),
+        rgba(255, 255, 255, 0.5),
         transparent
     ) !important;
     transform: skewX(-20deg) !important;
@@ -2993,13 +3004,13 @@ body {
 }
 .icon .fut-card-rating {
     color: #0f172a !important;
-    text-shadow: 0 0 6px rgba(212, 175, 55, 0.45), 0 0 1px rgba(212, 175, 55, 0.2) !important;
+    text-shadow: 0 0 6px rgba(255, 165, 0, 0.6), 0 0 1px rgba(255, 215, 0, 0.3) !important;
 }
 .icon .fut-card-pos, 
 .icon .fut-card-player-name {
     color: #1e293b !important;
-    border-bottom-color: rgba(212, 175, 55, 0.35) !important;
-    text-shadow: 0 0 3px rgba(212, 175, 55, 0.2) !important;
+    border-bottom-color: rgba(255, 140, 0, 0.35) !important;
+    text-shadow: 0 0 3px rgba(255, 165, 0, 0.2) !important;
 }
 .icon .fut-card-stat-value {
     color: #0f172a !important;
@@ -3008,30 +3019,31 @@ body {
     color: #475569 !important;
 }
 .icon .fut-card-stats-grid::before {
-    background: linear-gradient(to bottom, transparent, rgba(212, 175, 55, 0.35), transparent) !important;
+    background: linear-gradient(to bottom, transparent, rgba(255, 140, 0, 0.35), transparent) !important;
 }
 
 /* Small Icon Card on Pitch */
 .icon.player-card-ut.occupied {
-    background: linear-gradient(135deg, #c5a030 0%, #ffe066 30%, #fef9e7 50%, #ffe066 70%, #c5a030 100%) !important;
+    background: linear-gradient(135deg, #ffe066 0%, #ff4500 50%, #ffe066 100%) !important;
     animation: icon-pitch-glow 3s infinite ease-in-out;
 }
 @media (hover: hover) {
     .icon.player-card-ut.occupied:hover {
-        filter: drop-shadow(0 8px 20px rgba(212, 175, 55, 0.8)) !important;
+        filter: drop-shadow(0 8px 20px rgba(255, 69, 0, 0.9)) !important;
     }
 }
 .icon.player-card-ut.occupied .player-card-ut-inner {
     background: 
-        /* Rising sparks */
-        radial-gradient(circle, rgba(212, 175, 55, 0.3) 1px, transparent 2px),
-        /* Golden aura radial */
-        radial-gradient(circle at 50% 30%, rgba(212, 175, 55, 0.15), transparent 70%),
+        /* Compact sparks */
+        radial-gradient(circle, rgba(255, 69, 0, 0.8) 2px, transparent 6px),
+        radial-gradient(circle, rgba(255, 165, 0, 0.9) 2.5px, transparent 7px),
+        /* Bottom hot fire glow */
+        radial-gradient(ellipse at 50% 100%, rgba(255, 69, 0, 0.3) 0%, rgba(255, 140, 0, 0.15) 50%, transparent 80%),
         /* Pearl White base */
         linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%) !important;
-    background-size: 50px 50px, 100% 100%, 100% 100% !important;
-    background-position: 0px 0px, center center, center center !important;
-    animation: icon-fire-particles 10s infinite linear !important;
+    background-size: 80px 100px, 100px 120px, 100% 100%, 100% 100% !important;
+    background-position: 0px 0px, 0px 0px, center center, center center !important;
+    animation: icon-fire-particles 6s infinite linear !important;
 }
 .icon.player-card-ut.occupied .player-card-ut-inner::after {
     content: '';
@@ -3054,7 +3066,7 @@ body {
 }
 .icon.player-card-ut.occupied .player-card-ut-rating {
     color: #0f172a !important;
-    text-shadow: 0 0 4px rgba(212, 175, 55, 0.4) !important;
+    text-shadow: 0 0 4px rgba(255, 165, 0, 0.4) !important;
 }
 .icon.player-card-ut.occupied .player-card-ut-position,
 .icon.player-card-ut.occupied .player-card-ut-name {
