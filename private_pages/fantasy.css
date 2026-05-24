@@ -494,6 +494,9 @@ body {
 .diamond.player-card-ut.occupied .player-card-ut-avatar i {
     color: rgba(0, 242, 254, 0.25) !important;
 }
+.prismatic.player-card-ut.occupied .player-card-ut-avatar i {
+    color: rgba(191, 90, 242, 0.25) !important;
+}
 
 .player-card-ut-name {
     font-size: calc(0.6rem * var(--name-scale, 1));
@@ -638,6 +641,13 @@ body {
 }
 .diamond.player-card-ut.occupied .player-card-ut-avatar.no-avatar .avatar-shield-back {
     color: rgba(0, 242, 254, 0.15) !important;
+}
+
+.prismatic.player-card-ut.occupied .player-card-ut-avatar.no-avatar i {
+    color: rgba(191, 90, 242, 0.35) !important;
+}
+.prismatic.player-card-ut.occupied .player-card-ut-avatar.no-avatar .avatar-shield-back {
+    color: rgba(191, 90, 242, 0.15) !important;
 }
 
 .player-avatar-img {
@@ -2177,6 +2187,11 @@ body {
     border-color: #00f2fe;
     box-shadow: 0 0 10px rgba(0, 242, 254, 0.6);
 }
+.prismatic .fut-card-player-avatar-container img.fut-card-player-avatar-img,
+.prismatic .fut-card-player-avatar-container img.player-avatar-img {
+    border-color: #ff007f;
+    box-shadow: 0 0 10px rgba(255, 0, 127, 0.6);
+}
 .fut-card-player-avatar-container i {
     font-size: 3.8rem;
     color: #38bdf8;
@@ -2527,7 +2542,7 @@ body {
     color: #ffe4e6 !important;
 }
 
-/* 5. DIAMOND TIER (Points >= 300) */
+/* 5. DIAMOND TIER (300 <= Points < 400) */
 /* Diamond Keyframes for pulsing glows & moving sheens */
 @keyframes diamond-glow {
     0% {
@@ -2671,6 +2686,148 @@ body {
     color: #e0f7fa !important;
 }
 
+/* 6. PRISMATIC OBSIDIAN TIER (Points >= 400) */
+/* Prismatic Keyframes for glowing and sweep animations */
+@keyframes prismatic-glow {
+    0% {
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7), 0 0 15px rgba(255, 0, 127, 0.4);
+    }
+    50% {
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7), 0 0 35px rgba(255, 0, 127, 0.75), 0 0 15px rgba(0, 242, 254, 0.55);
+    }
+    100% {
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7), 0 0 15px rgba(255, 0, 127, 0.4);
+    }
+}
+
+@keyframes prismatic-shine {
+    0% {
+        left: -150%;
+    }
+    50% {
+        left: 150%;
+    }
+    100% {
+        left: 150%;
+    }
+}
+
+@keyframes prismatic-pitch-glow {
+    0% {
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 0 8px rgba(255, 0, 127, 0.35);
+    }
+    50% {
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 0 18px rgba(255, 0, 127, 0.65), 0 0 8px rgba(0, 242, 254, 0.45);
+    }
+    100% {
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 0 8px rgba(255, 0, 127, 0.35);
+    }
+}
+
+.prismatic.fut-card {
+    background: linear-gradient(135deg, #ff007f 0%, #7f00ff 50%, #00f2fe 100%) !important;
+    animation: prismatic-glow 3s infinite ease-in-out;
+}
+@media (hover: hover) {
+    .prismatic.fut-card:hover {
+        filter: drop-shadow(0 15px 30px rgba(255, 0, 127, 0.8)) !important;
+    }
+}
+.prismatic .fut-card-inner {
+    background: 
+        radial-gradient(circle at 50% 30%, rgba(255, 0, 127, 0.2), transparent 60%),
+        repeating-linear-gradient(60deg, rgba(255, 0, 127, 0.08) 0px, rgba(255, 0, 127, 0.08) 3px, transparent 3px, transparent 30px),
+        repeating-linear-gradient(-60deg, rgba(0, 242, 254, 0.08) 0px, rgba(0, 242, 254, 0.08) 3px, transparent 3px, transparent 30px),
+        linear-gradient(180deg, #020205 0%, #0c0818 100%) !important; /* Obsidian base */
+}
+.prismatic .fut-card-inner::before {
+    background: radial-gradient(circle at 50% 30%, rgba(255, 0, 127, 0.35) 0%, transparent 60%) !important;
+}
+/* Holographic sheen sweep */
+.prismatic .fut-card-inner::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 0, 127, 0.3),
+        rgba(127, 0, 255, 0.4),
+        rgba(0, 242, 254, 0.3),
+        transparent
+    );
+    transform: skewX(-20deg);
+    animation: prismatic-shine 4.5s infinite linear;
+    pointer-events: none;
+    z-index: 5;
+}
+.prismatic .fut-card-rating {
+    color: #ffffff !important;
+    text-shadow: 0 0 8px rgba(255, 0, 127, 0.8), 0 0 3px rgba(0, 242, 254, 0.6) !important;
+}
+.prismatic .fut-card-pos, 
+.prismatic .fut-card-player-name {
+    color: #fce4ec !important;
+    border-bottom-color: rgba(255, 0, 127, 0.3) !important;
+}
+.prismatic .fut-card-stat-value {
+    color: #ffffff !important;
+}
+.prismatic .fut-card-stat-label {
+    color: #f8bbd0 !important;
+}
+.prismatic .fut-card-stats-grid::before {
+    background: linear-gradient(to bottom, transparent, rgba(255, 0, 127, 0.3), transparent) !important;
+}
+
+/* Small Prismatic Card on Pitch */
+.prismatic.player-card-ut.occupied {
+    background: linear-gradient(135deg, #ff007f 0%, #7f00ff 50%, #00f2fe 100%) !important;
+    animation: prismatic-pitch-glow 3s infinite ease-in-out;
+}
+@media (hover: hover) {
+    .prismatic.player-card-ut.occupied:hover {
+        filter: drop-shadow(0 8px 16px rgba(255, 0, 127, 0.85)) !important;
+    }
+}
+.prismatic.player-card-ut.occupied .player-card-ut-inner {
+    background: 
+        radial-gradient(circle at 50% 30%, rgba(255, 0, 127, 0.2), transparent 60%),
+        repeating-linear-gradient(60deg, rgba(255, 0, 127, 0.08) 0px, rgba(255, 0, 127, 0.08) 2px, transparent 2px, transparent 20px),
+        repeating-linear-gradient(-60deg, rgba(0, 242, 254, 0.08) 0px, rgba(0, 242, 254, 0.08) 2px, transparent 2px, transparent 20px),
+        linear-gradient(180deg, #020205 0%, #0c0818 100%) !important;
+}
+.prismatic.player-card-ut.occupied .player-card-ut-inner::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 0, 127, 0.3),
+        rgba(0, 242, 254, 0.3),
+        transparent
+    );
+    transform: skewX(-20deg);
+    animation: prismatic-shine 4.5s infinite linear;
+    pointer-events: none;
+    z-index: 5;
+}
+.prismatic.player-card-ut.occupied .player-card-ut-rating {
+    color: #ffffff !important;
+    text-shadow: 0 0 4px rgba(255, 0, 127, 0.6) !important;
+}
+.prismatic.player-card-ut.occupied .player-card-ut-position,
+.prismatic.player-card-ut.occupied .player-card-ut-name {
+    color: #fce4ec !important;
+}
+
 /* ==========================================================================
    MICRO FUT CARD (For Market and Squad list tables)
    ========================================================================== */
@@ -2761,6 +2918,20 @@ body {
 .micro-fut-card.diamond .micro-fut-card-rating {
     color: #ffffff !important;
     text-shadow: 0 0 3px rgba(0, 242, 254, 0.8);
+}
+
+.micro-fut-card.prismatic {
+    background: linear-gradient(135deg, #ff007f 0%, #7f00ff 50%, #00f2fe 100%) !important;
+    box-shadow: 0 0 8px rgba(255, 0, 127, 0.4);
+}
+.micro-fut-card.prismatic .micro-fut-card-inner {
+    background: 
+        radial-gradient(circle at 50% 30%, rgba(255, 0, 127, 0.2), transparent 60%),
+        linear-gradient(180deg, #020205 0%, #0c0818 100%) !important;
+}
+.micro-fut-card.prismatic .micro-fut-card-rating {
+    color: #ffffff !important;
+    text-shadow: 0 0 3px rgba(255, 0, 127, 0.8);
 }
 
 /* ==========================================================================
