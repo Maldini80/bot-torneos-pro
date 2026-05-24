@@ -574,22 +574,150 @@ export async function syncFantasyWithVpg() {
                         { $set: updateData }
                     );
                 } else {
-                    // Insertar nuevo jugador
-                    const newPlayerDoc = {
-                        eaPlayerName: username,
-                        ...updateData,
-                        build: {
-                            height: null,
-                            weight: null,
-                            perks: {},
-                            vproattr: "NH"
+                    // HEURISTIC: Check if this new player is a name-changed old player
+                    let autoMerged = false;
+                    const newPoints = updateData.stats ? (updateData.stats.vpgPoints || 0) : 0;
+                    const newPJ = updateData.stats ? (updateData.stats.matchesPlayed || 0) : 0;
+                    const newGoals = updateData.stats ? (updateData.stats.goals || 0) : 0;
+                    const newAssists = updateData.stats ? (updateData.stats.assists || 0) : 0;
+
+                    if (newPoints >= 70 && updateData.lastClub) {
+                        // Search for inactive players in the same club with exact same stats
+                        const potentialMatches = await playerColl.find({
+                            lastClub: updateData.lastClub,
+                            excluded: { $ne: true },
+                            vpgLeagueSlug: { $ne: leagueSlug }, // Not active in this league/crawl
+                            "stats.vpgPoints": newPoints,
+                            "stats.matchesPlayed": newPJ,
+                            "stats.goals": newGoals,
+                            "stats.assists": newAssists
+                        }).toArray();
+
+                        if (potentialMatches.length === 1) {
+                            const oldPlayer = potentialMatches[0];
+                            const oldPlayerNameExact = oldPlayer.eaPlayerName;
+                            const newPlayerNameExact = username; // username is the new name
+
+                            console.log(`[VPG SYNC] [AUTO MERGE] Detectado cambio de nombre: ${oldPlayerNameExact} -> ${newPlayerNameExact} (Club: ${updateData.lastClub}, Puntos: ${newPoints})`);
+
+                            // 1. Actualizar perfil antiguo con el nuevo nombre y datos
+                            await playerColl.updateOne(
+                                { _id: oldPlayer._id },
+                                { 
+                                    $set: { 
+                                        eaPlayerName: newPlayerNameExact,
+                                        ...updateData
+                                    } 
+                                }
+                            );
+
+                            // 2. Renombrar en equipos Fantasy
+                            const affectedTeams = await db.collection('fantasy_teams').find({
+                                players: { $regex: new RegExp('^' + oldPlayerNameExact.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+                            }).toArray();
+
+                            for (const team of affectedTeams) {
+                                const updatedPlayers = team.players.map(p => {
+                                    if (p.toLowerCase() === oldPlayerNameExact.toLowerCase()) return newPlayerNameExact;
+                                    return p;
+                                });
+                                const updatedLineup = { ...team.lineup };
+                                for (const pos in updatedLineup) {
+                                    if (Array.isArray(updatedLineup[pos])) {
+                                        updatedLineup[pos] = updatedLineup[pos].map(p => {
+                                            if (p && p.toLowerCase() === oldPlayerNameExact.toLowerCase()) return newPlayerNameExact;
+                                            return p;
+                                        });
+                                    } else if (updatedLineup[pos] && updatedLineup[pos].toLowerCase() === oldPlayerNameExact.toLowerCase()) {
+                                        updatedLineup[pos] = newPlayerNameExact;
+                                    }
+                                }
+                                const updatedClauses = { ...team.clauses || {} };
+                                const updatedClausesProtected = { ...team.clausesProtectedUntil || {} };
+                                const clauseKey = Object.keys(updatedClauses).find(k => k.toLowerCase() === oldPlayerNameExact.toLowerCase());
+                                if (clauseKey) {
+                                    updatedClauses[newPlayerNameExact] = updatedClauses[clauseKey];
+                                    delete updatedClauses[clauseKey];
+                                }
+                                const protectKey = Object.keys(updatedClausesProtected).find(k => k.toLowerCase() === oldPlayerNameExact.toLowerCase());
+                                if (protectKey) {
+                                    updatedClausesProtected[newPlayerNameExact] = updatedClausesProtected[protectKey];
+                                    delete updatedClausesProtected[protectKey];
+                                }
+
+                                await db.collection('fantasy_teams').updateOne(
+                                    { _id: team._id },
+                                    {
+                                        $set: {
+                                            players: updatedPlayers,
+                                            lineup: updatedLineup,
+                                            clauses: updatedClauses,
+                                            clausesProtectedUntil: updatedClausesProtected
+                                        }
+                                    }
+                                );
+                            }
+
+                            // 3. Renombrar en ofertas del mercado y listas
+                            await db.collection('fantasy_market_listings').updateMany(
+                                { eaPlayerName: { $regex: new RegExp('^' + oldPlayerNameExact.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } },
+                                { $set: { eaPlayerName: newPlayerNameExact } }
+                            );
+                            await db.collection('fantasy_market_bids').updateMany(
+                                { eaPlayerName: { $regex: new RegExp('^' + oldPlayerNameExact.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } },
+                                { $set: { eaPlayerName: newPlayerNameExact } }
+                            );
+
+                            // 4. Renombrar en basePoints de las ligas
+                            const affectedLeagues = await db.collection('fantasy_leagues').find({
+                                $or: [
+                                    { marketFreeAgents: { $regex: new RegExp('^' + oldPlayerNameExact.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } },
+                                    { [`basePoints.${oldPlayerNameExact}`]: { $exists: true } }
+                                ]
+                            }).toArray();
+
+                            for (const league of affectedLeagues) {
+                                const lUpdateOps = {};
+                                if (Array.isArray(league.marketFreeAgents)) {
+                                    lUpdateOps.marketFreeAgents = league.marketFreeAgents.map(p => {
+                                        if (p.toLowerCase() === oldPlayerNameExact.toLowerCase()) return newPlayerNameExact;
+                                        return p;
+                                    });
+                                }
+                                if (league.basePoints) {
+                                    const updatedBasePoints = { ...league.basePoints };
+                                    const baseKey = Object.keys(updatedBasePoints).find(k => k.toLowerCase() === oldPlayerNameExact.toLowerCase());
+                                    if (baseKey) {
+                                        updatedBasePoints[newPlayerNameExact] = updatedBasePoints[baseKey];
+                                        delete updatedBasePoints[baseKey];
+                                        lUpdateOps.basePoints = updatedBasePoints;
+                                    }
+                                }
+                                await db.collection('fantasy_leagues').updateOne({ _id: league._id }, { $set: lUpdateOps });
+                            }
+
+                            autoMerged = true;
                         }
-                    };
-                    if (wasLeagueActive) {
-                        newPlayerDoc.isNew = true;
-                        newPlayerDoc.newUntil = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
                     }
-                    await playerColl.insertOne(newPlayerDoc);
+
+                    if (!autoMerged) {
+                        // Insertar nuevo jugador
+                        const newPlayerDoc = {
+                            eaPlayerName: username,
+                            ...updateData,
+                            build: {
+                                height: null,
+                                weight: null,
+                                perks: {},
+                                vproattr: "NH"
+                            }
+                        };
+                        if (wasLeagueActive) {
+                            newPlayerDoc.isNew = true;
+                            newPlayerDoc.newUntil = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+                        }
+                        await playerColl.insertOne(newPlayerDoc);
+                    }
                 }
 
                 totalPlayersUpdated++;
