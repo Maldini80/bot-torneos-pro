@@ -875,6 +875,35 @@ async function showLeagueSelector() {
     }
 }
 
+function getLeagueCoverImage(vpgLeagues) {
+    if (!vpgLeagues || !Array.isArray(vpgLeagues) || vpgLeagues.length === 0) {
+        return '';
+    }
+    const divisions = vpgLeagues.map(slug => {
+        const s = slug.toLowerCase().trim();
+        if (s === 'superliga-spain-a') return 'primera';
+        if (s === 'superliga-spain-b' || s.includes('segunda')) return 'segunda';
+        if (s.includes('tercera')) return 'tercera';
+        if (s.includes('cuarta')) return 'cuarta';
+        if (s.includes('quinta')) return 'quinta';
+        return 'unknown';
+    });
+    const uniqueDivisions = [...new Set(divisions.filter(d => d !== 'unknown'))];
+    if (uniqueDivisions.length === 0) {
+        return '';
+    }
+    if (uniqueDivisions.length > 1) {
+        return '/vpg_mixed_cover.png';
+    }
+    const div = uniqueDivisions[0];
+    if (div === 'primera') return '/vpg_primera_cover.png';
+    if (div === 'segunda') return '/vpg_segunda_cover.png';
+    if (div === 'tercera') return '/vpg_tercera_cover.png';
+    if (div === 'cuarta') return '/vpg_cuarta_cover.png';
+    if (div === 'quinta') return '/vpg_quinta_cover.png';
+    return '';
+}
+
 // Render the leagues grid with optional name filtering
 function renderLeaguesList(filterText = '') {
     leaguesGrid.innerHTML = '';
@@ -896,6 +925,12 @@ function renderLeaguesList(filterText = '') {
     filteredLeagues.forEach(league => {
         const card = document.createElement('div');
         card.className = 'league-card';
+        
+        const coverImg = getLeagueCoverImage(league.vpgLeagues);
+        if (coverImg) {
+            card.style.setProperty('--card-bg', `url("${coverImg}")`);
+            card.classList.add('has-cover');
+        }
         
         let statusBadge = '';
         if (league.status === 'open') statusBadge = '<span class="badge badge-success">Abierta</span>';
