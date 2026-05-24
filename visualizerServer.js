@@ -114,7 +114,9 @@ export function calculatePlayerPointsAndPrice(p) {
     }
 
     // Límites y Redondeo
-    price = Math.min(80000000, Math.max(2600000, price));
+    const divMult = getLeagueDivisionMultiplier(p.vpgLeagueSlug);
+    const minPrice = 2600000 * divMult;
+    price = Math.min(80000000, Math.max(minPrice, price));
     price = Math.round(price / 50000) * 50000;
 
 
