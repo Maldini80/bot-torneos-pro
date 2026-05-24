@@ -62,10 +62,10 @@ function findDbTeam(vpgTeam, dbTeams) {
 function getLeagueDivisionMultiplier(slug) {
     if (!slug) return 1.0;
     const s = slug.toLowerCase().trim();
-    if (s === 'superliga-spain-a') {
+    if (s === 'superliga-spain-a' || s === 'superliga-spain-b') {
         return 1.0; // 1ª División
     }
-    if (s === 'superliga-spain-b' || s.includes('segunda')) {
+    if (s.includes('segunda')) {
         return 0.75; // 2ª División (-25%)
     }
     if (s.includes('tercera')) {

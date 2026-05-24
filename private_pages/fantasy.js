@@ -884,7 +884,7 @@ function getLeagueCoverImage(vpgLeagues) {
         if (s.includes('quinta')) return 'quinta';
         if (s.includes('cuarta')) return 'cuarta';
         if (s.includes('tercera')) return 'tercera';
-        if (s.includes('segunda') || s === 'superliga-spain-b') return 'segunda';
+        if (s.includes('segunda')) return 'segunda';
         // Por descarte, si no es de 2ª a 5ª, pertenece a la categoría por defecto (1ª División / Primera)
         return 'primera';
     });
