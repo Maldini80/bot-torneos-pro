@@ -6,7 +6,7 @@
 }
 
 body {
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     background: radial-gradient(circle at 50% 0%, #1e294b 0%, #0b1120 50%, #030712 100%);
     color: #f8fafc;
     min-height: 100vh;
@@ -391,8 +391,9 @@ body {
     clip-path: polygon(50% 0%, 100% 12%, 100% 90%, 50% 100%, 0% 90%, 0% 12%);
     background: linear-gradient(135deg, rgba(56, 189, 248, 0.4), rgba(15, 23, 42, 0.9));
     padding: 1.5px; /* Border thickness */
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), filter 0.3s ease;
     filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6));
+    will-change: transform;
 }
 
 .player-card-ut.occupied {
@@ -403,13 +404,15 @@ body {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), rgba(15, 23, 42, 0.8));
 }
 
-.player-card-ut:hover {
-    transform: translateY(-5px) scale(1.05);
-    filter: drop-shadow(0 8px 16px rgba(56, 189, 248, 0.5));
-}
+@media (hover: hover) {
+    .player-card-ut:hover {
+        transform: translateY(-5px) scale(1.05);
+        filter: drop-shadow(0 8px 16px rgba(56, 189, 248, 0.5));
+    }
 
-.player-card-ut.occupied:hover {
-    filter: drop-shadow(0 8px 16px rgba(0, 245, 155, 0.5));
+    .player-card-ut.occupied:hover {
+        filter: drop-shadow(0 8px 16px rgba(0, 245, 155, 0.5));
+    }
 }
 
 .player-card-ut-inner {
@@ -783,8 +786,9 @@ body {
 }
 
 .search-box input:focus {
-    border-color: #38bdf8;
-    box-shadow: 0 0 5px rgba(56, 189, 248, 0.2);
+    outline: none;
+    border-color: #00f2fe;
+    box-shadow: 0 0 8px rgba(0, 242, 254, 0.3);
 }
 
 .form-select-sm {
@@ -806,6 +810,7 @@ body {
     border-radius: 8px;
     border: 1px solid rgba(255, 255, 255, 0.04);
     background: rgba(15, 23, 42, 0.2);
+    -webkit-overflow-scrolling: touch;
 }
 
 .fantasy-table {
@@ -1236,20 +1241,21 @@ body {
 .league-card {
     background: rgba(20, 28, 47, 0.35);
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 16px;
     padding: 20px;
     display: flex;
     flex-direction: column;
     gap: 16px;
-    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s ease, box-shadow 0.3s ease;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    will-change: transform, box-shadow;
 }
 
 .league-card:hover {
-    border-color: rgba(56, 189, 248, 0.35);
-    transform: translateY(-5px);
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3), 0 0 15px rgba(56, 189, 248, 0.08);
+    border-color: rgba(0, 242, 254, 0.35);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 242, 254, 0.1), 0 10px 25px rgba(0, 0, 0, 0.3);
     background: rgba(20, 28, 47, 0.5);
 }
 
@@ -1306,6 +1312,10 @@ body {
     background: rgba(168, 85, 247, 0.12);
     color: #a855f7;
 }
+.league-meta div:nth-child(4) i {
+    background: rgba(250, 204, 21, 0.12);
+    color: #facc15;
+}
 
 .league-card-actions {
     display: flex;
@@ -1322,7 +1332,8 @@ body {
     font-weight: 600;
 }
 
-.league-card .btn-enter-league {
+.league-card .btn-enter-league,
+.league-card .btn-join-league {
     background: linear-gradient(135deg, #00f59b 0%, #00d2e8 100%) !important;
     border: none !important;
     color: #050b14 !important;
@@ -1332,10 +1343,27 @@ body {
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
 }
 
-.league-card .btn-enter-league:hover {
+.league-card .btn-enter-league:hover,
+.league-card .btn-join-league:hover {
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(0, 245, 155, 0.4), 0 0 10px rgba(0, 210, 248, 0.2);
     filter: brightness(1.1);
+}
+
+.league-card .btn-read-league {
+    background: rgba(56, 189, 248, 0.05) !important;
+    border: 1px solid rgba(56, 189, 248, 0.3) !important;
+    color: #38bdf8 !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.02em;
+    transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+.league-card .btn-read-league:hover {
+    background: rgba(56, 189, 248, 0.15) !important;
+    border-color: #38bdf8 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 0 12px rgba(56, 189, 248, 0.2);
 }
 
 .league-card .btn-warning.btn-enter-league {
@@ -1539,8 +1567,8 @@ body {
 .admin-form input:focus, .admin-form select:focus,
 #admin-update-league-form input:focus, #admin-update-league-form select:focus {
     outline: none;
-    border-color: #38bdf8;
-    box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
+    border-color: #00f2fe;
+    box-shadow: 0 0 8px rgba(0, 242, 254, 0.3);
 }
 
 .form-row {
@@ -1906,8 +1934,8 @@ body {
 
 .owner-input:focus {
     outline: none;
-    border-color: #38bdf8;
-    box-shadow: 0 0 10px rgba(56, 189, 248, 0.15);
+    border-color: #00f2fe;
+    box-shadow: 0 0 8px rgba(0, 242, 254, 0.3);
 }
 
 /* Switch toggle styling */

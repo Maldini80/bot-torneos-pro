@@ -916,12 +916,12 @@ function renderLeaguesList(filterText = '') {
             if (canJoin) {
                 buttonsHtml = `
                     <div class="league-card-actions">
-                        <button class="btn btn-secondary btn-enter-league" data-id="${league._id}"><i class="fa-solid fa-eye"></i> Ver (Lectura)</button>
+                        <button class="btn btn-secondary btn-read-league" data-id="${league._id}"><i class="fa-solid fa-eye"></i> Ver (Lectura)</button>
                         <button class="btn btn-success btn-join-league" data-id="${league._id}"><i class="fa-solid fa-plus-circle"></i> Unirse</button>
                     </div>
                 `;
             } else {
-                buttonsHtml = `<button class="btn btn-secondary btn-block btn-enter-league" data-id="${league._id}"><i class="fa-solid fa-eye"></i> Ver Liga (Modo Lectura)</button>`;
+                buttonsHtml = `<button class="btn btn-secondary btn-block btn-read-league" data-id="${league._id}"><i class="fa-solid fa-eye"></i> Ver Liga (Modo Lectura)</button>`;
             }
         }
 
@@ -946,6 +946,7 @@ function renderLeaguesList(filterText = '') {
                 <div><i class="fa-solid fa-users"></i> <span>Mánagers: ${league.participantCount} / ${league.maxParticipants}</span></div>
                 <div><i class="fa-solid fa-wallet"></i> <span>Presupuesto: ${formatCurrency(league.initialBudget)}</span></div>
                 <div><i class="fa-solid fa-store"></i> <span>Mercado: ${league.marketOpen ? 'Abierto' : 'Cerrado'}</span></div>
+                <div><i class="fa-solid fa-crown"></i> <span>Creador: ${league.createdByUsername || 'Desconocido'}</span></div>
             </div>
             ${vpgHtml}
             ${buttonsHtml}
@@ -957,6 +958,13 @@ function renderLeaguesList(filterText = '') {
                 enterLeague(league._id);
             });
         }
+
+        const readBtns = card.querySelectorAll('.btn-read-league');
+        readBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                enterLeague(league._id);
+            });
+        });
         
         const joinBtn = card.querySelector('.btn-join-league');
         if (joinBtn) {
