@@ -97,9 +97,9 @@ async function startVpgBot() {
             }
         }, { scheduled: true, timezone: "Europe/Madrid" });
 
-        // Cronjob para Sincronización del Fantasy con VPG España (20:00 hora Madrid)
-        cron.schedule('0 20 * * *', async () => {
-            console.log('[VPG] Ejecutando sincronización diaria del Fantasy con VPG a las 20:00 (Madrid)...');
+        // Cronjob para Sincronización del Fantasy con VPG España (18:00 hora Madrid)
+        cron.schedule('0 18 * * *', async () => {
+            console.log('[VPG] Ejecutando sincronización diaria del Fantasy con VPG a las 18:00 (Madrid)...');
             try {
                 const { syncFantasyWithVpg } = await import('../utils/fantasyVpgSync.js');
                 await syncFantasyWithVpg();

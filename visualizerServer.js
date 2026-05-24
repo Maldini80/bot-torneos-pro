@@ -7168,8 +7168,8 @@ export async function startVisualizerServer(discordClient) {
         const { day, hours, minutes } = getMadridTime();
         if (day >= 1 && day <= 4) { // Monday to Thursday
             const totalMinutes = hours * 60 + minutes;
-            // 20:30 is 1230 minutes. 23:59 is 1439 minutes.
-            if (totalMinutes >= 1230 && totalMinutes <= 1439) {
+            // 21:30 is 1290 minutes. 23:59 is 1439 minutes.
+            if (totalMinutes >= 1290 && totalMinutes <= 1439) {
                 return true;
             }
         }
@@ -7465,7 +7465,7 @@ export async function startVisualizerServer(discordClient) {
             if (!lineup || !formation) return res.status(400).json({ error: 'Faltan lineup o formation' });
 
             if (await isLineupLocked()) {
-                return res.status(400).json({ error: 'No puedes modificar tu alineación de lunes a jueves entre las 20:30 y las 23:59 (hora de Madrid).' });
+                return res.status(400).json({ error: 'No puedes modificar tu alineación de lunes a jueves entre las 21:30 y las 23:59 (hora de Madrid).' });
             }
 
             const db = getDb();
