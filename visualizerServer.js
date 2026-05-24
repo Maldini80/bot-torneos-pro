@@ -5873,24 +5873,6 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
-    // Temporary endpoint to fix the creator of STAFF BLITZ by copying it from IMPERIO GITANO
-    app.get('/api/fantasy/fix-staff-blitz', async (req, res) => {
-        try {
-            const db = getDb();
-            const imperio = await db.collection('fantasy_leagues').findOne({ name: /IMPERIO GITANO/i });
-            if (!imperio) {
-                return res.send("Error: No se encontró la liga 'IMPERIO GITANO' para copiar el ID de Uriii.");
-            }
-            const result = await db.collection('fantasy_leagues').updateOne(
-                { name: /STAFF BLITZ/i },
-                { $set: { createdByUsername: imperio.createdByUsername, createdBy: imperio.createdBy } }
-            );
-            res.send(`✅ Creador corregido exitosamente en la base de datos! Creador asignado: ${imperio.createdByUsername} (ID: ${imperio.createdBy}). Ligas modificadas: ${result.modifiedCount}`);
-        } catch (e) {
-            res.status(500).send(`Error: ${e.message}`);
-        }
-    });
-
     // List all leagues
     app.get('/api/fantasy/leagues', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
