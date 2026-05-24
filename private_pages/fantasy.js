@@ -332,6 +332,22 @@ const adminSearchPlayerInput = document.getElementById('admin-search-player-inpu
 const adminSearchPlayerPos = document.getElementById('admin-search-player-pos');
 const btnAdminSearchPlayer = document.getElementById('btn-admin-search-player');
 const adminSearchPlayerResults = document.getElementById('admin-search-player-results');
+const adminSearchPlayerLeague = document.getElementById('admin-search-player-league');
+const adminSearchPlayerOnlyNew = document.getElementById('admin-search-player-only-new');
+
+// DOM Elements - Replace Player modal
+const replacePlayerModal = document.getElementById('replace-player-modal');
+const replacePlayerNameTitle = document.getElementById('replace-player-name-title');
+const replacePlayerModalCloseBtn = document.getElementById('replace-player-modal-close-btn');
+const replacePlayerSearchInput = document.getElementById('replace-player-search-input');
+const replacePlayerAutocompleteResults = document.getElementById('replace-player-autocomplete-results');
+const selectedTargetPlayerContainer = document.getElementById('selected-target-player-container');
+const selectedTargetPlayerName = document.getElementById('selected-target-player-name');
+const btnClearTargetSelection = document.getElementById('btn-clear-target-selection');
+const btnConfirmReplacePlayer = document.getElementById('btn-confirm-replace-player');
+
+let selectedNewPlayerName = '';
+let selectedOldPlayerName = '';
 
 // DOM Elements - Modals
 const joinLeagueModal = document.getElementById('join-league-modal');
