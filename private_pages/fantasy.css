@@ -491,6 +491,9 @@ body {
 .burgundy.player-card-ut.occupied .player-card-ut-avatar i {
     color: rgba(255, 255, 255, 0.2) !important;
 }
+.diamond.player-card-ut.occupied .player-card-ut-avatar i {
+    color: rgba(0, 242, 254, 0.25) !important;
+}
 
 .player-card-ut-name {
     font-size: calc(0.6rem * var(--name-scale, 1));
@@ -628,6 +631,13 @@ body {
 }
 .burgundy.player-card-ut.occupied .player-card-ut-avatar.no-avatar .avatar-shield-back {
     color: rgba(255, 255, 255, 0.10) !important;
+}
+
+.diamond.player-card-ut.occupied .player-card-ut-avatar.no-avatar i {
+    color: rgba(0, 242, 254, 0.35) !important;
+}
+.diamond.player-card-ut.occupied .player-card-ut-avatar.no-avatar .avatar-shield-back {
+    color: rgba(0, 242, 254, 0.15) !important;
 }
 
 .player-avatar-img {
@@ -2162,6 +2172,11 @@ body {
 .burgundy .fut-card-player-avatar-container img.player-avatar-img {
     border-color: #ff2e63;
 }
+.diamond .fut-card-player-avatar-container img.fut-card-player-avatar-img,
+.diamond .fut-card-player-avatar-container img.player-avatar-img {
+    border-color: #00f2fe;
+    box-shadow: 0 0 10px rgba(0, 242, 254, 0.6);
+}
 .fut-card-player-avatar-container i {
     font-size: 3.8rem;
     color: #38bdf8;
@@ -2460,7 +2475,7 @@ body {
     font-weight: 700 !important;
 }
 
-/* 4. BURGUNDY TIER (Points >= 200) */
+/* 4. BURGUNDY TIER (200 <= Points < 300) */
 .burgundy.fut-card {
     background: linear-gradient(135deg, #ff2e63 0%, #800020 50%, #4a0010 100%) !important;
 }
@@ -2510,6 +2525,150 @@ body {
 .burgundy.player-card-ut.occupied .player-card-ut-position,
 .burgundy.player-card-ut.occupied .player-card-ut-name {
     color: #ffe4e6 !important;
+}
+
+/* 5. DIAMOND TIER (Points >= 300) */
+/* Diamond Keyframes for pulsing glows & moving sheens */
+@keyframes diamond-glow {
+    0% {
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7), 0 0 15px rgba(0, 242, 254, 0.35);
+    }
+    50% {
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7), 0 0 35px rgba(0, 242, 254, 0.75), 0 0 15px rgba(0, 102, 255, 0.55);
+    }
+    100% {
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.7), 0 0 15px rgba(0, 242, 254, 0.35);
+    }
+}
+
+@keyframes diamond-shine {
+    0% {
+        left: -150%;
+    }
+    50% {
+        left: 150%;
+    }
+    100% {
+        left: 150%;
+    }
+}
+
+@keyframes diamond-pitch-glow {
+    0% {
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 0 8px rgba(0, 242, 254, 0.3);
+    }
+    50% {
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 0 18px rgba(0, 242, 254, 0.65);
+    }
+    100% {
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5), 0 0 8px rgba(0, 242, 254, 0.3);
+    }
+}
+
+.diamond.fut-card {
+    background: linear-gradient(135deg, #00f2fe 0%, #0077ff 50%, #001144 100%) !important;
+    animation: diamond-glow 3s infinite ease-in-out;
+}
+@media (hover: hover) {
+    .diamond.fut-card:hover {
+        filter: drop-shadow(0 15px 30px rgba(0, 242, 254, 0.75)) !important;
+    }
+}
+.diamond .fut-card-inner {
+    background: 
+        radial-gradient(circle at 50% 30%, rgba(0, 242, 254, 0.3), transparent 60%),
+        repeating-linear-gradient(60deg, rgba(0, 242, 254, 0.08) 0px, rgba(0, 242, 254, 0.08) 3px, transparent 3px, transparent 30px),
+        repeating-linear-gradient(-60deg, rgba(0, 102, 255, 0.08) 0px, rgba(0, 102, 255, 0.08) 3px, transparent 3px, transparent 30px),
+        linear-gradient(180deg, #071630 0%, #030a18 100%) !important;
+}
+.diamond .fut-card-inner::before {
+    background: radial-gradient(circle at 50% 30%, rgba(0, 242, 254, 0.45) 0%, transparent 60%) !important;
+}
+/* Shimmer Sheen effect */
+.diamond .fut-card-inner::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(0, 242, 254, 0.4),
+        rgba(255, 255, 255, 0.65),
+        rgba(0, 242, 254, 0.4),
+        transparent
+    );
+    transform: skewX(-20deg);
+    animation: diamond-shine 4s infinite linear;
+    pointer-events: none;
+    z-index: 5;
+}
+.diamond .fut-card-rating {
+    color: #ffffff !important;
+    text-shadow: 0 0 8px rgba(0, 242, 254, 0.8) !important;
+}
+.diamond .fut-card-pos, 
+.diamond .fut-card-player-name {
+    color: #e0f7fa !important;
+    border-bottom-color: rgba(0, 242, 254, 0.3) !important;
+}
+.diamond .fut-card-stat-value {
+    color: #ffffff !important;
+}
+.diamond .fut-card-stat-label {
+    color: #80deea !important;
+}
+.diamond .fut-card-stats-grid::before {
+    background: linear-gradient(to bottom, transparent, rgba(0, 242, 254, 0.3), transparent) !important;
+}
+
+/* Small Diamond Card on Pitch */
+.diamond.player-card-ut.occupied {
+    background: linear-gradient(135deg, #00f2fe 0%, #001144 100%) !important;
+    animation: diamond-pitch-glow 3s infinite ease-in-out;
+}
+@media (hover: hover) {
+    .diamond.player-card-ut.occupied:hover {
+        filter: drop-shadow(0 8px 16px rgba(0, 242, 254, 0.8)) !important;
+    }
+}
+.diamond.player-card-ut.occupied .player-card-ut-inner {
+    background: 
+        radial-gradient(circle at 50% 30%, rgba(0, 242, 254, 0.25), transparent 60%),
+        repeating-linear-gradient(60deg, rgba(0, 242, 254, 0.08) 0px, rgba(0, 242, 254, 0.08) 2px, transparent 2px, transparent 20px),
+        repeating-linear-gradient(-60deg, rgba(0, 102, 255, 0.08) 0px, rgba(0, 102, 255, 0.08) 2px, transparent 2px, transparent 20px),
+        linear-gradient(180deg, #071630 0%, #030a18 100%) !important;
+}
+/* Shimmer sheen for small card as well */
+.diamond.player-card-ut.occupied .player-card-ut-inner::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -150%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(0, 242, 254, 0.3),
+        rgba(255, 255, 255, 0.5),
+        rgba(0, 242, 254, 0.3),
+        transparent
+    );
+    transform: skewX(-20deg);
+    animation: diamond-shine 4s infinite linear;
+    pointer-events: none;
+    z-index: 5;
+}
+.diamond.player-card-ut.occupied .player-card-ut-rating {
+    color: #ffffff !important;
+    text-shadow: 0 0 4px rgba(0, 242, 254, 0.6) !important;
+}
+.diamond.player-card-ut.occupied .player-card-ut-position,
+.diamond.player-card-ut.occupied .player-card-ut-name {
+    color: #e0f7fa !important;
 }
 
 /* ==========================================================================
@@ -2588,6 +2747,20 @@ body {
 .micro-fut-card.burgundy .micro-fut-card-rating {
     color: #ffffff !important;
     text-shadow: 0 0 3px rgba(255, 46, 99, 0.6);
+}
+
+.micro-fut-card.diamond {
+    background: linear-gradient(135deg, #00f2fe 0%, #001144 100%) !important;
+    box-shadow: 0 0 8px rgba(0, 242, 254, 0.4);
+}
+.micro-fut-card.diamond .micro-fut-card-inner {
+    background: 
+        radial-gradient(circle at 50% 30%, rgba(0, 242, 254, 0.25), transparent 60%),
+        linear-gradient(180deg, #071630 0%, #030a18 100%) !important;
+}
+.micro-fut-card.diamond .micro-fut-card-rating {
+    color: #ffffff !important;
+    text-shadow: 0 0 3px rgba(0, 242, 254, 0.8);
 }
 
 /* ==========================================================================

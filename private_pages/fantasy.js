@@ -1716,7 +1716,8 @@ function getCardTierClass(points) {
     if (pts < 30) return 'bronze';
     if (pts < 85) return 'silver';
     if (pts < 200) return 'gold';
-    return 'burgundy';
+    if (pts < 300) return 'burgundy';
+    return 'diamond';
 }
 
 function getTableCardHtml(p) {
