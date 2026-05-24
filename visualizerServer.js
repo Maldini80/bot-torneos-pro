@@ -5915,6 +5915,18 @@ export async function startVisualizerServer(discordClient) {
                 console.error('[API Fantasy Approve League] Error generating free agents pool:', err);
             }
 
+            // Notificar al creador por MD de Discord
+            if (client && league.createdBy) {
+                try {
+                    const user = await client.users.fetch(league.createdBy);
+                    if (user) {
+                        await user.send(`🎉 ¡Buenas noticias! Tu solicitud para crear la liga **${league.name}** ha sido **aprobada** por un administrador. Ya puedes entrar y gestionarla en la web.`);
+                    }
+                } catch (dmErr) {
+                    console.error('[Approve League DM] No se pudo enviar MD al creador:', dmErr.message);
+                }
+            }
+
             res.json({ success: true, message: 'Liga aprobada correctamente y mercado de agentes libres inicializado.' });
         } catch (e) {
             console.error('[API Fantasy Approve League] Error:', e);
@@ -5926,7 +5938,23 @@ export async function startVisualizerServer(discordClient) {
     app.delete('/api/fantasy/leagues/:id/reject-league', isAuthenticated, isFantasyAdmin, async (req, res) => {
         try {
             const db = getDb();
-            await db.collection('fantasy_leagues').deleteOne({ _id: new ObjectId(req.params.id) });
+            const leagueId = req.params.id;
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+
+            await db.collection('fantasy_leagues').deleteOne({ _id: new ObjectId(leagueId) });
+
+            // Notificar al creador por MD de Discord
+            if (client && league && league.createdBy) {
+                try {
+                    const user = await client.users.fetch(league.createdBy);
+                    if (user) {
+                        await user.send(`❌ Tu solicitud para crear la liga **${league.name}** ha sido **rechazada** por un administrador.`);
+                    }
+                } catch (dmErr) {
+                    console.error('[Reject League DM] No se pudo enviar MD al creador:', dmErr.message);
+                }
+            }
+
             res.json({ success: true, message: 'Solicitud de liga rechazada y eliminada.' });
         } catch (e) {
             console.error('[API Fantasy Reject League] Error:', e);
@@ -6208,18 +6236,6 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
-    // Get all teams in a league (admin only)
-    app.get('/api/fantasy/leagues/:id/teams', isAuthenticated, canAdminLeague, async (req, res) => {
-        try {
-            const db = getDb();
-            const teams = await db.collection('fantasy_teams').find({ leagueId: req.params.id, approved: true }).sort({ points: -1 }).toArray();
-            res.json({ teams });
-        } catch (e) {
-            console.error('[API Fantasy League Teams] Error:', e);
-            res.status(500).json({ error: 'Error al obtener equipos.' });
-        }
-    });
-
     // Kick team from league (admin only)
     app.delete('/api/fantasy/leagues/:id/teams/:teamId', isAuthenticated, canAdminLeague, async (req, res) => {
         try {
@@ -6241,6 +6257,9 @@ export async function startVisualizerServer(discordClient) {
                 console.log(`[KICK REFUND] Reembolsados ${b.bidAmount} € a ${b.bidderDiscordId} por expulsión del vendedor (${team.discordId}) para el jugador ${b.eaPlayerName}`);
             }
 
+            const isApproved = !!team.approved;
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(req.params.id) });
+
             await db.collection('fantasy_teams').deleteOne({ _id: team._id });
 
             // Clean up listings
@@ -6255,12 +6274,43 @@ export async function startVisualizerServer(discordClient) {
                 ]
             });
 
+            // Notificar al mánager por MD de Discord
+            if (client && team.discordId) {
+                try {
+                    const user = await client.users.fetch(team.discordId);
+                    if (user) {
+                        const leagueName = league ? league.name : 'la liga';
+                        if (isApproved) {
+                            await user.send(`⚠️ Has sido **expulsado** de la liga **${leagueName}** y tu equipo **${team.teamName}** ha sido eliminado.`);
+                        } else {
+                            await user.send(`❌ Tu solicitud para unirte a la liga **${leagueName}** con el equipo **${team.teamName}** ha sido **rechazada**.`);
+                        }
+                    }
+                } catch (dmErr) {
+                    console.error('[Kick/Reject Team DM] No se pudo enviar MD al mánager:', dmErr.message);
+                }
+            }
+
             res.json({ success: true, message: 'Equipo expulsado y mercado limpiado correctamente.' });
         } catch (e) {
             console.error('[API Fantasy Kick Team] Error:', e);
             res.status(500).json({ error: 'Error al expulsar equipo.' });
         }
     });
+
+    // Get all teams in a league (admin only)
+    app.get('/api/fantasy/leagues/:id/teams', isAuthenticated, canAdminLeague, async (req, res) => {
+        try {
+            const db = getDb();
+            const teams = await db.collection('fantasy_teams').find({ leagueId: req.params.id, approved: true }).sort({ points: -1 }).toArray();
+            res.json({ teams });
+        } catch (e) {
+            console.error('[API Fantasy League Teams] Error:', e);
+            res.status(500).json({ error: 'Error al obtener equipos.' });
+        }
+    });
+
+
 
     // Adjust team budget (admin only)
     app.post('/api/fantasy/leagues/:id/teams/:teamId/budget', isAuthenticated, canAdminLeague, async (req, res) => {
@@ -6420,6 +6470,11 @@ export async function startVisualizerServer(discordClient) {
             const { teamId } = req.body;
             if (!teamId) return res.status(400).json({ error: 'Falta teamId' });
             const db = getDb();
+
+            // Obtener el equipo para saber el discordId y el nombre del equipo
+            const team = await db.collection('fantasy_teams').findOne({ _id: new ObjectId(teamId), leagueId: req.params.id });
+            if (!team) return res.status(404).json({ error: 'Equipo no encontrado.' });
+
             await db.collection('fantasy_teams').updateOne(
                 { _id: new ObjectId(teamId), leagueId: req.params.id },
                 { $set: { approved: true } }
@@ -6429,14 +6484,29 @@ export async function startVisualizerServer(discordClient) {
             } catch (err) {
                 console.error('[API Fantasy Approve Request] Error generating random squad:', err);
             }
+
+            // Obtener los datos de la liga para incluir el nombre en el MD
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(req.params.id) });
+
+            // Notificar al mánager por MD de Discord
+            if (client && team.discordId) {
+                try {
+                    const user = await client.users.fetch(team.discordId);
+                    if (user) {
+                        const leagueName = league ? league.name : 'la liga';
+                        await user.send(`🎉 ¡Felicidades! Tu inscripción con el equipo **${team.teamName}** en la liga **${leagueName}** ha sido **aprobada**. Ya puedes entrar a ver tu plantilla y fichar en la web.`);
+                    }
+                } catch (dmErr) {
+                    console.error('[Approve Team DM] No se pudo enviar MD al mánager:', dmErr.message);
+                }
+            }
+
             res.json({ success: true, message: 'Equipo aprobado e inscrito correctamente con su plantilla aleatoria asignada.' });
         } catch (e) {
             console.error('[API Fantasy Approve Request] Error:', e);
             res.status(500).json({ error: 'Error al aprobar equipo.' });
         }
     });
-
-    // ========== FANTASY API: User League Actions ==========
 
     // Check access to a league (public/private password, check if joined or admin)
     app.post('/api/fantasy/leagues/:id/access', isAuthenticated, isFantasyEnabled, async (req, res) => {
