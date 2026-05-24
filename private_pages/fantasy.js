@@ -1711,20 +1711,20 @@ function updateSquadStats() {
     squadCountEl.textContent = squadSize;
 }
 
-function getCardTierClass(points) {
-    const pts = parseFloat(points) || 0;
-    if (pts < 30) return 'bronze';
-    if (pts < 85) return 'silver';
-    if (pts < 200) return 'gold';
-    if (pts < 300) return 'burgundy';
-    if (pts < 400) return 'diamond';
-    return 'prismatic';
+function getCardTierClass(price) {
+    const prc = parseFloat(price) || 0;
+    if (prc < 5000000) return 'bronze';
+    if (prc < 10000000) return 'silver';
+    if (prc < 20000000) return 'gold';
+    if (prc < 35000000) return 'burgundy';
+    if (prc < 55000000) return 'diamond';
+    if (prc < 76000000) return 'prismatic';
+    return 'icon';
 }
 
 function getTableCardHtml(p) {
     if (!p) return '';
-    const tierPoints = Math.round((p.points + (p.basePoints || 0)) * 10) / 10;
-    const tierClass = getCardTierClass(tierPoints);
+    const tierClass = getCardTierClass(p.price);
     const displayedPoints = Math.round(p.points * 10) / 10;
     const lastName = p.eaPlayerName.trim().split(' ').pop();
     
@@ -1871,7 +1871,7 @@ function renderField() {
                     `<i class="fa-solid fa-shield-halved"></i>`;
 
                 node.innerHTML = `
-                    <div class="player-card-ut occupied ${getCardTierClass(tierPoints)}">
+                    <div class="player-card-ut occupied ${getCardTierClass(p ? p.price : 0)}">
                         <div class="player-card-ut-inner">
                             <div class="player-card-ut-rating-pos">
                                 <span class="player-card-ut-rating">${displayedPoints}</span>
@@ -1951,7 +1951,7 @@ function openPositionSelector(posKey, idx) {
         modalBody.innerHTML = `
             <div class="modal-split-layout">
                 <div class="modal-card-column">
-                    <div class="fut-card ${getCardTierClass(tierPoints)}">
+                    <div class="fut-card ${getCardTierClass(p ? p.price : 0)}">
                         <div class="fut-card-inner">
                             <div class="fut-card-top-section">
                                 <div class="fut-card-left-col">
@@ -2585,7 +2585,7 @@ async function showRivalTeam(discordId, teamName) {
                             `<i class="fa-solid fa-shield-halved"></i>`;
 
                         node.innerHTML = `
-                            <div class="player-card-ut occupied ${getCardTierClass(tierPoints)}" style="pointer-events: none;">
+                            <div class="player-card-ut occupied ${getCardTierClass(p ? p.price : 0)}" style="pointer-events: none;">
                                 <div class="player-card-ut-inner">
                                     <div class="player-card-ut-rating-pos">
                                         <span class="player-card-ut-rating">${displayedPoints}</span>
@@ -4494,7 +4494,7 @@ async function openPlayerStatsModalByName(playerName) {
     if (!modalBody) return;
 
     modalBody.innerHTML = `
-        <div class="fut-card ${getCardTierClass(tierPoints)}" style="margin: 0 auto; transform: scale(1.15); transform-origin: center; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
+        <div class="fut-card ${getCardTierClass(p ? p.price : 0)}" style="margin: 0 auto; transform: scale(1.15); transform-origin: center; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
             <div class="fut-card-inner">
                 <div class="fut-card-top-section">
                     <div class="fut-card-left-col">
