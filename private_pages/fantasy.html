@@ -122,7 +122,6 @@
                                     <p class="text-muted">Sincroniza de forma inmediata los perfiles de jugadores, clubes y estadísticas de líderes desde la API oficial de VPG España para las ligas habilitadas. Tarda menos de 1 minuto.</p>
                                     <p id="owner-rebuild-progress" class="text-muted" style="font-size: 0.8rem; margin-top: 6px; display: none; color: #f59e0b;"></p>
                                 </div>
-                                <button id="btn-owner-rebuild-stats" class="btn btn-sm btn-warning" style="flex-shrink: 0;"><i class="fa-solid fa-arrows-rotate"></i> Sincronizar</button>
                             </div>
                         </div>
 
@@ -150,6 +149,17 @@
                                 <div id="owner-active-leagues-chips" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;">
                                     <!-- Chips like: superliga-spain-a (x) -->
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- Box 3: Reset All Zero Points -->
+                        <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
+                            <div class="action-card-row">
+                                <div style="flex: 1; min-width: 0;">
+                                    <h4>Resetear Puntos Ligas ZERO</h4>
+                                    <p class="text-muted">Reinicia los puntos acumulados de todos los jugadores a 0 estableciendo los puntos VPG actuales como base en todas las ligas activas en modo ZERO.</p>
+                                </div>
+                                <button id="btn-owner-reset-zero-points" class="btn btn-sm btn-danger" style="flex-shrink: 0;"><i class="fa-solid fa-rotate-left"></i> Resetear Ligas ZERO</button>
                             </div>
                         </div>
                     </div>

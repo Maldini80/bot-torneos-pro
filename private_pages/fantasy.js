@@ -325,6 +325,7 @@ const btnAdminCancelBidsAll = document.getElementById('btn-admin-cancel-bids-all
 const btnAdminRebuildStats = null; // Removed from league admin panel
 const rebuildStatsProgress = null; // Removed from league admin panel
 const btnOwnerRebuildStats = document.getElementById('btn-owner-rebuild-stats');
+const btnOwnerResetZeroPoints = document.getElementById('btn-owner-reset-zero-points');
 const ownerRebuildProgress = document.getElementById('owner-rebuild-progress');
 const adminParticipantsList = document.getElementById('admin-participants-list');
 const adminSearchPlayerInput = document.getElementById('admin-search-player-input');
@@ -730,6 +731,29 @@ function setupEventHandlers() {
     if (btnAdminCancelBidsAll) btnAdminCancelBidsAll.addEventListener('click', () => handleAdminCancelBids('all'));
     if (btnAdminRebuildStats) btnAdminRebuildStats.addEventListener('click', () => executeRebuildStats(btnAdminRebuildStats, rebuildStatsProgress));
     if (btnOwnerRebuildStats) btnOwnerRebuildStats.addEventListener('click', () => executeRebuildStats(btnOwnerRebuildStats, ownerRebuildProgress));
+    if (btnOwnerResetZeroPoints) {
+        btnOwnerResetZeroPoints.addEventListener('click', async () => {
+            if (!confirm('¿Estás absolutamente seguro de que deseas resetear los puntos iniciales de todas las ligas ZERO activas?\nEsto reiniciará los puntos de los mánagers a 0 estableciendo los puntos VPG actuales como la nueva base. Esta acción es irreversible.')) {
+                return;
+            }
+            try {
+                btnOwnerResetZeroPoints.disabled = true;
+                btnOwnerResetZeroPoints.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Reseteando...';
+
+                const res = await fetch('/api/fantasy/admin/reset-all-zero-points', { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Error al resetear puntos.');
+
+                showToast(data.message || 'Puntos reseteados correctamente.', 'success');
+            } catch (e) {
+                console.error(e);
+                showToast(e.message, 'error');
+            } finally {
+                btnOwnerResetZeroPoints.disabled = false;
+                btnOwnerResetZeroPoints.innerHTML = '<i class="fa-solid fa-rotate-left"></i> Resetear Ligas ZERO';
+            }
+        });
+    }
 
     // Toggle allow user league creation
     if (toggleAllowUserLeagues) {
