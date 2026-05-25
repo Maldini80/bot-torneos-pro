@@ -1714,11 +1714,23 @@ export async function mergePlayerProfiles(db, mainPlayerName, duplicatePlayerNam
     mergedStats.ratings = [ ...(mainStats.ratings || []), ...(dupStats.ratings || []) ];
     mergedStats.vpgPoints = Math.max(mainStats.vpgPoints || 0, dupStats.vpgPoints || 0);
 
+    let lastClub = mainPlayer.lastClub || dupPlayer.lastClub;
+    let vpgLeagueSlug = mainPlayer.vpgLeagueSlug || dupPlayer.vpgLeagueSlug;
+
+    if (mainPlayer.lastActive && dupPlayer.lastActive) {
+        const mainTime = new Date(mainPlayer.lastActive).getTime();
+        const dupTime = new Date(dupPlayer.lastActive).getTime();
+        if (dupTime > mainTime && dupPlayer.lastClub) {
+            lastClub = dupPlayer.lastClub;
+            vpgLeagueSlug = dupPlayer.vpgLeagueSlug || mainPlayer.vpgLeagueSlug;
+        }
+    }
+
     const updateDoc = {
         stats: mergedStats,
-        vpgLeagueSlug: mainPlayer.vpgLeagueSlug || dupPlayer.vpgLeagueSlug,
+        vpgLeagueSlug,
         lastPosition: mainPlayer.lastPosition || dupPlayer.lastPosition,
-        lastClub: mainPlayer.lastClub || dupPlayer.lastClub,
+        lastClub,
         avatar: mainPlayer.avatar || dupPlayer.avatar,
         nationality: mainPlayer.nationality || dupPlayer.nationality,
         manualPrice: mainPlayer.manualPrice !== undefined && mainPlayer.manualPrice !== null ? mainPlayer.manualPrice : dupPlayer.manualPrice,
