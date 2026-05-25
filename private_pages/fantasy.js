@@ -261,7 +261,6 @@ const createLeagueForm = document.getElementById('create-league-form');
 const createLeagueSection = document.getElementById('admin-create-league-section');
 const createLeagueTitle = document.getElementById('create-league-title');
 const toggleAllowUserLeagues = document.getElementById('toggle-allow-user-leagues');
-const toggleLockLineups = document.getElementById('toggle-lock-lineups');
 const btnLeagueAdminTab = document.getElementById('btn-league-admin-tab');
 let lockLineupsActive = true;
 let lockScheduleConfig = {
@@ -452,7 +451,7 @@ async function checkUserSession() {
         const isAdmin = !!(currentUser && currentUser.isAdmin);
         if (isAdmin) {
             document.querySelectorAll('.admin-only-block').forEach(el => {
-                if (el.id === 'allow-user-leagues-row' || el.id === 'lock-lineups-row') {
+                if (el.id === 'allow-user-leagues-row') {
                     el.style.display = 'flex';
                 } else {
                     el.style.display = 'block';
@@ -493,7 +492,6 @@ async function checkUserSession() {
             if (lockRes.ok) {
                 const lockData = await lockRes.json();
                 lockLineupsActive = lockData.locked;
-                if (toggleLockLineups) toggleLockLineups.checked = lockLineupsActive;
             }
         } catch (e) { console.error('Error fetching lock-lineups config:', e); }
 
@@ -803,11 +801,7 @@ function setupEventHandlers() {
                     showToast(data.message || 'Configuración de horarios guardada.', 'success');
                     await loadSchedulesConfig();
                     
-                    const toggleLockLineups = document.getElementById('toggle-lock-lineups');
-                    if (toggleLockLineups) {
-                        toggleLockLineups.checked = lockActive;
-                        lockLineupsActive = lockActive;
-                    }
+                    lockLineupsActive = lockActive;
                 } else {
                     showToast(data.error || 'Error al guardar horarios.', 'error');
                 }
@@ -897,26 +891,7 @@ function setupEventHandlers() {
         });
     }
 
-    // Toggle lock lineups
-    if (toggleLockLineups) {
-        toggleLockLineups.addEventListener('change', async () => {
-            try {
-                const res = await fetch('/api/fantasy/admin/config/lock-lineups', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ locked: toggleLockLineups.checked })
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Error al cambiar configuración.');
-                lockLineupsActive = data.locked;
-                showToast(data.message, 'success');
-            } catch (e) {
-                console.error(e);
-                showToast(e.message, 'error');
-                toggleLockLineups.checked = !toggleLockLineups.checked; // revert
-            }
-        });
-    }
+
 
     // Admin player price override handlers
     if (btnAdminSearchPlayer) {
