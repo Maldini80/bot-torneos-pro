@@ -1489,7 +1489,7 @@ async function enterLeague(leagueId, keepCurrentTab = false, password = null, op
                 if (isLineupLocked()) {
                     btnSaveLineup.disabled = true;
                     btnSaveLineup.innerHTML = '<i class="fa-solid fa-lock"></i> Bloqueado';
-                    btnSaveLineup.title = 'Alineaciones bloqueadas de lunes a jueves de 21:30 a 23:59 (hora de Madrid)';
+                    btnSaveLineup.title = 'Alineaciones bloqueadas de lunes a jueves de 21:30 a 01:30 del día siguiente (hora de Madrid)';
                     btnSaveLineup.style.opacity = '0.6';
                     btnSaveLineup.style.cursor = 'not-allowed';
                 } else {
@@ -2176,7 +2176,7 @@ function renderField() {
 // Open modal selection
 function openPositionSelector(posKey, idx) {
     if (isLineupLocked()) {
-        showToast('No puedes modificar tu alineación de lunes a jueves entre las 21:30 y las 23:59 (hora de Madrid).', 'error');
+        showToast('No puedes modificar tu alineación de lunes a jueves entre las 21:30 y las 01:30 del día siguiente (hora de Madrid).', 'error');
         return;
     }
     selectedSlotPos = posKey;
@@ -2528,7 +2528,7 @@ async function executeSaveLineup(silent = false) {
     const isSilent = silent === true;
     if (myTeam.isSpectator) return;
     if (isLineupLocked()) {
-        showToast('No puedes modificar tu alineación de lunes a jueves entre las 21:30 y las 23:59 (hora de Madrid).', 'error');
+        showToast('No puedes modificar tu alineación de lunes a jueves entre las 21:30 y las 01:30 del día siguiente (hora de Madrid).', 'error');
         return;
     }
     try {
@@ -3731,12 +3731,14 @@ function getMadridTime() {
 function isLineupLocked() {
     if (!lockLineupsActive) return false;
     const { day, hours, minutes } = getMadridTime();
-    if (day >= 1 && day <= 4) { // Monday to Thursday
-        const totalMinutes = hours * 60 + minutes;
-        // 21:30 is 1290 minutes. 23:59 is 1439 minutes.
-        if (totalMinutes >= 1290 && totalMinutes <= 1439) {
-            return true;
-        }
+    const totalMinutes = hours * 60 + minutes;
+    // Monday to Thursday from 21:30 (1290 min) onwards
+    if (day >= 1 && day <= 4 && totalMinutes >= 1290) {
+        return true;
+    }
+    // Tuesday to Friday from 00:00 to 01:30 AM (carry-over from previous night)
+    if (day >= 2 && day <= 5 && totalMinutes <= 90) {
+        return true;
     }
     return false;
 }
@@ -3760,13 +3762,13 @@ function updateLineupLockStatusUI() {
         indicator.style.background = 'rgba(239, 68, 68, 0.1)';
         indicator.style.border = '1px solid rgba(239, 68, 68, 0.3)';
         indicator.style.color = '#fca5a5';
-        indicator.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> <span><strong>Alineación Bloqueada:</strong> No puedes guardar tu alineación ahora (lunes a jueves de 21:30 a 23:59 hora Madrid).</span>';
+        indicator.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> <span><strong>Alineación Bloqueada:</strong> No puedes guardar tu alineación ahora (lunes a jueves de 21:30 a 01:30 del día siguiente hora Madrid).</span>';
     } else {
         indicator.style.display = 'flex';
         indicator.style.background = 'rgba(0, 245, 155, 0.1)';
         indicator.style.border = '1px solid rgba(0, 245, 155, 0.3)';
         indicator.style.color = '#00f59b';
-        indicator.innerHTML = '<i class="fa-solid fa-lock"></i> <span><strong>Bloqueo programado:</strong> Activo de lunes a jueves de 21:30 a 23:59 (hora de Madrid). Actualmente puedes editar tu once.</span>';
+        indicator.innerHTML = '<i class="fa-solid fa-lock"></i> <span><strong>Bloqueo programado:</strong> Activo de lunes a jueves de 21:30 a 01:30 del día siguiente (hora de Madrid). Actualmente puedes editar tu once.</span>';
     }
 }
 

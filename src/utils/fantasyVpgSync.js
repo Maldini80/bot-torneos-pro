@@ -80,6 +80,16 @@ function getLeagueDivisionMultiplier(slug) {
     return 1.0; // default/fallback
 }
 
+function isPlayerInLineup(lineup, playerName) {
+    if (!lineup || !playerName) return false;
+    const nameLower = playerName.toLowerCase();
+    if (lineup.POR && lineup.POR.toLowerCase() === nameLower) return true;
+    if (Array.isArray(lineup.DFC) && lineup.DFC.some(p => p && p.toLowerCase() === nameLower)) return true;
+    if (Array.isArray(lineup.MC) && lineup.MC.some(p => p && p.toLowerCase() === nameLower)) return true;
+    if (Array.isArray(lineup.DC) && lineup.DC.some(p => p && p.toLowerCase() === nameLower)) return true;
+    return false;
+}
+
 export function calculatePlayerPointsAndPrice(p) {
     const stats = p.stats || {};
     const vpgPoints = stats.vpgPoints || 0;
@@ -223,69 +233,19 @@ export async function syncFantasyWithVpg() {
             console.error('[VPG SYNC] Error inicializando overrides de clausulazos:', e);
         }
 
-        // B. Calcular puntos previos de los equipos de Fantasy antes de que cambien los stats de los jugadores
-        console.log('[VPG SYNC] Calculando puntos previos de los equipos de Fantasy...');
-        const teamOldPoints = {};
+        // B. Cargar todos los puntos VPG actuales en memoria para calcular incrementos (Deltas)
+        console.log('[VPG SYNC] Cargando puntos previos de jugadores para cálculo incremental...');
+        const playerOldVpgPoints = {};
         try {
-            const leaguesList = await db.collection('fantasy_leagues').find().toArray();
-            const leaguesMap = {};
-            leaguesList.forEach(l => {
-                leaguesMap[l._id.toString()] = l;
+            const allPlayers = await playerColl.find({}, { projection: { eaPlayerName: 1, "stats.vpgPoints": 1 } }).toArray();
+            allPlayers.forEach(p => {
+                if (p.eaPlayerName) {
+                    playerOldVpgPoints[p.eaPlayerName.toLowerCase()] = p.stats?.vpgPoints || 0;
+                }
             });
-            const fantasyTeamsList = await db.collection('fantasy_teams').find().toArray();
-            for (const fTeam of fantasyTeamsList) {
-                let oldTeamPoints = 0;
-                const league = leaguesMap[fTeam.leagueId];
-                
-                // Construir lista efectiva de jugadores aplicando reatribución por robo
-                const effectivePlayers = [];
-                for (const pName of (fTeam.players || [])) {
-                    const key = `${fTeam.leagueId}_${pName.toLowerCase()}`;
-                    if (attributionOverrides.has(key)) {
-                        const override = attributionOverrides.get(key);
-                        if (override.finalBuyer === fTeam.discordId) {
-                            continue; // Excluir del comprador final
-                        }
-                    }
-                    effectivePlayers.push(pName);
-                }
-                for (const [key, override] of attributionOverrides.entries()) {
-                    if (override.leagueId === fTeam.leagueId && override.originalSeller === fTeam.discordId) {
-                        if (!effectivePlayers.includes(override.eaPlayerName)) {
-                            effectivePlayers.push(override.eaPlayerName); // Añadir al vendedor original
-                        }
-                    }
-                }
-
-                for (const playerName of effectivePlayers) {
-                    const player = await playerColl.findOne({ 
-                        eaPlayerName: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } 
-                    });
-                    if (player) {
-                        const { points: rawPoints } = calculatePlayerPointsAndPrice(player);
-                        let playerPoints = rawPoints;
-                        if (league && league.pointsMode === 'zero' && league.basePoints) {
-                            const playerNameLower = player.eaPlayerName.toLowerCase();
-                            let base = 0;
-                            if (league.basePoints[player.eaPlayerName] !== undefined) {
-                                base = league.basePoints[player.eaPlayerName];
-                            } else {
-                                const foundKey = Object.keys(league.basePoints).find(k => k.toLowerCase() === playerNameLower);
-                                if (foundKey) {
-                                    base = league.basePoints[foundKey];
-                                }
-                            }
-                            playerPoints = Math.max(0, Math.round((rawPoints - base) * 10) / 10);
-                        }
-                        oldTeamPoints += playerPoints;
-                    }
-                }
-                oldTeamPoints = Math.round(oldTeamPoints * 10) / 10;
-                teamOldPoints[fTeam._id.toString()] = oldTeamPoints;
-            }
-            console.log('[VPG SYNC] Puntos previos calculados exitosamente.');
+            console.log(`[VPG SYNC] Cargados puntos previos de ${Object.keys(playerOldVpgPoints).length} jugadores.`);
         } catch (e) {
-            console.error('[VPG SYNC] Error calculando puntos previos:', e);
+            console.error('[VPG SYNC] Error cargando puntos previos de jugadores:', e);
         }
 
         // 3. Procesar cada liga activa
@@ -777,77 +737,109 @@ export async function syncFantasyWithVpg() {
             }
         }
 
-        // 4. Recalcular puntos de los equipos Fantasy de cada liga
+        // 4. Recalcular puntos de los equipos Fantasy de cada liga (incremental por alineación)
         updateRebuildStatus({ progress: 'Recalculando puntos de ligas y equipos de Fantasy...' });
         const leagues = await db.collection('fantasy_leagues').find().toArray();
-        for (const league of leagues) {
-            const fantasyTeams = await db.collection('fantasy_teams').find({ leagueId: league._id.toString() }).toArray();
-            for (const fTeam of fantasyTeams) {
-                let totalPoints = 0;
+        const leaguesMap = {};
+        leagues.forEach(l => {
+            leaguesMap[l._id.toString()] = l;
+        });
 
-                // Construir lista efectiva de jugadores aplicando reatribución por robo
-                const effectivePlayers = [];
-                for (const pName of (fTeam.players || [])) {
-                    const key = `${fTeam.leagueId}_${pName.toLowerCase()}`;
-                    if (attributionOverrides.has(key)) {
-                        const override = attributionOverrides.get(key);
-                        if (override.finalBuyer === fTeam.discordId) {
-                            continue; // Excluir del comprador final
+        const fantasyTeams = await db.collection('fantasy_teams').find().toArray();
+        for (const fTeam of fantasyTeams) {
+            const league = leaguesMap[fTeam.leagueId];
+            if (!league) continue;
+
+            let teamDeltaPoints = 0;
+
+            // Determinar qué jugadores están en el once titular (lineup)
+            const playerStartersStatus = {}; // playerNameLower -> boolean
+            if (fTeam.lineup) {
+                const lineup = fTeam.lineup;
+                if (lineup.POR) playerStartersStatus[lineup.POR.toLowerCase()] = true;
+                if (Array.isArray(lineup.DFC)) lineup.DFC.forEach(p => p && (playerStartersStatus[p.toLowerCase()] = true));
+                if (Array.isArray(lineup.MC)) lineup.MC.forEach(p => p && (playerStartersStatus[p.toLowerCase()] = true));
+                if (Array.isArray(lineup.DC)) lineup.DC.forEach(p => p && (playerStartersStatus[p.toLowerCase()] = true));
+            }
+
+            // Construir lista efectiva de jugadores aplicando reatribución por robo
+            const effectivePlayers = [];
+            for (const pName of (fTeam.players || [])) {
+                const key = `${fTeam.leagueId}_${pName.toLowerCase()}`;
+                if (attributionOverrides.has(key)) {
+                    const override = attributionOverrides.get(key);
+                    if (override.finalBuyer === fTeam.discordId) {
+                        continue; // Excluir del comprador final
+                    }
+                }
+                effectivePlayers.push(pName);
+            }
+
+            // Añadir jugadores robados (buyout overrides) que corresponden al vendedor para esta sincronización
+            for (const [key, override] of attributionOverrides.entries()) {
+                if (override.leagueId === fTeam.leagueId && override.originalSeller === fTeam.discordId) {
+                    if (!effectivePlayers.includes(override.eaPlayerName)) {
+                        effectivePlayers.push(override.eaPlayerName);
+                        // Buscar el buyout correspondiente para saber si estaba en el 11 cuando fue robado
+                        const buyout = unprocessedBuyouts.find(b => b.leagueId === fTeam.leagueId && b.eaPlayerName.toLowerCase() === override.eaPlayerName.toLowerCase());
+                        if (buyout && buyout.wasStarter) {
+                            playerStartersStatus[override.eaPlayerName.toLowerCase()] = true;
                         }
                     }
-                    effectivePlayers.push(pName);
                 }
-                for (const [key, override] of attributionOverrides.entries()) {
-                    if (override.leagueId === fTeam.leagueId && override.originalSeller === fTeam.discordId) {
-                        if (!effectivePlayers.includes(override.eaPlayerName)) {
-                            effectivePlayers.push(override.eaPlayerName); // Añadir al vendedor original
-                        }
-                    }
-                }
+            }
 
-                for (const playerName of effectivePlayers) {
-                    const player = await playerColl.findOne({ 
-                        eaPlayerName: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } 
-                    });
-                    if (player) {
-                        const { points: rawPoints } = calculatePlayerPointsAndPrice(player);
-                        let playerPoints = rawPoints;
-                        if (league.pointsMode === 'zero' && league.basePoints) {
-                            const playerNameLower = player.eaPlayerName.toLowerCase();
-                            let base = 0;
-                            if (league.basePoints[player.eaPlayerName] !== undefined) {
-                                base = league.basePoints[player.eaPlayerName];
-                            } else {
-                                const foundKey = Object.keys(league.basePoints).find(k => k.toLowerCase() === playerNameLower);
-                                if (foundKey) {
-                                    base = league.basePoints[foundKey];
-                                }
+            for (const playerName of effectivePlayers) {
+                const isStarter = playerStartersStatus[playerName.toLowerCase()] || false;
+                if (!isStarter) continue; // Solo puntúan los titulares
+
+                const player = await playerColl.findOne({ 
+                    eaPlayerName: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } 
+                });
+                if (player) {
+                    const { points: rawPoints } = calculatePlayerPointsAndPrice(player);
+                    const newVpgPoints = rawPoints;
+                    const oldVpgPoints = playerOldVpgPoints[player.eaPlayerName.toLowerCase()] !== undefined 
+                        ? playerOldVpgPoints[player.eaPlayerName.toLowerCase()] 
+                        : newVpgPoints;
+
+                    let oldLeaguePoints = oldVpgPoints;
+                    let newLeaguePoints = newVpgPoints;
+
+                    if (league.pointsMode === 'zero' && league.basePoints) {
+                        const playerNameLower = player.eaPlayerName.toLowerCase();
+                        let base = 0;
+                        if (league.basePoints[player.eaPlayerName] !== undefined) {
+                            base = league.basePoints[player.eaPlayerName];
+                        } else {
+                            const foundKey = Object.keys(league.basePoints).find(k => k.toLowerCase() === playerNameLower);
+                            if (foundKey) {
+                                base = league.basePoints[foundKey];
                             }
-                            playerPoints = Math.max(0, Math.round((rawPoints - base) * 10) / 10);
                         }
-                        totalPoints += playerPoints;
+                        oldLeaguePoints = Math.max(0, Math.round((oldVpgPoints - base) * 10) / 10);
+                        newLeaguePoints = Math.max(0, Math.round((newVpgPoints - base) * 10) / 10);
                     }
+
+                    const playerDelta = Math.max(0, Math.round((newLeaguePoints - oldLeaguePoints) * 10) / 10);
+                    teamDeltaPoints += playerDelta;
                 }
-                totalPoints = Math.round(totalPoints * 10) / 10;
+            }
 
-                // Calcular ganancias para el mánager por la jornada
-                const oldPoints = teamOldPoints[fTeam._id.toString()] !== undefined ? teamOldPoints[fTeam._id.toString()] : totalPoints;
-                const deltaPoints = totalPoints - oldPoints;
-                let rewardAmount = 0;
-                const updateDoc = { $set: { points: totalPoints } };
+            teamDeltaPoints = Math.round(teamDeltaPoints * 10) / 10;
 
-                if (deltaPoints > 0) {
-                    rewardAmount = deltaPoints * 80000;
-                    if (rewardAmount > 0) {
-                        updateDoc.$inc = { balance: rewardAmount };
+            if (teamDeltaPoints > 0) {
+                const rewardAmount = teamDeltaPoints * 80000;
+                await db.collection('fantasy_teams').updateOne(
+                    { _id: fTeam._id },
+                    { 
+                        $inc: { 
+                            points: teamDeltaPoints,
+                            balance: rewardAmount
+                        } 
                     }
-                }
-
-                await db.collection('fantasy_teams').updateOne({ _id: fTeam._id }, updateDoc);
-
-                if (rewardAmount > 0) {
-                    console.log(`[VPG SYNC] El equipo ${fTeam.teamName} ha ganado ${rewardAmount.toLocaleString('es-ES')} € por ${deltaPoints} puntos en esta jornada.`);
-                }
+                );
+                console.log(`[VPG SYNC] El equipo ${fTeam.teamName} ha ganado ${rewardAmount.toLocaleString('es-ES')} € por ${teamDeltaPoints} puntos ganados por sus titulares en esta jornada.`);
             }
         }
 
