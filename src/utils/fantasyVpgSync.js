@@ -424,7 +424,7 @@ export async function syncFantasyWithVpg() {
 
                                         if (player.user_avatar) existing.avatar = player.user_avatar;
                                         if (player.user_nationality) existing.nationality = player.user_nationality;
-                                        existing.lastClub = dbTeam ? dbTeam.name : (player.team_name || player.team_slug || "VPG Club");
+                                        existing.lastClub = player.team_name || player.team_slug || "VPG Club";
                                         existing.vpgTeamSlug = pSlug;
                                     }
                                 } else {
@@ -463,7 +463,7 @@ export async function syncFantasyWithVpg() {
                                     existing.lastPosition = bestPosition;
                                     if (player.user_avatar) existing.avatar = player.user_avatar;
                                     if (player.user_nationality) existing.nationality = player.user_nationality;
-                                    existing.lastClub = dbTeam ? dbTeam.name : (player.team_name || player.team_slug || "VPG Club");
+                                    existing.lastClub = player.team_name || player.team_slug || "VPG Club";
                                     existing.vpgTeamSlug = pSlug;
                                 }
                             } else {
@@ -493,7 +493,7 @@ export async function syncFantasyWithVpg() {
 
                                 leaguePlayersMap.set(usernameLower, {
                                     username: username,
-                                    lastClub: dbTeam ? dbTeam.name : (player.team_name || player.team_slug || "VPG Club"),
+                                    lastClub: player.team_name || player.team_slug || "VPG Club",
                                     lastActive: new Date(),
                                     lastPosition: fantasyPos,
                                     vpgLeagueSlug: leagueSlug,

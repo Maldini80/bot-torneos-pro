@@ -275,10 +275,10 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsA
     const rating = parseFloat(matchData.rating || 0);
     const build = extractBuild(matchData);
 
-    // Evitar que partidos locales pisen el club de VPG de jugadores ya sincronizados
+    // Evitar que partidos locales/EA pisen el club de VPG de jugadores ya sincronizados
     const existing = await coll.findOne({ eaPlayerName: playerName });
     let finalClubName = clubName;
-    if (existing && existing.vpgLeagueSlug && !isVpgClub) {
+    if (existing && existing.vpgLeagueSlug) {
         finalClubName = existing.lastClub || clubName;
     }
 
@@ -302,10 +302,10 @@ async function updatePlayerProfileRatingOnly(coll, playerName, matchData, clubNa
     const rating = parseFloat(matchData.rating || 0);
     const build = extractBuild(matchData);
     
-    // Evitar que partidos locales pisen el club de VPG de jugadores ya sincronizados
+    // Evitar que partidos locales/EA pisen el club de VPG de jugadores ya sincronizados
     const existing = await coll.findOne({ eaPlayerName: playerName });
     let finalClubName = clubName;
-    if (existing && existing.vpgLeagueSlug && !isVpgClub) {
+    if (existing && existing.vpgLeagueSlug) {
         finalClubName = existing.lastClub || clubName;
     }
 
