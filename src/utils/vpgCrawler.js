@@ -72,7 +72,6 @@ const VPG_SPAIN_LEAGUES = [
  * @returns {Promise<Array>} Lista de ligas con su id, title y slug
  */
 export async function fetchVpgSpainLeagues() {
-    console.log(`[VPG Crawler] Cargando ${VPG_SPAIN_LEAGUES.length} ligas de VPG España (lista local)`);
     return VPG_SPAIN_LEAGUES;
 }
 
