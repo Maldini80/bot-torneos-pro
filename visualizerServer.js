@@ -6204,7 +6204,9 @@ export async function startVisualizerServer(discordClient) {
             let maxLimit = 14;
             if (selectedLeagues.length === 1) {
                 maxLimit = 8;
-            } else if (selectedLeagues.length >= 2) {
+            } else if (selectedLeagues.length === 2) {
+                maxLimit = 14;
+            } else if (selectedLeagues.length >= 3) {
                 maxLimit = 18;
             }
             const parsedMaxParticipants = parseInt(maxParticipants) || 14;
@@ -6273,8 +6275,19 @@ export async function startVisualizerServer(discordClient) {
                 const parsedMax = parseInt(maxParticipants);
                 const existingLeague = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(req.params.id) });
                 const currentVpgLeagues = req.body.vpgLeagues !== undefined ? (Array.isArray(req.body.vpgLeagues) ? req.body.vpgLeagues : []) : (existingLeague ? existingLeague.vpgLeagues : []);
-                const maxLimit = (Array.isArray(currentVpgLeagues) ? currentVpgLeagues.length : 0) >= 2 ? 18 : 14;
-                if (parsedMax < 2 || parsedMax > maxLimit) {
+                
+                const numLeagues = (Array.isArray(currentVpgLeagues) ? currentVpgLeagues.length : 0);
+                let maxLimit = 14;
+                if (numLeagues === 1) {
+                    maxLimit = 8;
+                } else if (numLeagues === 2) {
+                    maxLimit = 14;
+                } else if (numLeagues >= 3) {
+                    maxLimit = 18;
+                }
+
+                const isKeepingExisting = existingLeague && existingLeague.maxParticipants === parsedMax;
+                if (!isKeepingExisting && (parsedMax < 2 || parsedMax > maxLimit)) {
                     return res.status(400).json({ error: `El número de participantes debe estar entre 2 y ${maxLimit}.` });
                 }
                 updateFields.maxParticipants = parsedMax;
