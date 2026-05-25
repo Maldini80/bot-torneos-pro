@@ -6787,15 +6787,14 @@ export async function startVisualizerServer(discordClient) {
             const team = await db.collection('fantasy_teams').findOne({ _id: new ObjectId(teamId), leagueId: req.params.id });
             if (!team) return res.status(404).json({ error: 'Equipo no encontrado.' });
 
+            // Generar la plantilla aleatoria primero. Si falla (por falta de jugadores sincronizados),
+            // el error se propagará y evitará que el equipo sea aprobado con 0 jugadores.
+            await generateRandomSquadForTeam(db, req.params.id, teamId);
+
             await db.collection('fantasy_teams').updateOne(
                 { _id: new ObjectId(teamId), leagueId: req.params.id },
                 { $set: { approved: true } }
             );
-            try {
-                await generateRandomSquadForTeam(db, req.params.id, teamId);
-            } catch (err) {
-                console.error('[API Fantasy Approve Request] Error generating random squad:', err);
-            }
 
             // Obtener los datos de la liga para incluir el nombre en el MD
             const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(req.params.id) });
@@ -6816,7 +6815,7 @@ export async function startVisualizerServer(discordClient) {
             res.json({ success: true, message: 'Equipo aprobado e inscrito correctamente con su plantilla aleatoria asignada.' });
         } catch (e) {
             console.error('[API Fantasy Approve Request] Error:', e);
-            res.status(500).json({ error: 'Error al aprobar equipo.' });
+            res.status(500).json({ error: 'Error al aprobar equipo: ' + e.message });
         }
     });
 
