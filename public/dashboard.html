@@ -8,7 +8,24 @@
     <link rel="stylesheet" href="style.css?v=2.0.0">
     <link rel="stylesheet" href="profile-modals.css?v=2.0.0">
     <link rel="icon" type="image/png" href="/logo-the-blitz.png">
-    <meta name="theme-color" content="#0A84FF">
+    <!-- PWA Settings -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#0f172a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="VPG Fantasy">
+    <link rel="apple-touch-icon" href="/logo-192.png">
+    
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(reg => console.log('[PWA] Service Worker registered with scope:', reg.scope))
+            .catch(err => console.error('[PWA] Service Worker registration failed:', err));
+        });
+      }
+    </script>
+    
     <meta property="og:type" content="website">
     <meta property="og:title" content="THE BLITZ | Dashboard">
     <meta property="og:description" content="Panel de control de torneos, eventos activos e inscripciones de THE BLITZ.">

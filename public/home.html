@@ -24,8 +24,25 @@
     <meta name="twitter:description" content="La plataforma competitiva de torneos de EA Sports FC Pro Clubs.">
     <meta name="twitter:image" content="https://t-blitz.com/og-image.png">
     
+    <!-- PWA Settings -->
+    <link rel="manifest" href="/manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="VPG Fantasy">
+    <link rel="apple-touch-icon" href="/logo-192.png">
+    
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/service-worker.js')
+            .then(reg => console.log('[PWA] Service Worker registered with scope:', reg.scope))
+            .catch(err => console.error('[PWA] Service Worker registration failed:', err));
+        });
+      }
+    </script>
+
     <!-- Theme -->
-    <meta name="theme-color" content="#0A84FF">
+    <meta name="theme-color" content="#0f172a">
     <link rel="icon" type="image/png" href="/logo-the-blitz.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
