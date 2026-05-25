@@ -7255,14 +7255,20 @@ export async function startVisualizerServer(discordClient) {
                 // Refund and reject all pending bids for this player
                 await refundPendingBidsForPlayer(db, leagueId, eaPlayerName);
 
-                // Record the buyout (clausulazo) so point attribution is overridden in the next daily sync
+                // Check if lineup lock is active and the buyout is executed Mon-Thu (Madrid time)
+                const config = await db.collection('fantasy_config').findOne({ key: 'lock_lineups_active' });
+                const isLockEnabled = config ? !!config.value : true;
+                const { day } = getMadridTime();
+                const shouldDelayPoints = isLockEnabled && (day >= 1 && day <= 4);
+
+                // Record the buyout (clausulazo) so point attribution is overridden in the next daily sync if needed
                 await db.collection('fantasy_buyouts').insertOne({
                     leagueId,
                     eaPlayerName,
                     buyerDiscordId: discordId,
                     sellerDiscordId: ownerTeam.discordId,
                     timestamp: new Date(),
-                    processed: false,
+                    processed: !shouldDelayPoints,
                     wasStarter: isPlayerInLineup(ownerTeam.lineup, eaPlayerName)
                 });
 
