@@ -1819,13 +1819,16 @@ body {
         padding: 8px 6px !important;
         font-size: 0.75rem !important;
     }
-    /* Buttons in table cells stack vertically */
-    .fantasy-table td div {
+    .fantasy-table {
+        min-width: 480px !important;
+    }
+    /* Buttons in table cells stack vertically (only in the last actions column) */
+    .fantasy-table td:last-child div {
         flex-direction: column !important;
         align-items: stretch !important;
         gap: 6px !important;
     }
-    .fantasy-table td div button, .fantasy-table td div span {
+    .fantasy-table td:last-child div button, .fantasy-table td:last-child div span {
         width: 100% !important;
         margin: 0 !important;
         box-sizing: border-box;
