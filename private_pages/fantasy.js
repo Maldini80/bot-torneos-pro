@@ -793,19 +793,7 @@ function setupEventHandlers() {
         if (e.target === playerStatsModal) playerStatsModal.classList.remove('open');
     });
 
-    // Clause cost input calculator
-    clauseNewAmount.addEventListener('input', () => {
-        const currentVal = parseInt(clauseNewAmount.getAttribute('data-current-val') || 0);
-        const newVal = parseInt(clauseNewAmount.value || 0);
-        const diff = newVal - currentVal;
-        if (diff > 0) {
-            clauseCostVal.textContent = diff.toLocaleString('es-ES') + ' €';
-            clauseCostVal.className = 'text-red';
-        } else {
-            clauseCostVal.textContent = '0 € (Debe ser mayor)';
-            clauseCostVal.className = 'text-muted';
-        }
-    });
+    // Clause cost calculator is now handled dynamically in applyNumericMask below
 
     // Form handlers
     const newLeaguePrivacySelect = document.getElementById('new-league-privacy');
@@ -1243,6 +1231,20 @@ function setupEventHandlers() {
     document.addEventListener('click', (e) => {
         if (adminAddPlayerAutocompleteResults && e.target !== adminAddPlayerSearchInput && e.target !== adminAddPlayerAutocompleteResults) {
             adminAddPlayerAutocompleteResults.style.display = 'none';
+        }
+    });
+
+    // Apply auto-formatting numeric masks to input fields
+    applyNumericMask(bidAmountInput);
+    applyNumericMask(clauseNewAmount, (newVal) => {
+        const currentVal = parseInt(clauseNewAmount.getAttribute('data-current-val') || 0);
+        const diff = newVal - currentVal;
+        if (diff > 0) {
+            clauseCostVal.textContent = diff.toLocaleString('es-ES') + ' €';
+            clauseCostVal.className = 'text-red';
+        } else {
+            clauseCostVal.textContent = '0 € (Debe ser mayor)';
+            clauseCostVal.className = 'text-muted';
         }
     });
 }
@@ -1993,7 +1995,7 @@ function filterAndRenderMarket() {
                     bidSellerTeamVal.textContent = 'Agente Libre (SYSTEM)';
                     bidAskingPriceVal.textContent = formatCurrency(p.price);
                     bidBalanceVal.textContent = formatCurrency(myTeam.balance);
-                    bidAmountInput.value = p.price;
+                    bidAmountInput.value = new Intl.NumberFormat('es-ES').format(p.price);
                     bidForm.setAttribute('data-player-name', p.eaPlayerName);
                     bidForm.setAttribute('data-seller-id', 'SYSTEM');
                     bidForm.setAttribute('data-market-price', p.price);
@@ -2959,7 +2961,7 @@ async function showRivalTeam(discordId, teamName) {
                             bidSellerTeamVal.textContent = teamName;
                             bidAskingPriceVal.textContent = formatCurrency(cachedP.price);
                             bidBalanceVal.textContent = formatCurrency(myTeam.balance);
-                            bidAmountInput.value = cachedP.price;
+                            bidAmountInput.value = new Intl.NumberFormat('es-ES').format(cachedP.price);
                             bidForm.setAttribute('data-player-name', cachedP.eaPlayerName);
                             bidForm.setAttribute('data-seller-id', discordId);
                             bidModal.classList.add('open');
@@ -3840,7 +3842,7 @@ async function handleAdjustBudget(teamId, managerName, currentBalance) {
     );
     if (input === null) return;
 
-    let cleanInput = input.trim();
+    let cleanInput = input.trim().replace(/\./g, '');
     let action = 'set';
     let amount = 0;
 
@@ -4176,6 +4178,33 @@ function formatCurrency(val) {
     return new Intl.NumberFormat('es-ES', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(val);
 }
 
+function applyNumericMask(inputElement, onUpdate) {
+    if (!inputElement) return;
+    inputElement.addEventListener('input', (e) => {
+        let cursorPosition = e.target.selectionStart;
+        let originalLen = e.target.value.length;
+
+        // Keep only digits
+        let rawVal = e.target.value.replace(/\D/g, '');
+        
+        if (rawVal === '') {
+            e.target.value = '';
+            if (onUpdate) onUpdate(0);
+            return;
+        }
+
+        // Format with thousands separator
+        let formattedVal = new Intl.NumberFormat('es-ES').format(parseInt(rawVal));
+        e.target.value = formattedVal;
+
+        // Restore cursor position dynamically to avoid jumping
+        let newLen = formattedVal.length;
+        cursorPosition = cursorPosition + (newLen - originalLen);
+        e.target.setSelectionRange(cursorPosition, cursorPosition);
+
+        if (onUpdate) onUpdate(parseInt(rawVal));
+    });
+}
 
 function formatPlayerPoints(p) {
     if (!activeLeague) return Math.round((p.points || 0) * 10) / 10;
@@ -4249,9 +4278,8 @@ function openClauseModal(player, currentClause) {
     clausePlayerName.textContent = player.eaPlayerName;
     clauseCurrentVal.textContent = formatCurrency(currentClause);
     clauseBalanceVal.textContent = formatCurrency(myTeam.balance);
-    clauseNewAmount.value = currentClause + 500000;
+    clauseNewAmount.value = new Intl.NumberFormat('es-ES').format(currentClause + 500000);
     clauseNewAmount.setAttribute('data-current-val', currentClause);
-    clauseNewAmount.min = currentClause + 1;
     clauseCostVal.textContent = '500.000 €';
     clauseCostVal.className = 'text-red';
     clauseForm.setAttribute('data-player-name', player.eaPlayerName);
@@ -4261,7 +4289,7 @@ function openClauseModal(player, currentClause) {
 async function handleClauseSubmit(e) {
     e.preventDefault();
     const playerName = clauseForm.getAttribute('data-player-name');
-    const newClause = parseInt(clauseNewAmount.value);
+    const newClause = parseInt(clauseNewAmount.value.replace(/\D/g, '') || 0);
     const currentClause = parseInt(clauseNewAmount.getAttribute('data-current-val'));
     const cost = newClause - currentClause;
 
@@ -4357,7 +4385,7 @@ async function handleBidSubmit(e) {
     e.preventDefault();
     const playerName = bidForm.getAttribute('data-player-name');
     const sellerId = bidForm.getAttribute('data-seller-id');
-    const amount = parseInt(bidAmountInput.value);
+    const amount = parseInt(bidAmountInput.value.replace(/\D/g, '') || 0);
     const marketPrice = parseInt(bidForm.getAttribute('data-market-price')) || 0;
 
     if (amount <= 0) {
@@ -4451,7 +4479,7 @@ async function loadUserMarket() {
                     bidSellerTeamVal.textContent = l.sellerTeamName;
                     bidAskingPriceVal.textContent = formatCurrency(l.askingPrice);
                     bidBalanceVal.textContent = formatCurrency(myTeam.balance);
-                    bidAmountInput.value = l.askingPrice;
+                    bidAmountInput.value = new Intl.NumberFormat('es-ES').format(l.askingPrice);
                     bidForm.setAttribute('data-player-name', l.eaPlayerName);
                     bidForm.setAttribute('data-seller-id', l.sellerDiscordId);
                     bidForm.setAttribute('data-market-price', p.price);
