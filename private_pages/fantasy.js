@@ -303,6 +303,12 @@ const bidsSentList = document.getElementById('bids-sent-list');
 // DOM Elements - Leaderboard tab
 const leaderboardList = document.getElementById('leaderboard-list');
 
+// DOM Elements - News Feed
+const newsTimelineList = document.getElementById('news-timeline-list');
+const btnRefreshNews = document.getElementById('btn-refresh-news');
+const miniNewsWidget = document.getElementById('mini-news-widget');
+const miniNewsList = document.getElementById('mini-news-list');
+
 // DOM Elements - Pending Approval
 const pendingApprovalView = document.getElementById('pending-approval-view');
 const pendingTeamNameDisplay = document.getElementById('pending-team-name-display');
@@ -706,11 +712,25 @@ function setupEventHandlers() {
             
             if (tabName === 'leaderboard') {
                 loadLeaderboard();
+            } else if (tabName === 'news-feed') {
+                loadNewsFeed();
             } else if (tabName === 'admin-panel') {
                 loadAdminPanelData();
             }
         });
     });
+
+    if (btnRefreshNews) {
+        btnRefreshNews.addEventListener('click', loadNewsFeed);
+    }
+    const linkGoToNews = document.getElementById('link-go-to-news');
+    if (linkGoToNews) {
+        linkGoToNews.addEventListener('click', (e) => {
+            e.preventDefault();
+            const newsTabBtn = document.querySelector('.nav-tab-btn[data-league-tab="news-feed"]');
+            if (newsTabBtn) newsTabBtn.click();
+        });
+    }
 
     // Right Panel Tabs (Market vs Squad)
     const rightPanelTabs = document.querySelectorAll('.tab-btn');
@@ -1785,12 +1805,15 @@ async function enterLeague(leagueId, keepCurrentTab = false, password = null, op
         filterAndRenderMarket();
         renderSquadList();
         updateSquadStats();
+        loadMiniNewsWidget();
 
         if (keepCurrentTab) {
             const activeLeftBtn = document.querySelector('.nav-tab-btn.active');
             const activeLeftTab = activeLeftBtn ? activeLeftBtn.getAttribute('data-league-tab') : null;
             if (activeLeftTab === 'leaderboard') {
                 await loadLeaderboard();
+            } else if (activeLeftTab === 'news-feed') {
+                await loadNewsFeed();
             } else if (activeLeftTab === 'admin-panel') {
                 await loadAdminPanelData();
             }
@@ -2730,6 +2753,125 @@ async function executeSaveLineup(silent = false) {
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
+    }
+}
+
+function escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#039;');
+}
+
+function formatNewsMessage(msg) {
+    if (!msg) return '';
+    let escaped = escapeHTML(msg);
+    return escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+}
+
+// VIEW 2.2.5: Fetch and render News Feed
+async function loadNewsFeed() {
+    if (!newsTimelineList) return;
+    newsTimelineList.innerHTML = `<div class="text-center py-4 text-muted"><i class="fa-solid fa-spinner fa-spin"></i> Cargando noticias del mercado...</div>`;
+    
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/news?limit=40`);
+        if (!res.ok) throw new Error('Error al cargar las noticias.');
+        const data = await res.json();
+        const news = data.news || [];
+        
+        newsTimelineList.innerHTML = '';
+        
+        if (news.length === 0) {
+            newsTimelineList.innerHTML = `<div class="text-center py-4 text-muted">No hay noticias o transacciones registradas todavía en esta liga.</div>`;
+            return;
+        }
+        
+        news.forEach(item => {
+            const date = new Date(item.createdAt);
+            const timeStr = date.toLocaleString('es-ES', { 
+                day: '2-digit', 
+                month: '2-digit', 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            
+            let icon = 'fa-newspaper';
+            if (item.type === 'clausulazo') icon = 'fa-fire';
+            else if (item.type === 'fichaje') icon = 'fa-handshake';
+            else if (item.type === 'venta') icon = 'fa-coins';
+            else if (item.type === 'oferta') icon = 'fa-tag';
+            
+            const div = document.createElement('div');
+            div.className = `news-timeline-item type-${item.type || 'fichaje'}`;
+            div.innerHTML = `
+                <div class="news-icon-wrapper">
+                    <i class="fa-solid ${icon}"></i>
+                </div>
+                <div class="news-content-wrapper">
+                    <div class="news-meta">
+                        <span class="news-type-badge">${item.type || 'evento'}</span>
+                        <span class="news-time"><i class="fa-regular fa-clock"></i> ${timeStr}</span>
+                    </div>
+                    <div class="news-message">${formatNewsMessage(item.message)}</div>
+                </div>
+            `;
+            newsTimelineList.appendChild(div);
+        });
+    } catch (e) {
+        console.error(e);
+        newsTimelineList.innerHTML = `<div class="text-center py-4 text-danger"><i class="fa-solid fa-triangle-exclamation"></i> ${e.message}</div>`;
+    }
+}
+
+// Fetch and render top 3 news for mini widget
+async function loadMiniNewsWidget() {
+    if (!miniNewsList || !miniNewsWidget) return;
+    
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/news?limit=3`);
+        if (!res.ok) throw new Error('Error al cargar mini noticias.');
+        const data = await res.json();
+        const news = data.news || [];
+        
+        if (news.length === 0) {
+            miniNewsWidget.style.display = 'none';
+            return;
+        }
+        
+        miniNewsList.innerHTML = '';
+        
+        news.forEach(item => {
+            const date = new Date(item.createdAt);
+            const timeStr = date.toLocaleTimeString('es-ES', { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
+            
+            let icon = 'fa-newspaper';
+            if (item.type === 'clausulazo') icon = 'fa-fire';
+            else if (item.type === 'fichaje') icon = 'fa-handshake';
+            else if (item.type === 'venta') icon = 'fa-coins';
+            else if (item.type === 'oferta') icon = 'fa-tag';
+            
+            const itemDiv = document.createElement('div');
+            itemDiv.className = `mini-news-item type-${item.type || 'fichaje'}`;
+            itemDiv.innerHTML = `
+                <div class="mini-news-icon">
+                    <i class="fa-solid ${icon}"></i>
+                </div>
+                <div class="mini-news-text" title="${escapeHTML(item.message)}">${formatNewsMessage(item.message)}</div>
+                <div class="mini-news-time">${timeStr}</div>
+            `;
+            miniNewsList.appendChild(itemDiv);
+        });
+        
+        miniNewsWidget.style.display = 'block';
+    } catch (e) {
+        console.error(e);
+        miniNewsWidget.style.display = 'none';
     }
 }
 

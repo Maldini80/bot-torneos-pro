@@ -525,9 +525,13 @@ export async function syncFantasyWithVpg() {
             for (const [usernameLower, pData] of leaguePlayersMap.entries()) {
                 const { username, ...updateData } = pData;
 
-                // Buscar jugador por eaPlayerName case-insensitively
-                const existingPlayer = await playerColl.findOne({ 
-                    eaPlayerName: { $regex: new RegExp('^' + username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } 
+                // Buscar jugador por eaPlayerName case-insensitively o por vpgProfile.username
+                const usernameEscaped = username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                const existingPlayer = await playerColl.findOne({
+                    $or: [
+                        { eaPlayerName: { $regex: new RegExp('^' + usernameEscaped + '$', 'i') } },
+                        { "vpgProfile.username": { $regex: new RegExp('^' + usernameEscaped + '$', 'i') } }
+                    ]
                 });
 
                 if (existingPlayer) {
@@ -1569,6 +1573,20 @@ export async function resolveFreeAgentBids(db, leagueDoc) {
                 { $set: { status: 'accepted' } }
             );
 
+            // Registrar en noticias
+            try {
+                const { logFantasyNews } = await import('./fantasyNewsLogger.js');
+                const formattedAmount = winnerBid.bidAmount.toLocaleString('es-ES');
+                const newsMsg = `💚 **Fichaje**: El equipo **${winnerBid.bidderTeamName}** ha fichado al agente libre **${winnerBid.eaPlayerName}** por **${formattedAmount} €** en la puja del mercado.`;
+                await logFantasyNews(leagueId, 'fichaje', newsMsg, {
+                    playerName: winnerBid.eaPlayerName,
+                    buyerTeamName: winnerBid.bidderTeamName,
+                    amount: winnerBid.bidAmount
+                });
+            } catch (errNews) {
+                console.error('[FANTASY NEWS] Error en registro de fichaje libre:', errNews.message);
+            }
+
             console.log(`[BIDS RESOLUTION] Puja GANADA: ${winnerBid.bidderTeamName} ha fichado a ${winnerBid.eaPlayerName} por ${winnerBid.bidAmount.toLocaleString('es-ES')} €.`);
         }
 
@@ -1766,6 +1784,19 @@ export async function mergePlayerProfiles(db, mainPlayerName, duplicatePlayerNam
     // Si el jugador principal no tiene vpgProfile pero el duplicado sí, conservarlo
     if (dupPlayer.vpgProfile && !mainPlayer.vpgProfile) {
         updateDoc.vpgProfile = dupPlayer.vpgProfile;
+    } else if (mainPlayer.vpgProfile) {
+        updateDoc.vpgProfile = mainPlayer.vpgProfile;
+    }
+
+    // Asegurar que vpgProfile tenga el username de VPG
+    if (!updateDoc.vpgProfile) {
+        updateDoc.vpgProfile = {};
+    }
+    if (!updateDoc.vpgProfile.username) {
+        // El nombre VPG es el que tiene el vpgLeagueSlug
+        const vpgName = mainPlayer.vpgLeagueSlug ? mainPlayerNameExact : dupPlayerNameExact;
+        updateDoc.vpgProfile.username = vpgName;
+        updateDoc.vpgProfile.lastChecked = new Date();
     }
 
     // Eliminar campos null/undefined
@@ -2037,12 +2068,13 @@ export async function autoResolveVpgPlayerMerges(db, ignoreLimit = false) {
 
         // Ejecutar fusión si ha sido confirmado
         if (verified) {
-            console.log(`[VPG SYNC] [MERGE] ¡FUSIÓN CONFIRMADA! Fusionando ${dupPlayer.eaPlayerName} en ${mainPlayer.eaPlayerName}...`);
+            console.log(`[VPG SYNC] [MERGE] ¡FUSIÓN CONFIRMADA! Fusionando ${dupPlayer.eaPlayerName} (EA Name) en ${mainPlayer.eaPlayerName} (VPG Name)...`);
             try {
+                // Fusionamos manteniendo el nombre de VPG (mainPlayer) como el principal
                 await mergePlayerProfiles(db, mainPlayer.eaPlayerName, dupPlayer.eaPlayerName);
                 mergedCount++;
             } catch (err) {
-                console.error(`[VPG SYNC] [MERGE] Error ejecutando la fusión:`, err);
+                console.error(`[VPG SYNC] [MERGE] Error executing merge:`, err);
             }
         }
     }

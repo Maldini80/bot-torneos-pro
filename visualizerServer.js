@@ -7430,6 +7430,23 @@ export async function startVisualizerServer(discordClient) {
                     wasStarter: isPlayerInLineup(ownerTeam.lineup, eaPlayerName)
                 });
 
+                // Registrar en noticias
+                try {
+                    const { logFantasyNews } = await import('./src/utils/fantasyNewsLogger.js');
+                    const formattedClause = clauseAmount.toLocaleString('es-ES');
+                    const buyerTeam = await db.collection('fantasy_teams').findOne({ discordId, leagueId });
+                    const buyerName = buyerTeam ? buyerTeam.teamName : 'Otro mánager';
+                    const newsMsg = `🔥 **CLAUSULAZO**: El equipo **${buyerName}** ha pagado la cláusula de rescisión de **${clauseAmount.toLocaleString('es-ES')} €** por **${eaPlayerName}** al equipo **${ownerTeam.teamName}**.`;
+                    await logFantasyNews(leagueId, 'clausulazo', newsMsg, {
+                        playerName: eaPlayerName,
+                        buyerTeamName: buyerName,
+                        sellerTeamName: ownerTeam.teamName,
+                        amount: clauseAmount
+                    });
+                } catch (errNews) {
+                    console.error('[FANTASY NEWS] Error en registro de clausulazo:', errNews.message);
+                }
+
                 // Notificar al dueño original por MD de Discord
                 if (client && ownerTeam.discordId) {
                     try {
@@ -7860,6 +7877,20 @@ export async function startVisualizerServer(discordClient) {
                 { upsert: true }
             );
 
+            // Registrar en noticias
+            try {
+                const { logFantasyNews } = await import('./src/utils/fantasyNewsLogger.js');
+                const formattedPrice = askingPrice.toLocaleString('es-ES');
+                const newsMsg = `🏷️ **Puesto en Venta**: El equipo **${userTeam.teamName}** ha puesto transferible a **${eaPlayerName}** en el mercado con un precio de salida de **${formattedPrice} €**.`;
+                await logFantasyNews(leagueId, 'venta', newsMsg, {
+                    playerName: eaPlayerName,
+                    sellerTeamName: userTeam.teamName,
+                    amount: askingPrice
+                });
+            } catch (errNews) {
+                console.error('[FANTASY NEWS] Error en registro de transferible:', errNews.message);
+            }
+
             res.json({ success: true, message: `${eaPlayerName} puesto en venta por ${askingPrice.toLocaleString('es-ES')} €.` });
         } catch (e) {
             console.error('[API Fantasy List Market] Error:', e);
@@ -7958,6 +7989,26 @@ export async function startVisualizerServer(discordClient) {
         } catch (e) {
             console.error('[API Fantasy Get Listings] Error:', e);
             res.status(500).json({ error: 'Error al obtener transferibles.' });
+        }
+    });
+
+    // Get league transaction news feed (API)
+    app.get('/api/fantasy/leagues/:leagueId/news', isAuthenticated, isFantasyEnabled, async (req, res) => {
+        try {
+            const db = getDb();
+            const { leagueId } = req.params;
+            const limit = parseInt(req.query.limit) || 40;
+
+            const news = await db.collection('fantasy_news')
+                .find({ leagueId })
+                .sort({ createdAt: -1 })
+                .limit(limit)
+                .toArray();
+
+            res.json({ news });
+        } catch (e) {
+            console.error('[API Fantasy News] Error:', e);
+            res.status(500).json({ error: 'No se pudo cargar el historial de noticias.' });
         }
     });
 
@@ -8217,6 +8268,21 @@ export async function startVisualizerServer(discordClient) {
                 // Delete the listing for this player
                 await db.collection('fantasy_market_listings').deleteOne({ leagueId, eaPlayerName: bid.eaPlayerName });
 
+                // Registrar en noticias
+                try {
+                    const { logFantasyNews } = await import('./src/utils/fantasyNewsLogger.js');
+                    const formattedAmount = bid.bidAmount.toLocaleString('es-ES');
+                    const newsMsg = `🤝 **Fichaje**: El jugador **${bid.eaPlayerName}** ha sido traspasado a **La Liga** (máquina) por **${formattedAmount} €** procedente del equipo **${sellerTeam.teamName}**.`;
+                    await logFantasyNews(leagueId, 'venta', newsMsg, {
+                        playerName: bid.eaPlayerName,
+                        buyerTeamName: 'La Liga',
+                        sellerTeamName: sellerTeam.teamName,
+                        amount: bid.bidAmount
+                    });
+                } catch (errNews) {
+                    console.error('[FANTASY NEWS] Error en registro de venta a máquina:', errNews.message);
+                }
+
                 // Refund and reject other pending bids for the same player in this league
                 await refundPendingBidsForPlayer(db, leagueId, bid.eaPlayerName, bidId);
 
@@ -8283,6 +8349,21 @@ export async function startVisualizerServer(discordClient) {
 
             // 4. Delete the listing for this player
             await db.collection('fantasy_market_listings').deleteOne({ leagueId, eaPlayerName: bid.eaPlayerName });
+
+            // Registrar en noticias
+            try {
+                const { logFantasyNews } = await import('./src/utils/fantasyNewsLogger.js');
+                const formattedAmount = bid.bidAmount.toLocaleString('es-ES');
+                const newsMsg = `🤝 **Traspaso**: El equipo **${bidderTeam.teamName}** ha fichado a **${bid.eaPlayerName}** por **${formattedAmount} €** procedente del equipo **${sellerTeam.teamName}**.`;
+                await logFantasyNews(leagueId, 'fichaje', newsMsg, {
+                    playerName: bid.eaPlayerName,
+                    buyerTeamName: bidderTeam.teamName,
+                    sellerTeamName: sellerTeam.teamName,
+                    amount: bid.bidAmount
+                });
+            } catch (errNews) {
+                console.error('[FANTASY NEWS] Error en registro de traspaso peer:', errNews.message);
+            }
 
             // 5. Refund and reject other pending bids for the same player in this league
             await refundPendingBidsForPlayer(db, leagueId, bid.eaPlayerName, bidId);

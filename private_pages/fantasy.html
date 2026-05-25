@@ -412,6 +412,7 @@
         <nav class="league-nav">
             <button class="nav-tab-btn active" data-league-tab="my-team"><i class="fa-solid fa-people-group"></i> Mi Equipo</button>
             <button class="nav-tab-btn" data-league-tab="leaderboard"><i class="fa-solid fa-ranking-star"></i> Clasificación</button>
+            <button class="nav-tab-btn" data-league-tab="news-feed"><i class="fa-solid fa-bullhorn"></i> Noticias</button>
             <button id="btn-league-admin-tab" class="nav-tab-btn" data-league-tab="admin-panel" style="display: none;"><i class="fa-solid fa-gears"></i> Panel Admin</button>
         </nav>
 
@@ -459,6 +460,17 @@
                     <!-- Lineup Lock Status Indicator -->
                     <div id="lineup-lock-status-indicator" class="lock-status-indicator" style="display: none; padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 500; margin-bottom: 12px; align-items: center; gap: 8px;">
                         <!-- Will be populated dynamically by JS -->
+                    </div>
+
+                    <!-- Última Hora (Mini news ticker/card) -->
+                    <div id="mini-news-widget" class="mini-news-widget" style="margin-bottom: 12px; display: none;">
+                        <div class="mini-news-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 0.8rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">
+                            <span><i class="fa-solid fa-bolt text-yellow"></i> Últimas Operaciones</span>
+                            <a href="#" id="link-go-to-news" style="color: #38bdf8; text-decoration: none; font-size: 0.75rem; font-weight: 600;">Ver todas <i class="fa-solid fa-arrow-right"></i></a>
+                        </div>
+                        <div id="mini-news-list" style="display: flex; flex-direction: column; gap: 6px;">
+                            <!-- Top 3 items loaded dynamically -->
+                        </div>
                     </div>
 
                     <!-- Interactive Soccer Field -->
@@ -682,6 +694,24 @@
                                 </tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- Active View 2.2.5: News Feed -->
+        <div id="league-tab-news-feed" class="league-tab-content">
+            <main class="news-feed-container" style="max-width: 800px; margin: 0 auto; width: 100%;">
+                <div class="fantasy-card">
+                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                        <h2><i class="fa-solid fa-newspaper text-green"></i> Diario del Mercado</h2>
+                        <button id="btn-refresh-news" class="btn btn-secondary btn-xs"><i class="fa-solid fa-sync"></i> Actualizar</button>
+                    </div>
+                    <div class="news-timeline" id="news-timeline-list" style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+                        <!-- News items will be loaded dynamically -->
+                        <div class="text-center py-4 text-muted">
+                            <i class="fa-solid fa-spinner fa-spin"></i> Cargando últimas noticias...
+                        </div>
                     </div>
                 </div>
             </main>

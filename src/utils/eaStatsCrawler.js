@@ -256,15 +256,8 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsA
     }
 
     if (isVpg) {
-        // Para jugadores de VPG, las estadísticas competitivas y el historial de ratings provienen 100% de la API de VPG.
-        // Solo guardamos la posición, club actual, última fecha activa y su equipación/build física.
-        await coll.updateOne(
-            { eaPlayerName: playerName },
-            { 
-                $set: { lastClub: finalClubName, lastActive: new Date(), lastPosition: pos, build: build }
-            },
-            { upsert: true }
-        );
+        // Para jugadores de VPG, no modificar ni crear perfil desde el crawler de EA.
+        // Los datos del Fantasy provienen 100% de la API oficial de VPG.
         return;
     }
 
@@ -331,13 +324,8 @@ async function updatePlayerProfileRatingOnly(coll, playerName, matchData, clubNa
     }
 
     if (isVpg) {
-        await coll.updateOne(
-            { eaPlayerName: playerName },
-            { 
-                $set: { lastClub: finalClubName, lastActive: new Date(), lastPosition: pos, build: build }
-            },
-            { upsert: true }
-        );
+        // Para jugadores de VPG, no modificar ni crear perfil desde el crawler de EA.
+        // Los datos del Fantasy provienen 100% de la API oficial de VPG.
         return;
     }
 
