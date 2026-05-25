@@ -416,6 +416,93 @@ const playerStatsModalCloseBtn = document.getElementById('player-stats-modal-clo
 
 let pendingJoinLeagueId = null;
 
+// PWA Install Event Capturing
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    
+    // Show install buttons
+    const selectorBtn = document.getElementById('pwa-install-btn-selector');
+    const dashBtn = document.getElementById('pwa-install-btn-dash');
+    if (selectorBtn) selectorBtn.style.display = 'inline-flex';
+    if (dashBtn) dashBtn.style.display = 'inline-flex';
+    
+    // Show floating banner if not previously dismissed
+    const isDismissed = localStorage.getItem('pwa-dismissed') === 'true';
+    if (!isDismissed) {
+        setTimeout(showPwaInstallBanner, 3000);
+    }
+});
+
+window.addEventListener('appinstalled', (evt) => {
+    console.log('[PWA] App installed successfully');
+    deferredPrompt = null;
+    hidePwaInstallBanner();
+    
+    const selectorBtn = document.getElementById('pwa-install-btn-selector');
+    const dashBtn = document.getElementById('pwa-install-btn-dash');
+    if (selectorBtn) selectorBtn.style.display = 'none';
+    if (dashBtn) dashBtn.style.display = 'none';
+    
+    showToast('¡VPG Fantasy se ha instalado con éxito!', 'success');
+});
+
+function showPwaInstallBanner() {
+    let banner = document.getElementById('pwa-install-banner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'pwa-install-banner';
+        banner.innerHTML = `
+            <div class="pwa-banner-content">
+                <img src="/logo-192.png" alt="VPG Fantasy Logo" class="pwa-banner-logo">
+                <div class="pwa-banner-text">
+                    <h4>Instalar VPG Fantasy</h4>
+                    <p>Accede al instante desde tu escritorio y disfruta de una experiencia fluida a pantalla completa.</p>
+                </div>
+            </div>
+            <div class="pwa-banner-actions">
+                <button class="pwa-banner-btn-close" id="pwa-banner-close">Quizás más tarde</button>
+                <button class="pwa-banner-btn-install" id="pwa-banner-install">
+                    <i class="fa-solid fa-download"></i> Instalar
+                </button>
+            </div>
+        `;
+        document.body.appendChild(banner);
+        
+        document.getElementById('pwa-banner-close').addEventListener('click', () => {
+            hidePwaInstallBanner();
+            localStorage.setItem('pwa-dismissed', 'true');
+        });
+        
+        document.getElementById('pwa-banner-install').addEventListener('click', () => {
+            triggerPwaInstall();
+        });
+    }
+    
+    setTimeout(() => {
+        if (banner) banner.classList.add('show');
+    }, 50);
+}
+
+function hidePwaInstallBanner() {
+    const banner = document.getElementById('pwa-install-banner');
+    if (banner) {
+        banner.classList.remove('show');
+        setTimeout(() => banner.remove(), 400);
+    }
+}
+
+async function triggerPwaInstall() {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`[PWA] User response: ${outcome}`);
+    deferredPrompt = null;
+    hidePwaInstallBanner();
+}
+
 // Page Load
 window.addEventListener('DOMContentLoaded', async () => {
     setupEventHandlers();
@@ -533,6 +620,16 @@ async function checkUserSession() {
 
 // Setup Event Handlers
 function setupEventHandlers() {
+    // PWA Header install buttons click handlers
+    const selectorInstallBtn = document.getElementById('pwa-install-btn-selector');
+    const dashInstallBtn = document.getElementById('pwa-install-btn-dash');
+    if (selectorInstallBtn) {
+        selectorInstallBtn.addEventListener('click', triggerPwaInstall);
+    }
+    if (dashInstallBtn) {
+        dashInstallBtn.addEventListener('click', triggerPwaInstall);
+    }
+
     // Selector Back/Logout Click
     btnChangeLeague.addEventListener('click', () => {
         sessionStorage.removeItem('selected_league_id');
