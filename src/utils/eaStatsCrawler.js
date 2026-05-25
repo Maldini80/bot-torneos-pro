@@ -139,11 +139,12 @@ async function runVpgCrawler(manual = false, onProgress = null) {
                     const tk = player.tacklesMade || 0;
                     const hasRealStats = (pm + sh + tk) > 0;
 
+                    const isVpgClub = !!(team.vpgLeagueSlug || (team.get && team.get('vpgLeagueSlug')));
                     if (isShortMatch && !hasRealStats) {
                         console.log(`[CRAWLER] 🔌 DNF sin datos para ${playerName} (${team.name}) en grupo de ${group.length} sesiones. Solo rating.`);
-                        await updatePlayerProfileRatingOnly(playerColl, playerName, player, team.name);
+                        await updatePlayerProfileRatingOnly(playerColl, playerName, player, team.name, isVpgClub);
                     } else {
-                        await updatePlayerProfile(playerColl, playerName, player, team.name, aggregated.goalsAgainst, isWin, isTie);
+                        await updatePlayerProfile(playerColl, playerName, player, team.name, aggregated.goalsAgainst, isWin, isTie, isVpgClub);
                     }
                 }
 
@@ -237,7 +238,7 @@ function extractBuild(matchData) {
     return { height, weight, perks, vproattr: matchData.vproattr || null };
 }
 
-async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsAgainstThisMatch = 0, isWin = 0, isTie = 0) {
+async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsAgainstThisMatch = 0, isWin = 0, isTie = 0, isVpgClub = false) {
     const pos = resolvePos(matchData.pos, matchData.archetypeid);
     const isGK = pos === 'POR';
 
@@ -274,10 +275,17 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsA
     const rating = parseFloat(matchData.rating || 0);
     const build = extractBuild(matchData);
 
+    // Evitar que partidos locales pisen el club de VPG de jugadores ya sincronizados
+    const existing = await coll.findOne({ eaPlayerName: playerName });
+    let finalClubName = clubName;
+    if (existing && existing.vpgLeagueSlug && !isVpgClub) {
+        finalClubName = existing.lastClub || clubName;
+    }
+
     await coll.updateOne(
         { eaPlayerName: playerName },
         { 
-            $set: { lastClub: clubName, lastActive: new Date(), lastPosition: pos, build: build },
+            $set: { lastClub: finalClubName, lastActive: new Date(), lastPosition: pos, build: build },
             $inc: incrementData,
             $push: { 'stats.ratings': rating }
         },
@@ -289,16 +297,23 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsA
  * Solo guarda el rating del jugador en un partido DNF, sin incrementar estadísticas.
  * Esto evita que los datos vacíos de una desconexión diluyan las medias del jugador.
  */
-async function updatePlayerProfileRatingOnly(coll, playerName, matchData, clubName) {
+async function updatePlayerProfileRatingOnly(coll, playerName, matchData, clubName, isVpgClub = false) {
     const pos = resolvePos(matchData.pos, matchData.archetypeid);
     const rating = parseFloat(matchData.rating || 0);
     const build = extractBuild(matchData);
     
+    // Evitar que partidos locales pisen el club de VPG de jugadores ya sincronizados
+    const existing = await coll.findOne({ eaPlayerName: playerName });
+    let finalClubName = clubName;
+    if (existing && existing.vpgLeagueSlug && !isVpgClub) {
+        finalClubName = existing.lastClub || clubName;
+    }
+
     // Solo guardar rating (sin incrementar matchesPlayed ni stats)
     await coll.updateOne(
         { eaPlayerName: playerName },
         { 
-            $set: { lastClub: clubName, lastActive: new Date(), lastPosition: pos, build: build },
+            $set: { lastClub: finalClubName, lastActive: new Date(), lastPosition: pos, build: build },
             $push: { 'stats.ratings': rating }
         },
         { upsert: true }

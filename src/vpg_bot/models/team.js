@@ -15,7 +15,9 @@ const teamSchema = new mongoose.Schema({
     eaClubId: { type: String, default: null },
     eaClubName: { type: String, default: null },
     eaPlatform: { type: String, default: 'common-gen5' },
-    recruitmentOpen: { type: Boolean, default: true }
+    recruitmentOpen: { type: Boolean, default: true },
+    vpgLeagueSlug: { type: String, default: null },
+    vpgTeamSlug: { type: String, default: null }
 });
 
 module.exports = mongoose.models.Team || mongoose.model('Team', teamSchema, 'teams');
