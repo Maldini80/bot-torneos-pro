@@ -19,7 +19,7 @@ import { processMatchResult, finalizeMatchThread, findMatch } from './src/logic/
 import { getLeagueByElo, LEAGUE_EMOJIS } from './src/logic/eloLogic.js';
 import { createPoolEmbed } from './src/utils/embeds.js';
 import { scheduleRegistrationListUpdate } from './src/utils/registrationListManager.js';
-import { rebuildStatus, syncFantasyWithVpg, generateRandomSquadForTeam, generateMarketFreeAgentsPool } from './src/utils/fantasyVpgSync.js';
+import { rebuildStatus, syncFantasyWithVpg, generateRandomSquadForTeam, generateMarketFreeAgentsPool, mergePlayerProfiles } from './src/utils/fantasyVpgSync.js';
 import { getMadridTime } from './src/utils/timeHelper.js';
 
 // FIX: Mutex por draft para evitar race conditions en picks concurrentes
@@ -8778,153 +8778,23 @@ export async function startVisualizerServer(discordClient) {
     // Replace/Merge player (playerName = new crawled name, targetName = old existing name)
     app.post('/api/fantasy/admin/players/:playerName/replace', isAuthenticated, isFantasyAdmin, async (req, res) => {
         try {
-            const { playerName } = req.params; // new name
-            const { targetName } = req.body; // old name
+            const { playerName } = req.params; // new name (main)
+            const { targetName } = req.body; // old name (duplicate)
             if (!targetName) {
                 return res.status(400).json({ error: 'El nombre del jugador a sustituir (antiguo) es requerido.' });
             }
 
             const db = getDb();
 
-            // 1. Find old player profile
-            const oldPlayer = await db.collection('player_profiles').findOne({
-                eaPlayerName: { $regex: new RegExp('^' + targetName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
-            });
-            if (!oldPlayer) {
-                return res.status(404).json({ error: `Jugador antiguo "${targetName}" no encontrado.` });
-            }
+            // Perform merge
+            await mergePlayerProfiles(db, playerName, targetName);
 
-            // 2. Find new player profile (if exists)
-            const newPlayer = await db.collection('player_profiles').findOne({
-                eaPlayerName: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
-            });
-
-            const oldPlayerNameExact = oldPlayer.eaPlayerName;
-            const newPlayerNameExact = newPlayer ? newPlayer.eaPlayerName : playerName;
-
-            // 3. Update old profile with new name and new stats, then delete new profile
-            const updateDoc = {
-                eaPlayerName: newPlayerNameExact
-            };
-            if (newPlayer) {
-                if (newPlayer.stats) updateDoc.stats = newPlayer.stats;
-                if (newPlayer.vpgLeagueSlug) updateDoc.vpgLeagueSlug = newPlayer.vpgLeagueSlug;
-                if (newPlayer.lastPosition) updateDoc.lastPosition = newPlayer.lastPosition;
-                if (newPlayer.lastClub) updateDoc.lastClub = newPlayer.lastClub;
-                if (newPlayer.avatar) updateDoc.avatar = newPlayer.avatar;
-                if (newPlayer.nationality) updateDoc.nationality = newPlayer.nationality;
-                if (newPlayer.isNew !== undefined) updateDoc.isNew = newPlayer.isNew;
-                if (newPlayer.newUntil) updateDoc.newUntil = newPlayer.newUntil;
-            }
-
-            await db.collection('player_profiles').updateOne({ _id: oldPlayer._id }, { $set: updateDoc });
-
-            if (newPlayer) {
-                await db.collection('player_profiles').deleteOne({ _id: newPlayer._id });
-            }
-
-            // 4. Replace name in all fantasy teams
+            // Fetch affected teams (now with the new name) to recalculate points
             const affectedTeams = await db.collection('fantasy_teams').find({
-                players: { $regex: new RegExp('^' + oldPlayerNameExact.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+                players: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
             }).toArray();
 
-            for (const team of affectedTeams) {
-                const updatedPlayers = team.players.map(p => {
-                    if (p.toLowerCase() === oldPlayerNameExact.toLowerCase()) {
-                        return newPlayerNameExact;
-                    }
-                    return p;
-                });
-
-                const updatedLineup = { ...team.lineup };
-                for (const pos in updatedLineup) {
-                    if (Array.isArray(updatedLineup[pos])) {
-                        updatedLineup[pos] = updatedLineup[pos].map(p => {
-                            if (p && p.toLowerCase() === oldPlayerNameExact.toLowerCase()) {
-                                return newPlayerNameExact;
-                            }
-                            return p;
-                        });
-                    } else if (updatedLineup[pos] && updatedLineup[pos].toLowerCase() === oldPlayerNameExact.toLowerCase()) {
-                        updatedLineup[pos] = newPlayerNameExact;
-                    }
-                }
-
-                const updatedClauses = { ...team.clauses || {} };
-                const updatedClausesProtected = { ...team.clausesProtectedUntil || {} };
-                
-                const clauseKey = Object.keys(updatedClauses).find(k => k.toLowerCase() === oldPlayerNameExact.toLowerCase());
-                if (clauseKey) {
-                    updatedClauses[newPlayerNameExact] = updatedClauses[clauseKey];
-                    delete updatedClauses[clauseKey];
-                }
-                const protectKey = Object.keys(updatedClausesProtected).find(k => k.toLowerCase() === oldPlayerNameExact.toLowerCase());
-                if (protectKey) {
-                    updatedClausesProtected[newPlayerNameExact] = updatedClausesProtected[protectKey];
-                    delete updatedClausesProtected[protectKey];
-                }
-
-                await db.collection('fantasy_teams').updateOne(
-                    { _id: team._id },
-                    {
-                        $set: {
-                            players: updatedPlayers,
-                            lineup: updatedLineup,
-                            clauses: updatedClauses,
-                            clausesProtectedUntil: updatedClausesProtected
-                        }
-                    }
-                );
-            }
-
-            // 5. Replace name in market listings and bids
-            await db.collection('fantasy_market_listings').updateMany(
-                { eaPlayerName: { $regex: new RegExp('^' + oldPlayerNameExact.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } },
-                { $set: { eaPlayerName: newPlayerNameExact } }
-            );
-
-            await db.collection('fantasy_market_bids').updateMany(
-                { eaPlayerName: { $regex: new RegExp('^' + oldPlayerNameExact.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } },
-                { $set: { eaPlayerName: newPlayerNameExact } }
-            );
-
-            // 6. Replace name in fantasy leagues' marketFreeAgents and basePoints (for ZERO mode)
-            const affectedLeagues = await db.collection('fantasy_leagues').find({
-                $or: [
-                    { marketFreeAgents: { $regex: new RegExp('^' + oldPlayerNameExact.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } },
-                    { [`basePoints.${oldPlayerNameExact}`]: { $exists: true } }
-                ]
-            }).toArray();
-
-            for (const league of affectedLeagues) {
-                const updateOps = {};
-                
-                if (Array.isArray(league.marketFreeAgents)) {
-                    updateOps.marketFreeAgents = league.marketFreeAgents.map(p => {
-                        if (p.toLowerCase() === oldPlayerNameExact.toLowerCase()) {
-                            return newPlayerNameExact;
-                        }
-                        return p;
-                    });
-                }
-                
-                if (league.basePoints) {
-                    const updatedBasePoints = { ...league.basePoints };
-                    const baseKey = Object.keys(updatedBasePoints).find(k => k.toLowerCase() === oldPlayerNameExact.toLowerCase());
-                    if (baseKey) {
-                        updatedBasePoints[newPlayerNameExact] = updatedBasePoints[baseKey];
-                        delete updatedBasePoints[baseKey];
-                        updateOps.basePoints = updatedBasePoints;
-                    }
-                }
-
-                await db.collection('fantasy_leagues').updateOne(
-                    { _id: league._id },
-                    { $set: updateOps }
-                );
-            }
-
-            // 7. Recalculate points for affected teams using updated league and player data
+            // Recalculate points for affected teams using updated league and player data
             for (const team of affectedTeams) {
                 try {
                     const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(team.leagueId) });
@@ -8932,11 +8802,11 @@ export async function startVisualizerServer(discordClient) {
                     // Fetch updated team doc to get the new players list
                     const teamDoc = await db.collection('fantasy_teams').findOne({ _id: team._id });
                     if (teamDoc) {
-                        for (const playerName of (teamDoc.players || [])) {
-                            let player = await db.collection('player_profiles').findOne({ eaPlayerName: playerName });
+                        for (const pName of (teamDoc.players || [])) {
+                            let player = await db.collection('player_profiles').findOne({ eaPlayerName: pName });
                             if (!player) {
                                 player = await db.collection('player_profiles').findOne({
-                                    eaPlayerName: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+                                    eaPlayerName: { $regex: new RegExp('^' + pName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
                                 });
                             }
                             if (player) {
@@ -8964,10 +8834,10 @@ export async function startVisualizerServer(discordClient) {
                 }
             }
 
-            res.json({ success: true, message: `Sustitución completada. Se ha renombrado globalmente a ${oldPlayerNameExact} por ${newPlayerNameExact}.` });
+            res.json({ success: true, message: `Sustitución completada. Se han fusionado los perfiles de ${targetName} y ${playerName}.` });
         } catch (e) {
             console.error('[API Admin Replace Player] Error:', e);
-            res.status(500).json({ error: 'Error al realizar la sustitución.' });
+            res.status(500).json({ error: 'Error al realizar la sustitución: ' + e.message });
         }
     });
 

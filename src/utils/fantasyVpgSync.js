@@ -737,6 +737,14 @@ export async function syncFantasyWithVpg() {
             }
         }
 
+        // A. Resolver fusiones automáticas de jugadores duplicados usando los enlaces de perfiles de VPG
+        try {
+            updateRebuildStatus({ progress: 'Detectando y fusionando perfiles de jugadores duplicados...' });
+            await autoResolveVpgPlayerMerges(db);
+        } catch (e) {
+            console.error('[VPG SYNC] Error en la resolución automática de fusiones:', e);
+        }
+
         // 4. Recalcular puntos de los equipos Fantasy de cada liga (incremental por alineación)
         updateRebuildStatus({ progress: 'Recalculando puntos de ligas y equipos de Fantasy...' });
         const leagues = await db.collection('fantasy_leagues').find().toArray();
@@ -1600,4 +1608,408 @@ export async function runMarketAutomation() {
         console.error('[MARKET AUTOMATION] Error fatal en la automatización del mercado:', err);
     }
 }
+
+// ========== AUTOMATED PLAYER MERGING & DE-DUPLICATION ==========
+
+function editDistance(s1, s2) {
+    s1 = s1.toLowerCase();
+    s2 = s2.toLowerCase();
+
+    const costs = [];
+    for (let i = 0; i <= s1.length; i++) {
+        let lastValue = i;
+        for (let j = 0; j <= s2.length; j++) {
+            if (i === 0) {
+                costs[j] = j;
+            } else {
+                if (j > 0) {
+                    let newValue = costs[j - 1];
+                    if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
+                        newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                    }
+                    costs[j - 1] = lastValue;
+                    lastValue = newValue;
+                }
+            }
+        }
+        if (i > 0) {
+            costs[s2.length] = lastValue;
+        }
+    }
+    return costs[s2.length];
+}
+
+function getNameSimilarity(s1, s2) {
+    const longer = s1.length > s2.length ? s1 : s2;
+    const shorter = s1.length > s2.length ? s2 : s1;
+    const longerLength = longer.length;
+    if (longerLength === 0) return 1.0;
+    return (longerLength - editDistance(longer, shorter)) / parseFloat(longerLength);
+}
+
+function normalizePlayerName(name) {
+    if (!name) return '';
+    return name.toLowerCase()
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
+}
+
+function getSubstrings(str) {
+    const substrings = new Set();
+    const len = str.length;
+    const size = Math.min(4, len);
+    if (size <= 0) return substrings;
+    for (let i = 0; i <= len - size; i++) {
+        substrings.add(str.substring(i, i + size));
+    }
+    return substrings;
+}
+
+/**
+ * Fondee/Combina dos perfiles de jugador (duplicatePlayerName -> mainPlayerName)
+ * Actualiza fantasy_teams, fantasy_market_listings, fantasy_market_bids, fantasy_leagues.
+ */
+export async function mergePlayerProfiles(db, mainPlayerName, duplicatePlayerName) {
+    const playerColl = db.collection('player_profiles');
+
+    // 1. Encontrar ambos perfiles
+    const mainPlayer = await playerColl.findOne({
+        eaPlayerName: { $regex: new RegExp('^' + mainPlayerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+    });
+    const dupPlayer = await playerColl.findOne({
+        eaPlayerName: { $regex: new RegExp('^' + duplicatePlayerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+    });
+
+    if (!mainPlayer) {
+        throw new Error(`Perfil principal "${mainPlayerName}" no encontrado.`);
+    }
+    if (!dupPlayer) {
+        throw new Error(`Perfil duplicado "${duplicatePlayerName}" no encontrado.`);
+    }
+
+    const mainPlayerNameExact = mainPlayer.eaPlayerName;
+    const dupPlayerNameExact = dupPlayer.eaPlayerName;
+
+    if (mainPlayerNameExact.toLowerCase() === dupPlayerNameExact.toLowerCase()) {
+        console.warn(`[MERGE] El jugador principal y el duplicado son el mismo: ${mainPlayerNameExact}`);
+        return;
+    }
+
+    // 2. Combinar estadísticas
+    const mergedStats = {};
+    const mainStats = mainPlayer.stats || {};
+    const dupStats = dupPlayer.stats || {};
+
+    const statsFields = [
+        'matchesPlayed', 'goals', 'assists', 'passesMade', 'passesAttempted',
+        'tacklesMade', 'tacklesAttempted', 'shots', 'shotsOnTarget', 'interceptions',
+        'saves', 'redCards', 'yellowCards', 'mom', 'cleanSheets', 'goalsConceded',
+        'wins', 'losses', 'ties'
+    ];
+
+    for (const field of statsFields) {
+        mergedStats[field] = (mainStats[field] || 0) + (dupStats[field] || 0);
+    }
+
+    mergedStats.ratings = [ ...(mainStats.ratings || []), ...(dupStats.ratings || []) ];
+    mergedStats.vpgPoints = Math.max(mainStats.vpgPoints || 0, dupStats.vpgPoints || 0);
+
+    const updateDoc = {
+        stats: mergedStats,
+        vpgLeagueSlug: mainPlayer.vpgLeagueSlug || dupPlayer.vpgLeagueSlug,
+        lastPosition: mainPlayer.lastPosition || dupPlayer.lastPosition,
+        lastClub: mainPlayer.lastClub || dupPlayer.lastClub,
+        avatar: mainPlayer.avatar || dupPlayer.avatar,
+        nationality: mainPlayer.nationality || dupPlayer.nationality,
+        manualPrice: mainPlayer.manualPrice !== undefined && mainPlayer.manualPrice !== null ? mainPlayer.manualPrice : dupPlayer.manualPrice,
+        manualPosition: mainPlayer.manualPosition !== undefined && mainPlayer.manualPosition !== null ? mainPlayer.manualPosition : dupPlayer.manualPosition
+    };
+
+    // Si el jugador principal no tiene vpgProfile pero el duplicado sí, conservarlo
+    if (dupPlayer.vpgProfile && !mainPlayer.vpgProfile) {
+        updateDoc.vpgProfile = dupPlayer.vpgProfile;
+    }
+
+    // Eliminar campos null/undefined
+    Object.keys(updateDoc).forEach(key => (updateDoc[key] === undefined || updateDoc[key] === null) && delete updateDoc[key]);
+
+    // Guardar cambios en el principal y eliminar duplicado
+    await playerColl.updateOne({ _id: mainPlayer._id }, { $set: updateDoc });
+    await playerColl.deleteOne({ _id: dupPlayer._id });
+
+    // 3. Reemplazar nombre en fantasy_teams (players, lineup, clauses, clausesProtectedUntil)
+    const affectedTeams = await db.collection('fantasy_teams').find({
+        players: { $regex: new RegExp('^' + dupPlayerNameExact.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+    }).toArray();
+
+    for (const team of affectedTeams) {
+        const updatedPlayers = team.players.map(p => {
+            if (p.toLowerCase() === dupPlayerNameExact.toLowerCase()) {
+                return mainPlayerNameExact;
+            }
+            return p;
+        });
+
+        const updatedLineup = { ...team.lineup };
+        for (const pos in updatedLineup) {
+            if (Array.isArray(updatedLineup[pos])) {
+                updatedLineup[pos] = updatedLineup[pos].map(p => {
+                    if (p && p.toLowerCase() === dupPlayerNameExact.toLowerCase()) {
+                        return mainPlayerNameExact;
+                    }
+                    return p;
+                });
+            } else if (updatedLineup[pos] && updatedLineup[pos].toLowerCase() === dupPlayerNameExact.toLowerCase()) {
+                updatedLineup[pos] = mainPlayerNameExact;
+            }
+        }
+
+        const updatedClauses = { ...team.clauses || {} };
+        const updatedClausesProtected = { ...team.clausesProtectedUntil || {} };
+        
+        const clauseKey = Object.keys(updatedClauses).find(k => k.toLowerCase() === dupPlayerNameExact.toLowerCase());
+        if (clauseKey) {
+            updatedClauses[mainPlayerNameExact] = updatedClauses[clauseKey];
+            delete updatedClauses[clauseKey];
+        }
+        const protectKey = Object.keys(updatedClausesProtected).find(k => k.toLowerCase() === dupPlayerNameExact.toLowerCase());
+        if (protectKey) {
+            updatedClausesProtected[mainPlayerNameExact] = updatedClausesProtected[protectKey];
+            delete updatedClausesProtected[protectKey];
+        }
+
+        await db.collection('fantasy_teams').updateOne(
+            { _id: team._id },
+            {
+                $set: {
+                    players: updatedPlayers,
+                    lineup: updatedLineup,
+                    clauses: updatedClauses,
+                    clausesProtectedUntil: updatedClausesProtected
+                }
+            }
+        );
+    }
+
+    // 4. Reemplazar nombre en fantasy_market_listings y fantasy_market_bids
+    await db.collection('fantasy_market_listings').updateMany(
+        { eaPlayerName: { $regex: new RegExp('^' + dupPlayerNameExact.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } },
+        { $set: { eaPlayerName: mainPlayerNameExact } }
+    );
+
+    await db.collection('fantasy_market_bids').updateMany(
+        { eaPlayerName: { $regex: new RegExp('^' + dupPlayerNameExact.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } },
+        { $set: { eaPlayerName: mainPlayerNameExact } }
+    );
+
+    // 5. Reemplazar nombre en fantasy_leagues (marketFreeAgents y basePoints)
+    const affectedLeagues = await db.collection('fantasy_leagues').find({
+        $or: [
+            { marketFreeAgents: { $regex: new RegExp('^' + dupPlayerNameExact.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } },
+            { [`basePoints.${dupPlayerNameExact}`]: { $exists: true } }
+        ]
+    }).toArray();
+
+    for (const league of affectedLeagues) {
+        const updateOps = {};
+        
+        if (Array.isArray(league.marketFreeAgents)) {
+            updateOps.marketFreeAgents = league.marketFreeAgents.map(p => {
+                if (p.toLowerCase() === dupPlayerNameExact.toLowerCase()) {
+                    return mainPlayerNameExact;
+                }
+                return p;
+            });
+        }
+        
+        if (league.basePoints) {
+            const updatedBasePoints = { ...league.basePoints };
+            const baseKey = Object.keys(updatedBasePoints).find(k => k.toLowerCase() === dupPlayerNameExact.toLowerCase());
+            if (baseKey) {
+                updatedBasePoints[mainPlayerNameExact] = updatedBasePoints[baseKey];
+                delete updatedBasePoints[baseKey];
+                updateOps.basePoints = updatedBasePoints;
+            }
+        }
+
+        await db.collection('fantasy_leagues').updateOne(
+            { _id: league._id },
+            { $set: updateOps }
+        );
+    }
+
+    console.log(`[MERGE] Fusión completada con éxito: ${dupPlayerNameExact} -> ${mainPlayerNameExact}`);
+}
+
+/**
+ * Escanea la base de datos de perfiles, detecta duplicados candidatos usando substrings
+ * y los verifica contra la API pública de VPG, limitando a un máximo de 15 peticiones por llamada.
+ */
+export async function autoResolveVpgPlayerMerges(db, ignoreLimit = false) {
+    console.log('[VPG SYNC] [MERGE] Iniciando detección automática de duplicados...');
+    const playerColl = db.collection('player_profiles');
+    
+    // 1. Obtener todos los perfiles de jugadores activos
+    const players = await playerColl.find({ excluded: { $ne: true } }).toArray();
+    
+    // 2. Normalizar e indexar por substrings de 4 caracteres
+    const playersList = [];
+    const index = {};
+    
+    for (const p of players) {
+        const norm = normalizePlayerName(p.eaPlayerName);
+        if (!norm) continue;
+        
+        p.normalized = norm;
+        p.substrings = getSubstrings(norm);
+        playersList.push(p);
+        
+        for (const sub of p.substrings) {
+            if (!index[sub]) {
+                index[sub] = [];
+            }
+            index[sub].push(p);
+        }
+    }
+    
+    // 3. Buscar pares de candidatos potenciales
+    const checkedPairs = new Set();
+    const potentialPairs = [];
+    
+    for (const p1 of playersList) {
+        const norm1 = p1.normalized;
+        const candidates = new Set();
+        
+        for (const sub of p1.substrings) {
+            for (const candidate of index[sub]) {
+                if (candidate._id.toString() !== p1._id.toString()) {
+                    candidates.add(candidate);
+                }
+            }
+        }
+        
+        for (const p2 of candidates) {
+            const pairKey = [p1._id.toString(), p2._id.toString()].sort().join('_');
+            if (checkedPairs.has(pairKey)) continue;
+            checkedPairs.add(pairKey);
+            
+            const norm2 = p2.normalized;
+            const sim = getNameSimilarity(norm1, norm2);
+            
+            if (sim >= 0.70) {
+                potentialPairs.push({ p1, p2, sim });
+            }
+        }
+    }
+    
+    // 4. Filtrar parejas para optimizar: al menos uno debe tener vpgLeagueSlug (activo en Fantasy)
+    // y el otro no debe tener vpgLeagueSlug (o tenerlo vacío/nulo, indicando que es el duplicado de crawler/partido)
+    const optimizedPairs = potentialPairs.filter(pair => {
+        const hasP1League = !!pair.p1.vpgLeagueSlug;
+        const hasP2League = !!pair.p2.vpgLeagueSlug;
+        return (hasP1League && !hasP2League) || (!hasP1League && hasP2League);
+    });
+
+    console.log(`[VPG SYNC] [MERGE] Encontrados ${optimizedPairs.length} pares potenciales optimizados (activo + inactivo) con similitud >= 70%.`);
+
+    const MAX_API_QUERIES = 15;
+    let apiQueriesCount = 0;
+    let mergedCount = 0;
+    
+    for (const { p1, p2, sim } of optimizedPairs) {
+        // Asegurar que ambos perfiles siguen existiendo (pueden haberse borrado en una fusión previa)
+        const exists1 = await playerColl.findOne({ _id: p1._id });
+        const exists2 = await playerColl.findOne({ _id: p2._id });
+        if (!exists1 || !exists2) continue;
+        
+        // Identificar cuál de los dos es el activo (que tiene league slug, es decir, el VPG username)
+        const mainPlayer = p1.vpgLeagueSlug ? p1 : p2;
+        const dupPlayer = p1.vpgLeagueSlug ? p2 : p1;
+
+        console.log(`[VPG SYNC] [MERGE] Evaluando par: principal "${mainPlayer.eaPlayerName}" y duplicado "${dupPlayer.eaPlayerName}" (Similitud: ${(sim*100).toFixed(1)}%)`);
+
+        let verified = false;
+
+        // Caso A: El perfil principal ya tiene guardados los datos de perfil VPG en caché local de DB
+        if (mainPlayer.vpgProfile && mainPlayer.vpgProfile.lastChecked) {
+            const cacheAge = Date.now() - new Date(mainPlayer.vpgProfile.lastChecked).getTime();
+            const ONE_WEEK = 7 * 24 * 60 * 60 * 1000;
+            
+            if (cacheAge < ONE_WEEK) {
+                const consoleIds = [
+                    String(mainPlayer.vpgProfile.username || ''),
+                    String(mainPlayer.vpgProfile.psn || ''),
+                    String(mainPlayer.vpgProfile.origin || ''),
+                    String(mainPlayer.vpgProfile.xbox || '')
+                ].map(id => id.toLowerCase().trim()).filter(Boolean);
+                
+                if (consoleIds.includes(dupPlayer.eaPlayerName.toLowerCase().trim())) {
+                    verified = true;
+                    console.log(`[VPG SYNC] [MERGE] [CACHE] Confirmado por caché local de base de datos.`);
+                }
+            }
+        }
+
+        // Caso B: Si no está en caché (o expiró), y no hemos excedido el límite de llamadas API en este sync
+        if (!verified) {
+            if (!ignoreLimit && apiQueriesCount >= MAX_API_QUERIES) {
+                console.log(`[VPG SYNC] [MERGE] Límite de llamadas API (${MAX_API_QUERIES}) alcanzado para este sync. Aplazando evaluación para el próximo ciclo.`);
+                continue;
+            }
+            
+            apiQueriesCount++;
+            const url = `https://api.virtualprogaming.com/public/users/${encodeURIComponent(mainPlayer.eaPlayerName)}/`;
+            console.log(`[VPG SYNC] [MERGE] [API] Consultando API de VPG (${apiQueriesCount}/${MAX_API_QUERIES}): ${url}`);
+            
+            try {
+                // Pequeño delay para no saturar
+                await new Promise(r => setTimeout(r, 150));
+                
+                const res = await fetch(url, { headers: HEADERS });
+                if (res.ok) {
+                    const userData = await res.json();
+                    
+                    // Guardar en caché local del documento
+                    const vpgProfile = {
+                        username: userData.username || null,
+                        psn: userData.psn || null,
+                        origin: userData.origin || null,
+                        xbox: userData.xbox || null,
+                        lastChecked: new Date()
+                    };
+                    await playerColl.updateOne({ _id: mainPlayer._id }, { $set: { vpgProfile } });
+                    
+                    const consoleIds = [
+                        String(userData.username || ''),
+                        String(userData.psn || ''),
+                        String(userData.origin || ''),
+                        String(userData.xbox || '')
+                    ].map(id => id.toLowerCase().trim()).filter(Boolean);
+                    
+                    if (consoleIds.includes(dupPlayer.eaPlayerName.toLowerCase().trim())) {
+                        verified = true;
+                    }
+                } else {
+                    console.warn(`[VPG SYNC] [MERGE] Error HTTP consultando API para ${mainPlayer.eaPlayerName}: ${res.status}`);
+                }
+            } catch (err) {
+                console.error(`[VPG SYNC] [MERGE] Error llamando a API VPG para ${mainPlayer.eaPlayerName}:`, err.message);
+            }
+        }
+
+        // Ejecutar fusión si ha sido confirmado
+        if (verified) {
+            console.log(`[VPG SYNC] [MERGE] ¡FUSIÓN CONFIRMADA! Fusionando ${dupPlayer.eaPlayerName} en ${mainPlayer.eaPlayerName}...`);
+            try {
+                await mergePlayerProfiles(db, mainPlayer.eaPlayerName, dupPlayer.eaPlayerName);
+                mergedCount++;
+            } catch (err) {
+                console.error(`[VPG SYNC] [MERGE] Error ejecutando la fusión:`, err);
+            }
+        }
+    }
+    
+    console.log(`[VPG SYNC] [MERGE] Detección y fusión de duplicados finalizada. Fusionados ${mergedCount} perfiles en este ciclo.`);
+}
+
 
