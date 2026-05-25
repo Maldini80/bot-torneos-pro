@@ -7119,11 +7119,15 @@ export async function startVisualizerServer(discordClient) {
 
             // Fetch team logos from test db
             const testDb = getDb('test');
-            const teamsList = await testDb.collection('teams').find({}, { projection: { name: 1, logoUrl: 1 } }).toArray();
+            const teamsList = await testDb.collection('teams').find({}, { projection: { name: 1, logoUrl: 1, vpgTeamSlug: 1 } }).toArray();
             const teamLogoMap = {};
+            const teamLogoBySlugMap = {};
             teamsList.forEach(t => {
                 if (t.name) {
                     teamLogoMap[t.name.toLowerCase().trim()] = t.logoUrl || null;
+                }
+                if (t.vpgTeamSlug) {
+                    teamLogoBySlugMap[t.vpgTeamSlug.toLowerCase().trim()] = t.logoUrl || null;
                 }
             });
 
@@ -7192,7 +7196,7 @@ export async function startVisualizerServer(discordClient) {
                     clause: clauseMap[p.eaPlayerName] || null,
                     protectedUntil: protectionMap[p.eaPlayerName] || null,
                     bidCount: bidCountMap[nameLower] || 0,
-                    clubLogo: (p.lastClub ? teamLogoMap[p.lastClub.toLowerCase().trim()] : null) || (displayClub ? teamLogoMap[displayClub.toLowerCase().trim()] : null) || null,
+                    clubLogo: (p.vpgTeamSlug ? teamLogoBySlugMap[p.vpgTeamSlug.toLowerCase().trim()] : null) || (p.lastClub ? teamLogoMap[p.lastClub.toLowerCase().trim()] : null) || (displayClub ? teamLogoMap[displayClub.toLowerCase().trim()] : null) || null,
                     avatar: p.avatar || null,
                     nationality: p.nationality || p.user_nationality || null
                 };
@@ -8625,11 +8629,15 @@ export async function startVisualizerServer(discordClient) {
 
             // Fetch team logos from test db
             const testDb = getDb('test');
-            const teamsList = await testDb.collection('teams').find({}, { projection: { name: 1, logoUrl: 1 } }).toArray();
+            const teamsList = await testDb.collection('teams').find({}, { projection: { name: 1, logoUrl: 1, vpgTeamSlug: 1 } }).toArray();
             const teamLogoMap = {};
+            const teamLogoBySlugMap = {};
             teamsList.forEach(t => {
                 if (t.name) {
                     teamLogoMap[t.name.toLowerCase().trim()] = t.logoUrl || null;
+                }
+                if (t.vpgTeamSlug) {
+                    teamLogoBySlugMap[t.vpgTeamSlug.toLowerCase().trim()] = t.logoUrl || null;
                 }
             });
 
@@ -8669,7 +8677,7 @@ export async function startVisualizerServer(discordClient) {
                     matchesPlayed: stats.matchesPlayed || 0,
                     goals: stats.goals || 0,
                     assists: stats.assists || 0,
-                    clubLogo: (p.lastClub ? teamLogoMap[p.lastClub.toLowerCase().trim()] : null) || (displayClub ? teamLogoMap[displayClub.toLowerCase().trim()] : null) || null,
+                    clubLogo: (p.vpgTeamSlug ? teamLogoBySlugMap[p.vpgTeamSlug.toLowerCase().trim()] : null) || (p.lastClub ? teamLogoMap[p.lastClub.toLowerCase().trim()] : null) || (displayClub ? teamLogoMap[displayClub.toLowerCase().trim()] : null) || null,
                     avatar: p.avatar || null,
                     nationality: p.nationality || p.user_nationality || null,
                     isNew: !!(p.isNew && p.newUntil && new Date(p.newUntil) > new Date())
