@@ -577,6 +577,7 @@ body {
 
 /* Watermark styles for occupied cards when they do NOT have an avatar */
 .player-card-ut.occupied .player-card-ut-avatar.no-avatar {
+    position: relative;
     width: 48px;
     height: 48px;
     margin-top: 8px;
@@ -3444,4 +3445,87 @@ body {
     70% { transform: scale(1.05); box-shadow: 0 0 0 8px rgba(16, 185, 129, 0); }
     100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
+
+/* Styles for scheduling configuration admin panel */
+.day-chips-container {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+}
+.day-chip {
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+}
+.day-chip input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+.day-chip span {
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    line-height: 30px;
+    text-align: center;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.02);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.day-chip input:checked + span {
+    background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+    color: #050b14;
+    border-color: transparent;
+    box-shadow: 0 0 10px rgba(0, 242, 254, 0.4);
+}
+.day-chip:hover span {
+    border-color: rgba(0, 242, 254, 0.4);
+    color: #f8fafc;
+}
+.time-windows-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 8px;
+}
+.time-window-input {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.time-window-input label {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+.time-window-input input {
+    background: #0f172a;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    color: #f8fafc;
+    padding: 8px;
+    font-family: inherit;
+    font-size: 0.85rem;
+    outline: none;
+    transition: all 0.25s ease;
+    text-align: center;
+}
+.time-window-input input:focus {
+    border-color: #00f2fe;
+    box-shadow: 0 0 8px rgba(0, 242, 254, 0.2);
+}
+.schedule-block {
+    transition: background 0.3s ease, border-color 0.3s ease;
+}
+.schedule-block:hover {
+    background: rgba(255,255,255,0.02) !important;
+    border-color: rgba(255,255,255,0.06) !important;
+}
+
 

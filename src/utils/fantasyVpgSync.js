@@ -856,36 +856,6 @@ export async function syncFantasyWithVpg() {
             console.error('[VPG SYNC] Error al marcar clausulazos como procesados:', e);
         }
 
-        // 5. Procesar ofertas de compra de la liga para jugadores transferibles
-        try {
-            updateRebuildStatus({ progress: 'Procesando ofertas automáticas de La Liga...' });
-            await processLeagueMarketOffers(db);
-        } catch (e) {
-            console.error('[VPG SYNC] Error al procesar ofertas de la liga:', e);
-        }
-
-        // 6. Procesar y adjudicar pujas a ciegas de agentes libres
-        try {
-            updateRebuildStatus({ progress: 'Resolviendo pujas de agentes libres...' });
-            const leaguesList = await db.collection('fantasy_leagues').find().toArray();
-            for (const lDoc of leaguesList) {
-                await resolveFreeAgentBids(db, lDoc);
-            }
-        } catch (e) {
-            console.error('[VPG SYNC] Error al resolver pujas de agentes libres:', e);
-        }
-
-        // 7. Regenerar el mercado de agentes libres de la liga para el día siguiente
-        try {
-            updateRebuildStatus({ progress: 'Regenerando mercado de agentes libres...' });
-            const leaguesList = await db.collection('fantasy_leagues').find().toArray();
-            for (const lDoc of leaguesList) {
-                await generateMarketFreeAgentsPool(db, lDoc);
-            }
-        } catch (e) {
-            console.error('[VPG SYNC] Error al regenerar mercado de agentes libres:', e);
-        }
-
         updateRebuildStatus({
             running: false,
             progress: `✅ Completado: Sincronizados ${totalPlayersUpdated} jugadores y ${totalClubsUpdated} clubes en total de las ligas de VPG España.`,
@@ -1583,3 +1553,51 @@ export async function resolveFreeAgentBids(db, leagueDoc) {
         }
     }
 }
+
+/**
+ * Ejecuta los procesos de mercado del Fantasy de forma automatizada:
+ * - Procesa ofertas de la máquina (La Liga)
+ * - Resuelve pujas a ciegas por agentes libres
+ * - Regenera el pool de agentes libres para el día siguiente
+ */
+export async function runMarketAutomation() {
+    console.log('[MARKET AUTOMATION] Iniciando procesamiento automatizado de mercado...');
+    try {
+        const db = getDb();
+        
+        // 1. Procesar ofertas de compra de la liga para jugadores listados
+        try {
+            console.log('[MARKET AUTOMATION] Procesando ofertas de La Liga...');
+            await processLeagueMarketOffers(db);
+        } catch (e) {
+            console.error('[MARKET AUTOMATION] Error al procesar ofertas de la liga:', e);
+        }
+
+        // 2. Procesar y adjudicar pujas a ciegas de agentes libres
+        try {
+            console.log('[MARKET AUTOMATION] Resolviendo pujas de agentes libres...');
+            const leaguesList = await db.collection('fantasy_leagues').find({ status: { $ne: 'closed' } }).toArray();
+            for (const lDoc of leaguesList) {
+                await resolveFreeAgentBids(db, lDoc);
+            }
+        } catch (e) {
+            console.error('[MARKET AUTOMATION] Error al resolver pujas de agentes libres:', e);
+        }
+
+        // 3. Regenerar el mercado de agentes libres de la liga
+        try {
+            console.log('[MARKET AUTOMATION] Regenerando mercado de agentes libres...');
+            const leaguesList = await db.collection('fantasy_leagues').find({ status: { $ne: 'closed' } }).toArray();
+            for (const lDoc of leaguesList) {
+                await generateMarketFreeAgentsPool(db, lDoc);
+            }
+        } catch (e) {
+            console.error('[MARKET AUTOMATION] Error al regenerar mercado de agentes libres:', e);
+        }
+
+        console.log('[MARKET AUTOMATION] Automatización de mercado completada con éxito.');
+    } catch (err) {
+        console.error('[MARKET AUTOMATION] Error fatal en la automatización del mercado:', err);
+    }
+}
+

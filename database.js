@@ -23,6 +23,8 @@ export async function connectDb() {
         await migrateEloFields();
         // NUEVO: Migración de precios manuales para la economía Fantasy
         await migrateManualPrices();
+        // NUEVO: Asegurar que los horarios Fantasy por defecto estén inicializados
+        await ensureDefaultSchedules();
     } catch (err) { // --- CORRECCIÓN CRÍTICA --- Se añadieron las llaves {}
         console.error('[DATABASE] ERROR FATAL AL CONECTAR CON MONGODB:', err);
         process.exit(1);
@@ -284,3 +286,46 @@ export async function migrateManualPrices() {
         console.error('[DATABASE] Error en la migración de precios manuales:', error.message);
     }
 }
+
+/**
+ * Asegura que exista el documento de horarios (schedules) en la base de datos con los valores por defecto.
+ */
+export async function ensureDefaultSchedules() {
+    try {
+        if (!db) {
+            console.warn('[DATABASE] No se pueden inicializar horarios: DB no conectada');
+            return;
+        }
+        const configCol = db.collection('fantasy_config');
+        const existing = await configCol.findOne({ key: "schedules" });
+        if (!existing) {
+            console.log('[DATABASE] Inicializando horarios del Fantasy por defecto...');
+            const defaultSchedules = {
+                key: "schedules",
+                market: {
+                    active: true,
+                    days: [0, 1, 2, 3, 4, 5, 6], // Todos los días
+                    windows: ["18:00", "", ""], // Solo una por defecto
+                    lastRun: ""
+                },
+                points: {
+                    active: true,
+                    days: [0, 1, 2, 3, 4, 5, 6], // Todos los días
+                    time: "18:00",
+                    lastRun: ""
+                },
+                lock: {
+                    active: true,
+                    days: [1, 2, 3, 4], // Lunes a Jueves
+                    startTime: "21:30",
+                    durationHours: 4
+                }
+            };
+            await configCol.insertOne(defaultSchedules);
+            console.log('[DATABASE] Horarios del Fantasy por defecto creados con éxito.');
+        }
+    } catch (e) {
+        console.error('[DATABASE] Error al inicializar horarios por defecto:', e.message);
+    }
+}
+

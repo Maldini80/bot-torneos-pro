@@ -263,8 +263,18 @@ const createLeagueTitle = document.getElementById('create-league-title');
 const toggleAllowUserLeagues = document.getElementById('toggle-allow-user-leagues');
 const toggleLockLineups = document.getElementById('toggle-lock-lineups');
 const btnLeagueAdminTab = document.getElementById('btn-league-admin-tab');
-let allowUserLeagueCreation = false;
 let lockLineupsActive = true;
+let lockScheduleConfig = {
+    active: true,
+    days: [1, 2, 3, 4],
+    startTime: "21:30",
+    durationHours: 4
+};
+let marketScheduleConfig = {
+    active: true,
+    days: [0, 1, 2, 3, 4, 5, 6],
+    windows: ["18:00", "", ""]
+};
 
 // DOM Elements - Dashboard View
 const activeLeagueName = document.getElementById('active-league-name');
@@ -510,6 +520,9 @@ async function checkUserSession() {
             document.querySelectorAll('.owner-only-block').forEach(el => el.style.display = 'none');
         }
 
+        // Load schedules config for all users
+        await loadSchedulesConfig();
+
         // Load admin league configuration if user is admin
         if (currentUser.isAdmin) {
             await loadAdminLeaguesConfig();
@@ -721,6 +734,89 @@ function setupEventHandlers() {
     createLeagueForm.addEventListener('submit', handleCreateLeague);
     joinLeagueForm.addEventListener('submit', handleJoinLeagueSubmit);
     adminUpdateLeagueForm.addEventListener('submit', handleUpdateLeagueSubmit);
+
+    // NUEVO: Guardar configuración de horarios (Schedules)
+    const adminSchedulesForm = document.getElementById('admin-schedules-form');
+    if (adminSchedulesForm) {
+        adminSchedulesForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const marketActive = document.getElementById('sched-market-active').checked;
+            const marketDays = Array.from(document.querySelectorAll('#sched-market-days input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
+            const marketWindows = [
+                document.getElementById('sched-market-time1').value.trim(),
+                document.getElementById('sched-market-time2').value.trim(),
+                document.getElementById('sched-market-time3').value.trim()
+            ].filter(Boolean);
+            
+            if (marketWindows.length === 0) {
+                showToast('Debes configurar al menos una ventana horaria para el mercado.', 'error');
+                return;
+            }
+            
+            const pointsActive = document.getElementById('sched-points-active').checked;
+            const pointsDays = Array.from(document.querySelectorAll('#sched-points-days input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
+            const pointsTime = document.getElementById('sched-points-time').value.trim();
+            
+            if (!pointsTime) {
+                showToast('Debes configurar la hora de sincronización de puntos.', 'error');
+                return;
+            }
+            
+            const lockActive = document.getElementById('sched-lock-active').checked;
+            const lockDays = Array.from(document.querySelectorAll('#sched-lock-days input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
+            const lockStart = document.getElementById('sched-lock-start').value.trim();
+            const lockDuration = parseInt(document.getElementById('sched-lock-duration').value);
+            
+            if (!lockStart || isNaN(lockDuration) || lockDuration < 1 || lockDuration > 24) {
+                showToast('Configuración de bloqueo de alineaciones inválida.', 'error');
+                return;
+            }
+            
+            const payload = {
+                market: {
+                    active: marketActive,
+                    days: marketDays,
+                    windows: marketWindows
+                },
+                points: {
+                    active: pointsActive,
+                    days: pointsDays,
+                    time: pointsTime
+                },
+                lock: {
+                    active: lockActive,
+                    days: lockDays,
+                    startTime: lockStart,
+                    durationHours: lockDuration
+                }
+            };
+            
+            try {
+                const res = await fetch('/api/fantasy/admin/config/schedules', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(data.message || 'Configuración de horarios guardada.', 'success');
+                    await loadSchedulesConfig();
+                    
+                    const toggleLockLineups = document.getElementById('toggle-lock-lineups');
+                    if (toggleLockLineups) {
+                        toggleLockLineups.checked = lockActive;
+                        lockLineupsActive = lockActive;
+                    }
+                } else {
+                    showToast(data.error || 'Error al guardar horarios.', 'error');
+                }
+            } catch (err) {
+                console.error('Error submitting schedules:', err);
+                showToast('Error de red al guardar la configuración.', 'error');
+            }
+        });
+    }
     
     // Admin Privacy / Password listeners
     if (adminLeaguePrivacy && adminLeaguePasswordGroup) {
@@ -3728,18 +3824,55 @@ function getMadridTime() {
     };
 }
 
+function formatDaysList(days) {
+    if (!days || days.length === 0) return 'ningún día';
+    const dayNames = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+    const sorted = [...days].sort((a, b) => a - b);
+    
+    let contiguous = true;
+    for (let i = 1; i < sorted.length; i++) {
+        if (sorted[i] !== sorted[i-1] + 1) {
+            contiguous = false;
+            break;
+        }
+    }
+    
+    if (contiguous && sorted.length > 1) {
+        return `${dayNames[sorted[0]]} a ${dayNames[sorted[sorted.length - 1]]}`;
+    }
+    if (sorted.length === 1) return dayNames[sorted[0]];
+    if (sorted.length === 2) return `${dayNames[sorted[0]]} y ${dayNames[sorted[1]]}`;
+    
+    const formatted = sorted.map(d => dayNames[d]);
+    const last = formatted.pop();
+    return `${formatted.join(', ')} y ${last}`;
+}
+
 function isLineupLocked() {
     if (!lockLineupsActive) return false;
+    if (!lockScheduleConfig || !lockScheduleConfig.active) return false;
+
     const { day, hours, minutes } = getMadridTime();
     const totalMinutes = hours * 60 + minutes;
-    // Monday to Thursday from 21:30 (1290 min) onwards
-    if (day >= 1 && day <= 4 && totalMinutes >= 1290) {
+
+    const [startH, startM] = lockScheduleConfig.startTime.split(':').map(Number);
+    const startMin = startH * 60 + startM;
+    const durationMin = Number(lockScheduleConfig.durationHours || 4) * 60;
+    const days = lockScheduleConfig.days || [1, 2, 3, 4];
+
+    // Case 1: Today is active, and time is within lock window starting today
+    const diffToday = totalMinutes - startMin;
+    if (days.includes(day) && diffToday >= 0 && diffToday < durationMin) {
         return true;
     }
-    // Tuesday to Friday from 00:00 to 01:30 AM (carry-over from previous night)
-    if (day >= 2 && day <= 5 && totalMinutes <= 90) {
+
+    // Case 2: Yesterday was active, and time is within lock window starting yesterday (crossover midnight)
+    const yesterday = (day === 0) ? 6 : day - 1;
+    const diffYesterday = (totalMinutes + 1440) - startMin;
+    if (days.includes(yesterday) && diffYesterday >= 0 && diffYesterday < durationMin) {
         return true;
     }
+
     return false;
 }
 
@@ -3747,7 +3880,7 @@ function updateLineupLockStatusUI() {
     const indicator = document.getElementById('lineup-lock-status-indicator');
     if (!indicator) return;
 
-    if (!lockLineupsActive) {
+    if (!lockLineupsActive || !lockScheduleConfig || !lockScheduleConfig.active) {
         indicator.style.display = 'flex';
         indicator.style.background = 'rgba(56, 189, 248, 0.1)';
         indicator.style.border = '1px solid rgba(56, 189, 248, 0.3)';
@@ -3756,19 +3889,34 @@ function updateLineupLockStatusUI() {
         return;
     }
 
+    // Calculate end time
+    const [startH, startM] = lockScheduleConfig.startTime.split(':').map(Number);
+    const duration = Number(lockScheduleConfig.durationHours || 4);
+    const startMin = startH * 60 + startM;
+    const endMinTotal = startMin + duration * 60;
+    const endH = Math.floor(endMinTotal / 60) % 24;
+    const endM = endMinTotal % 60;
+    const startStr = lockScheduleConfig.startTime;
+    const endStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+    const crossesMidnight = endMinTotal >= 1440;
+    const suffix = crossesMidnight ? 'del día siguiente' : '';
+    
+    const daysText = formatDaysList(lockScheduleConfig.days);
+    const timeRangeText = `${startStr} a ${endStr} ${suffix}`.trim();
+
     const locked = isLineupLocked();
     if (locked) {
         indicator.style.display = 'flex';
         indicator.style.background = 'rgba(239, 68, 68, 0.1)';
         indicator.style.border = '1px solid rgba(239, 68, 68, 0.3)';
         indicator.style.color = '#fca5a5';
-        indicator.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> <span><strong>Alineación Bloqueada:</strong> No puedes guardar tu alineación ahora (lunes a jueves de 21:30 a 01:30 del día siguiente hora Madrid).</span>';
+        indicator.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> <span><strong>Alineación Bloqueada:</strong> No puedes guardar tu alineación ahora (${daysText} de ${timeRangeText} hora Madrid).</span>`;
     } else {
         indicator.style.display = 'flex';
         indicator.style.background = 'rgba(0, 245, 155, 0.1)';
         indicator.style.border = '1px solid rgba(0, 245, 155, 0.3)';
         indicator.style.color = '#00f59b';
-        indicator.innerHTML = '<i class="fa-solid fa-lock"></i> <span><strong>Bloqueo programado:</strong> Activo de lunes a jueves de 21:30 a 01:30 del día siguiente (hora de Madrid). Actualmente puedes editar tu once.</span>';
+        indicator.innerHTML = `<i class="fa-solid fa-lock"></i> <span><strong>Bloqueo programado:</strong> Activo ${daysText} de ${timeRangeText} (hora de Madrid). Actualmente puedes editar tu once.</span>`;
     }
 }
 
@@ -4734,7 +4882,12 @@ function updateSelectedVpgCount() {
     const maxPartsInput = document.getElementById('new-league-max-participants');
     if (maxPartsInput) {
         const checkedValues = checked.map(cb => cb.value);
-        const maxLimit = checkedValues.length >= 2 ? 18 : 14;
+        let maxLimit = 14;
+        if (checkedValues.length === 1) {
+            maxLimit = 8;
+        } else if (checkedValues.length >= 2) {
+            maxLimit = 18;
+        }
         maxPartsInput.setAttribute('max', maxLimit);
         const currentVal = parseInt(maxPartsInput.value);
         if (!isNaN(currentVal) && currentVal > maxLimit) {
@@ -4941,31 +5094,111 @@ async function openPlayerStatsModalByName(playerName) {
 
 window.openPlayerStatsModalByName = openPlayerStatsModalByName;
 
+function getNextMarketWindowDate(schedule) {
+    if (!schedule || !schedule.active || !schedule.windows) return null;
+    const windows = schedule.windows.filter(w => w && w.trim() !== '');
+    if (windows.length === 0) return null;
+
+    const now = new Date();
+    let nextDate = null;
+
+    for (let dayOffset = 0; dayOffset <= 8; dayOffset++) {
+        const targetDay = new Date(now.getTime() + dayOffset * 24 * 60 * 60 * 1000);
+        const formatter = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Europe/Madrid',
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric'
+        });
+        const parts = formatter.formatToParts(targetDay);
+        const dateParts = {};
+        for (const p of parts) {
+            dateParts[p.type] = p.value;
+        }
+        const y = parseInt(dateParts.year, 10);
+        const m = parseInt(dateParts.month, 10);
+        const d = parseInt(dateParts.day, 10);
+
+        const localMadridDate = new Date(y, m - 1, d, 12, 0, 0);
+        const dayOfWeek = localMadridDate.getDay();
+        const days = schedule.days || [0, 1, 2, 3, 4, 5, 6];
+        if (!days.includes(dayOfWeek)) continue;
+
+        for (const timeStr of windows) {
+            const [hoursStr, minutesStr] = timeStr.split(':');
+            const hr = parseInt(hoursStr, 10);
+            const min = parseInt(minutesStr, 10);
+
+            const pad2 = (n) => String(n).padStart(2, '0');
+            const isoString = `${y}-${pad2(m)}-${pad2(d)}T${pad2(hr)}:${pad2(min)}:00`;
+            const targetDate = madridTimeStringToDate(isoString);
+
+            if (targetDate > now) {
+                if (!nextDate || targetDate < nextDate) {
+                    nextDate = targetDate;
+                }
+            }
+        }
+        if (nextDate && nextDate < new Date(now.getTime() + (dayOffset + 1) * 24 * 60 * 60 * 1000)) {
+            break;
+        }
+    }
+    return nextDate;
+}
+
+function madridTimeStringToDate(isoStr) {
+    const dateLocal = new Date(isoStr);
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Europe/Madrid',
+        year: 'numeric', month: 'numeric', day: 'numeric',
+        hour: 'numeric', minute: 'numeric', second: 'numeric',
+        hour12: false
+    });
+    const parts = formatter.formatToParts(dateLocal);
+    const dp = {};
+    for (const p of parts) dp[p.type] = p.value;
+
+    const dateInMadrid = new Date(
+        parseInt(dp.year),
+        parseInt(dp.month) - 1,
+        parseInt(dp.day),
+        parseInt(dp.hour),
+        parseInt(dp.minute),
+        parseInt(dp.second)
+    );
+
+    const diff = dateLocal.getTime() - dateInMadrid.getTime();
+    return new Date(dateLocal.getTime() + diff);
+}
+
 function startMarketCountdown() {
     const timerEl = document.getElementById('market-countdown-timer');
     if (!timerEl) return;
 
     function updateTimer() {
         const now = new Date();
-        
-        // Target: 18:00 Madrid time
-        let target = new Date();
-        target.setHours(18, 0, 0, 0);
-        
-        if (now >= target) {
-            target.setDate(target.getDate() + 1);
+        let target = null;
+
+        if (marketScheduleConfig && marketScheduleConfig.active) {
+            target = getNextMarketWindowDate(marketScheduleConfig);
         }
-        
+
+        if (!target) {
+            target = new Date();
+            target.setHours(18, 0, 0, 0);
+            if (now >= target) {
+                target.setDate(target.getDate() + 1);
+            }
+        }
+
         const diffMs = target.getTime() - now.getTime();
-        
         const hours = Math.floor(diffMs / (1000 * 60 * 60));
         const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
-        
+
         const pad = (num) => String(num).padStart(2, '0');
         timerEl.textContent = `${pad(hours)}h ${pad(minutes)}m ${pad(seconds)}s`;
 
-        // Periodically update the lineup lock status visual banner
         if (typeof updateLineupLockStatusUI === 'function') {
             updateLineupLockStatusUI();
         }
@@ -4973,6 +5206,78 @@ function startMarketCountdown() {
 
     updateTimer();
     setInterval(updateTimer, 1000);
+}
+
+async function loadSchedulesConfig() {
+    try {
+        const res = await fetch('/api/fantasy/config/schedules');
+        if (res.ok) {
+            const data = await res.json();
+            
+            if (data.lock) lockScheduleConfig = data.lock;
+            if (data.market) marketScheduleConfig = data.market;
+            
+            const form = document.getElementById('admin-schedules-form');
+            if (form) {
+                // 1. Mercado
+                const marketActive = document.getElementById('sched-market-active');
+                if (marketActive && data.market) {
+                    marketActive.checked = !!data.market.active;
+                }
+                if (data.market && Array.isArray(data.market.days)) {
+                    document.querySelectorAll('#sched-market-days input[type="checkbox"]').forEach(cb => {
+                        cb.checked = data.market.days.includes(parseInt(cb.value));
+                    });
+                }
+                if (data.market && Array.isArray(data.market.windows)) {
+                    const t1 = document.getElementById('sched-market-time1');
+                    const t2 = document.getElementById('sched-market-time2');
+                    const t3 = document.getElementById('sched-market-time3');
+                    if (t1) t1.value = data.market.windows[0] || "";
+                    if (t2) t2.value = data.market.windows[1] || "";
+                    if (t3) t3.value = data.market.windows[2] || "";
+                }
+                
+                // 2. Puntos
+                const pointsActive = document.getElementById('sched-points-active');
+                const pointsTime = document.getElementById('sched-points-time');
+                if (pointsActive && data.points) {
+                    pointsActive.checked = !!data.points.active;
+                }
+                if (pointsTime && data.points) {
+                    pointsTime.value = data.points.time || "18:00";
+                }
+                if (data.points && Array.isArray(data.points.days)) {
+                    document.querySelectorAll('#sched-points-days input[type="checkbox"]').forEach(cb => {
+                        cb.checked = data.points.days.includes(parseInt(cb.value));
+                    });
+                }
+                
+                // 3. Bloqueo
+                const lockActive = document.getElementById('sched-lock-active');
+                const lockStart = document.getElementById('sched-lock-start');
+                const lockDuration = document.getElementById('sched-lock-duration');
+                if (lockActive && data.lock) {
+                    lockActive.checked = !!data.lock.active;
+                }
+                if (lockStart && data.lock) {
+                    lockStart.value = data.lock.startTime || "21:30";
+                }
+                if (lockDuration && data.lock) {
+                    lockDuration.value = data.lock.durationHours || 4;
+                }
+                if (data.lock && Array.isArray(data.lock.days)) {
+                    document.querySelectorAll('#sched-lock-days input[type="checkbox"]').forEach(cb => {
+                        cb.checked = data.lock.days.includes(parseInt(cb.value));
+                    });
+                }
+            }
+            
+            updateLineupLockStatusUI();
+        }
+    } catch (e) {
+        console.error('Error fetching schedules config:', e);
+    }
 }
 
 // MODAL 10 - Admin Team Players Modal Logic

@@ -3,6 +3,8 @@ import { startVisualizerServer } from './visualizerServer.js';
 import { advanceDraftTurn, handlePlayerSelectionFromWeb } from './src/logic/tournamentLogic.js';
 import 'dotenv/config';
 import { connectDb, getDb } from './database.js';
+import { getMadridTime } from './src/utils/timeHelper.js';
+import { syncFantasyWithVpg, runMarketAutomation } from './src/utils/fantasyVpgSync.js';
 import { handleCommand } from './src/handlers/commandHandler.js';
 import { handleButton } from './src/handlers/buttonHandler.js';
 import { handleModal } from './src/handlers/modalHandler.js';
@@ -240,6 +242,67 @@ async function startBot() {
         checkOverdueMatches(client).catch(err => {
             console.error('[VIGILANTE] Error en checkOverdueMatches:', err.message);
         });
+    }, 60000);
+
+    // NUEVO: Scheduler dinámico minuto a minuto para el Fantasy
+    setInterval(async () => {
+        try {
+            const db = getDb();
+            if (!db) return;
+
+            const schedules = await db.collection('fantasy_config').findOne({ key: 'schedules' });
+            if (!schedules) return;
+
+            const mTime = getMadridTime();
+            const hourMinStr = `${String(mTime.hours).padStart(2, '0')}:${String(mTime.minutes).padStart(2, '0')}`;
+            const dateStr = `${mTime.year}-${String(mTime.month + 1).padStart(2, '0')}-${String(mTime.date).padStart(2, '0')}`;
+            const runKey = `${dateStr} ${hourMinStr}`;
+
+            // 1. Verificar Suma de Puntos (VPG Sync)
+            if (schedules.points && schedules.points.active) {
+                const pSched = schedules.points;
+                const activeDays = pSched.days || [0,1,2,3,4,5,6];
+                if (activeDays.includes(mTime.day) && pSched.time === hourMinStr) {
+                    if (pSched.lastRun !== runKey) {
+                        console.log(`[SCHEDULER] Iniciando Suma de Puntos programada a las ${hourMinStr} (Madrid)...`);
+                        // Actualizar en base de datos para prevenir duplicados inmediatos
+                        await db.collection('fantasy_config').updateOne(
+                            { key: 'schedules' },
+                            { $set: { "points.lastRun": runKey } }
+                        );
+                        
+                        syncFantasyWithVpg().catch(err => {
+                            console.error('[SCHEDULER] Error en syncFantasyWithVpg:', err);
+                        });
+                    }
+                }
+            }
+
+            // 2. Verificar Ventanas de Mercado
+            if (schedules.market && schedules.market.active) {
+                const mSched = schedules.market;
+                const activeDays = mSched.days || [0,1,2,3,4,5,6];
+                if (activeDays.includes(mTime.day)) {
+                    const matchedWindow = (mSched.windows || []).find(w => w === hourMinStr);
+                    if (matchedWindow) {
+                        if (mSched.lastRun !== runKey) {
+                            console.log(`[SCHEDULER] Iniciando Adjudicación de Mercado programada a las ${hourMinStr} (Madrid)...`);
+                            // Actualizar lastRun
+                            await db.collection('fantasy_config').updateOne(
+                                { key: 'schedules' },
+                                { $set: { "market.lastRun": runKey } }
+                            );
+
+                            runMarketAutomation().catch(err => {
+                                console.error('[SCHEDULER] Error en runMarketAutomation:', err);
+                            });
+                        }
+                    }
+                }
+            }
+        } catch (schedErr) {
+            console.error('[SCHEDULER] Error en el loop de verificación de horarios:', schedErr.message);
+        }
     }, 60000);
 }
 

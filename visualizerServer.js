@@ -20,6 +20,7 @@ import { getLeagueByElo, LEAGUE_EMOJIS } from './src/logic/eloLogic.js';
 import { createPoolEmbed } from './src/utils/embeds.js';
 import { scheduleRegistrationListUpdate } from './src/utils/registrationListManager.js';
 import { rebuildStatus, syncFantasyWithVpg, generateRandomSquadForTeam, generateMarketFreeAgentsPool } from './src/utils/fantasyVpgSync.js';
+import { getMadridTime } from './src/utils/timeHelper.js';
 
 // FIX: Mutex por draft para evitar race conditions en picks concurrentes
 const draftLocks = new Map();
@@ -5850,10 +5851,151 @@ export async function startVisualizerServer(discordClient) {
                 { $set: { key: 'lock_lineups_active', value: !!locked } },
                 { upsert: true }
             );
+            
+            // Also sync it to schedules.lock.active
+            const schedConfig = await db.collection('fantasy_config').findOne({ key: 'schedules' });
+            if (schedConfig && schedConfig.lock) {
+                await db.collection('fantasy_config').updateOne(
+                    { key: 'schedules' },
+                    { $set: { "lock.active": !!locked } }
+                );
+            }
+            
             res.json({ success: true, locked: !!locked, message: locked ? 'Bloqueo de alineaciones habilitado.' : 'Bloqueo de alineaciones deshabilitado.' });
         } catch (e) {
             console.error('[API Post Lock Lineups] Error:', e);
             res.status(500).json({ error: 'Error al guardar configuración.' });
+        }
+    });
+
+    // GET public schedules (accessible to anyone, for FAQ and web timers)
+    app.get('/api/fantasy/public/schedules', async (req, res) => {
+        try {
+            const db = getDb();
+            const schedules = await db.collection('fantasy_config').findOne({ key: 'schedules' });
+            if (schedules) {
+                res.json(schedules);
+            } else {
+                // Fallback structure
+                res.json({
+                    market: { active: true, days: [0,1,2,3,4,5,6], windows: ["18:00", "", ""] },
+                    points: { active: true, days: [0,1,2,3,4,5,6], time: "18:00" },
+                    lock: { active: true, days: [1,2,3,4], startTime: "21:30", durationHours: 4 }
+                });
+            }
+        } catch (e) {
+            console.error('[API Get Public Schedules] Error:', e);
+            res.status(500).json({ error: 'Error al obtener horarios públicos.' });
+        }
+    });
+
+    // GET authenticated schedules (accessible to all authenticated users)
+    app.get('/api/fantasy/config/schedules', isAuthenticated, isFantasyEnabled, async (req, res) => {
+        try {
+            const db = getDb();
+            const schedules = await db.collection('fantasy_config').findOne({ key: 'schedules' });
+            if (schedules) {
+                res.json(schedules);
+            } else {
+                res.json({
+                    market: { active: true, days: [0,1,2,3,4,5,6], windows: ["18:00", "", ""] },
+                    points: { active: true, days: [0,1,2,3,4,5,6], time: "18:00" },
+                    lock: { active: true, days: [1,2,3,4], startTime: "21:30", durationHours: 4 }
+                });
+            }
+        } catch (e) {
+            console.error('[API Get Config Schedules] Error:', e);
+            res.status(500).json({ error: 'Error al obtener horarios.' });
+        }
+    });
+
+    // POST admin config schedules (admin only)
+    app.post('/api/fantasy/admin/config/schedules', isAuthenticated, isFantasyAdmin, async (req, res) => {
+        try {
+            const { market, points, lock } = req.body;
+            
+            if (!market || typeof market.active !== 'boolean' || !Array.isArray(market.days)) {
+                return res.status(400).json({ error: 'Estructura de mercado inválida.' });
+            }
+            const validWindows = (market.windows || []).filter(w => typeof w === 'string' && w.trim() !== '');
+            for (const t of validWindows) {
+                if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(t)) {
+                    return res.status(400).json({ error: `Formato de hora de ventana de mercado inválido: ${t}` });
+                }
+            }
+            if (validWindows.length === 0) {
+                return res.status(400).json({ error: 'Debes definir al menos una ventana horaria para el mercado.' });
+            }
+            if (validWindows.length > 3) {
+                return res.status(400).json({ error: 'El mercado admite un máximo de 3 ventanas horarias.' });
+            }
+            
+            if (!points || typeof points.active !== 'boolean' || !Array.isArray(points.days) || typeof points.time !== 'string') {
+                return res.status(400).json({ error: 'Estructura de puntos de rendimiento inválida.' });
+            }
+            if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(points.time)) {
+                return res.status(400).json({ error: 'Formato de hora de sincronización de puntos inválido.' });
+            }
+            
+            if (!lock || typeof lock.active !== 'boolean' || !Array.isArray(lock.days) || typeof lock.startTime !== 'string' || isNaN(Number(lock.durationHours))) {
+                return res.status(400).json({ error: 'Estructura de bloqueo de alineación inválida.' });
+            }
+            if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(lock.startTime)) {
+                return res.status(400).json({ error: 'Formato de hora de inicio de bloqueo de alineación inválido.' });
+            }
+            const duration = Number(lock.durationHours);
+            if (duration < 1 || duration > 24) {
+                return res.status(400).json({ error: 'La duración del bloqueo de alineación debe estar entre 1 y 24 horas.' });
+            }
+
+            const db = getDb();
+            const existing = await db.collection('fantasy_config').findOne({ key: 'schedules' }) || {};
+            const oldMarket = existing.market || {};
+            const oldPoints = existing.points || {};
+            
+            const newSchedule = {
+                key: 'schedules',
+                market: {
+                    active: market.active,
+                    days: market.days.map(Number).filter(d => d >= 0 && d <= 6),
+                    windows: [
+                        validWindows[0] || "",
+                        validWindows[1] || "",
+                        validWindows[2] || ""
+                    ],
+                    lastRun: oldMarket.lastRun || ""
+                },
+                points: {
+                    active: points.active,
+                    days: points.days.map(Number).filter(d => d >= 0 && d <= 6),
+                    time: points.time,
+                    lastRun: oldPoints.lastRun || ""
+                },
+                lock: {
+                    active: lock.active,
+                    days: lock.days.map(Number).filter(d => d >= 0 && d <= 6),
+                    startTime: lock.startTime,
+                    durationHours: duration
+                }
+            };
+            
+            await db.collection('fantasy_config').updateOne(
+                { key: 'schedules' },
+                { $set: newSchedule },
+                { upsert: true }
+            );
+            
+            // Sync with lock_lineups_active
+            await db.collection('fantasy_config').updateOne(
+                { key: 'lock_lineups_active' },
+                { $set: { key: 'lock_lineups_active', value: lock.active } },
+                { upsert: true }
+            );
+
+            res.json({ success: true, message: 'Horarios guardados y actualizados correctamente.', schedules: newSchedule });
+        } catch (e) {
+            console.error('[API Post Config Schedules] Error:', e);
+            res.status(500).json({ error: 'Error al guardar horarios de automatización.' });
         }
     });
 
@@ -6047,7 +6189,12 @@ export async function startVisualizerServer(discordClient) {
                 }
             }
 
-            const maxLimit = selectedLeagues.length >= 2 ? 18 : 14;
+            let maxLimit = 14;
+            if (selectedLeagues.length === 1) {
+                maxLimit = 8;
+            } else if (selectedLeagues.length >= 2) {
+                maxLimit = 18;
+            }
             const parsedMaxParticipants = parseInt(maxParticipants) || 14;
             if (parsedMaxParticipants < 2 || parsedMaxParticipants > maxLimit) {
                 return res.status(400).json({ error: `El número de participantes debe estar entre 2 y ${maxLimit}.` });
@@ -7071,37 +7218,7 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
-    function getMadridTime() {
-        const now = new Date();
-        const formatter = new Intl.DateTimeFormat('en-US', {
-            timeZone: 'Europe/Madrid',
-            year: 'numeric',
-            month: 'numeric',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: 'numeric',
-            second: 'numeric',
-            hour12: false
-        });
-        const parts = formatter.formatToParts(now);
-        const dateParts = {};
-        for (const p of parts) {
-            dateParts[p.type] = p.value;
-        }
-        const year = parseInt(dateParts.year, 10);
-        const month = parseInt(dateParts.month, 10) - 1;
-        const day = parseInt(dateParts.day, 10);
-        const hour = parseInt(dateParts.hour, 10);
-        const minute = parseInt(dateParts.minute, 10);
-        const second = parseInt(dateParts.second, 10);
-        
-        const localMadrid = new Date(year, month, day, hour, minute, second);
-        return {
-            day: localMadrid.getDay(),
-            hours: localMadrid.getHours(),
-            minutes: localMadrid.getMinutes()
-        };
-    }
+
 
     async function isLineupLocked() {
         const db = getDb();
@@ -7109,17 +7226,37 @@ export async function startVisualizerServer(discordClient) {
         const isLockEnabled = config ? !!config.value : true;
         if (!isLockEnabled) return false;
 
+        const schedules = await db.collection('fantasy_config').findOne({ key: 'schedules' });
+        const lockConfig = (schedules && schedules.lock) ? schedules.lock : {
+            active: true,
+            days: [1, 2, 3, 4],
+            startTime: "21:30",
+            durationHours: 4
+        };
+
+        if (!lockConfig.active) return false;
+
         const { day, hours, minutes } = getMadridTime();
         const totalMinutes = hours * 60 + minutes;
 
-        // Monday to Thursday from 21:30 (1290 min) onwards
-        if (day >= 1 && day <= 4 && totalMinutes >= 1290) {
+        const [startH, startM] = lockConfig.startTime.split(':').map(Number);
+        const startMin = startH * 60 + startM;
+        const durationMin = Number(lockConfig.durationHours || 4) * 60;
+        const days = lockConfig.days || [1, 2, 3, 4];
+
+        // Case 1: Today is active, and time is within lock window starting today
+        const diffToday = totalMinutes - startMin;
+        if (days.includes(day) && diffToday >= 0 && diffToday < durationMin) {
             return true;
         }
-        // Tuesday to Friday from 00:00 (0 min) to 01:30 (90 min) AM (carry-over from previous night)
-        if (day >= 2 && day <= 5 && totalMinutes <= 90) {
+
+        // Case 2: Yesterday was active, and time is within lock window starting yesterday (crossover midnight)
+        const yesterday = (day === 0) ? 6 : day - 1;
+        const diffYesterday = (totalMinutes + 1440) - startMin;
+        if (days.includes(yesterday) && diffYesterday >= 0 && diffYesterday < durationMin) {
             return true;
         }
+
         return false;
     }
 

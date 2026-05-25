@@ -70,7 +70,7 @@
             <br>• <strong>Pujas a ciegas (SYSTEM):</strong> Los fichajes de agentes libres se hacen mediante pujas a ciegas. Puedes ver cuántos mánagers han pujado por un jugador, pero los importes son secretos.
             <br>• <strong>Importe mínimo de puja:</strong> La puja mínima requerida para cualquier jugador en el mercado (sea un agente libre o un jugador listado por otro mánager) debe ser igual o mayor a su <strong>valor de mercado actual</strong>.
             <br>• <strong>Deducción inmediata de saldo:</strong> Al pujar o incrementar tu puja, el dinero se descuenta al instante del saldo de tu equipo. Si decides cancelar tu puja voluntariamente antes del procesamiento, el dinero se te reembolsa de inmediato.
-            <br>• <strong>Resolución diaria (18:00 hora Madrid):</strong> En la sincronización diaria se resuelven las pujas. El mánager con la puja más alta (o la más antigua en caso de empate) se lleva al jugador. Al resto de postores se les **devuelve el saldo completo** de forma automática al instante, y se genera un nuevo mercado de 30 agentes libres.</div></div>
+            <br>• <strong>Resolución de mercado (<span id="faq-market-time">lunes a domingo a las 18:00 hora Madrid</span>):</strong> En la sincronización diaria se resuelven las pujas. El mánager con la puja más alta (o la más antigua en caso de empate) se lleva al jugador. Al resto de postores se les **devuelve el saldo completo** de forma automática al instante, y se genera un nuevo mercado de 30 agentes libres.</div></div>
             <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Cómo se asignan y gestionan las plantillas iniciales y formaciones?</span><span class="chv">▼</span></button><div class="faq-a">Cuando un mánager se une a la liga (y su solicitud es aprobada), el sistema le genera una plantilla aleatoria inicial de **14 jugadores** (11 titulares y 3 suplentes).
             <br>• <strong>Distribución obligatoria de posiciones:</strong> Para asegurar plantillas balanceadas y viabilidad táctica en cualquier formación, la plantilla inicial de 14 jugadores se compone de: **1 POR**, **3 DFC**, **3 MC**, **4 CARR** (Laterales/Carrileros) y **3 DC** (total 14 jugadores).
             <br>• <strong>Presupuesto inicial:</strong> Cada mánager inicia con **100.000.000 €**. La plantilla inicial se balancea de forma que la suma de sus 14 jugadores esté entre 90M € y 110M €, y ningún jugador individual supere los 40M € de valor.
@@ -84,9 +84,9 @@
             <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Cómo funcionan las cláusulas de rescisión y el robo de jugadores (clausulazo)?</span><span class="chv">▼</span></button><div class="faq-a">Si la liga tiene las cláusulas habilitadas, cualquier mánager puede pagar el valor de rescisión de un jugador ajeno para ficharlo de forma inmediata:
             <br>• <strong>Valor de la Cláusula:</strong> Equivale al valor de mercado del jugador multiplicado por el factor de cláusula de la liga (ej: 1.5x). Puedes pagar para subir la cláusula de tus jugadores y protegerlos.
             <br>• <strong>Bloqueo de Cláusula:</strong> Al firmar a un jugador del mercado, subirle la cláusula manualmente o ficharlo de vuelta tras ser robado, este recibe una protección contra clausulazos de **2 días**. Durante este tiempo de bloqueo, nadie podrá robártelo.</div></div>
-            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Cuándo se sincronizan los datos y qué restricciones horarias existen?</span><span class="chv">▼</span></button><div class="faq-a">La sincronización diaria de puntos oficiales se realiza automáticamente a las **18:00 (hora de Madrid)**. Para garantizar el correcto funcionamiento competitivo, existen las siguientes restricciones:
+            <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Cuándo se sincronizan los datos y qué restricciones horarias existen?</span><span class="chv">▼</span></button><div class="faq-a">La sincronización diaria de puntos oficiales se realiza automáticamente <span id="faq-points-time">a las **18:00 (hora de Madrid)**</span>. Para garantizar el correcto funcionamiento competitivo, existen las siguientes restricciones:
             <br>• <strong>Pago por punto:</strong> Por cada punto que sumen los jugadores de tu alineación titular en la jornada oficial, recibirás una recompensa de **80.000 €**.
-            <br>• <strong>Bloqueo de alineación:</strong> No podrás modificar tu alineación ("tu 11") de lunes a jueves entre las **21:30 y las 01:30 del día siguiente (hora de Madrid)**, así como durante el procesamiento diario de **18:00 a 02:00**.
+            <br>• <strong>Bloqueo de alineación:</strong> No podrás modificar tu alineación ("tu 11") <span id="faq-lock-schedule">de lunes a jueves entre las **21:30 y las 01:30 del día siguiente (hora de Madrid)**</span>, así como durante el procesamiento diario de **18:00 a 02:00**.
             <br>• <strong>Bloqueo de clausulazos (robos):</strong> No se permite ejecutar clausulazos de lunes a jueves entre las **18:30 y las 23:59 (hora de Madrid)**.
             <br>• <strong>Puntuación en clausulazos:</strong> Si robas a un jugador mediante clausulazo de lunes a jueves (y el bloqueo de alineaciones está activo), el jugador **no puntuará para tu equipo** en la actualización de las 18:00 de ese mismo día, sumándose al dueño original. Empezará a puntuar para ti al día siguiente. Si el clausulazo se realiza en fin de semana (viernes a domingo) o con el bloqueo desactivado, puntuará para tu equipo directamente en la siguiente sincronización.</div></div>
             <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Qué diferencia hay entre "Empezar de cero" y "Puntos acumulados"?</span><span class="chv">▼</span></button><div class="faq-a">Al crear una liga, se puede seleccionar el modo de puntuación inicial:
@@ -142,6 +142,96 @@
             btn.classList.toggle('open');
             a.classList.toggle('open');
         }
+
+        // Cargar horarios dinámicos en el FAQ
+        async function loadFaqSchedules() {
+            try {
+                const res = await fetch('/api/fantasy/public/schedules');
+                if (res.ok) {
+                    const data = await res.json();
+                    
+                    // 1. Días de mercado y ventanas
+                    if (data.market && data.market.active) {
+                        const marketDaysText = formatDaysListSpanish(data.market.days);
+                        const windowsText = formatWindowsList(data.market.windows);
+                        const faqMarketTime = document.getElementById('faq-market-time');
+                        if (faqMarketTime) {
+                            faqMarketTime.innerHTML = `ejecución los <strong>${marketDaysText}</strong> (${windowsText})`;
+                        }
+                    }
+
+                    // 2. Suma de puntos
+                    if (data.points && data.points.active) {
+                        const pointsDaysText = formatDaysListSpanish(data.points.days);
+                        const faqPointsTime = document.getElementById('faq-points-time');
+                        if (faqPointsTime) {
+                            faqPointsTime.innerHTML = `a las <strong>${data.points.time} (hora de Madrid)</strong> los <strong>${pointsDaysText}</strong>`;
+                        }
+                    }
+
+                    // 3. Bloqueo de alineaciones
+                    if (data.lock && data.lock.active) {
+                        const lockDaysText = formatDaysListSpanish(data.lock.days);
+                        
+                        // Calcular fin
+                        const [startH, startM] = data.lock.startTime.split(':').map(Number);
+                        const duration = Number(data.lock.durationHours || 4);
+                        const endMinTotal = startH * 60 + startM + duration * 60;
+                        const endH = Math.floor(endMinTotal / 60) % 24;
+                        const endM = endMinTotal % 60;
+                        const endStr = `${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`;
+                        const crossesMidnight = endMinTotal >= 1440;
+                        const suffix = crossesMidnight ? ' del día siguiente' : '';
+                        
+                        const faqLockSchedule = document.getElementById('faq-lock-schedule');
+                        if (faqLockSchedule) {
+                            faqLockSchedule.innerHTML = `los <strong>${lockDaysText} entre las ${data.lock.startTime} y las ${endStr}${suffix} (hora de Madrid)</strong>`;
+                        }
+                    } else {
+                        const faqLockSchedule = document.getElementById('faq-lock-schedule');
+                        if (faqLockSchedule) {
+                            faqLockSchedule.innerHTML = `<strong>Desactivado</strong> por el administrador (puedes editar tu 11 a cualquier hora)`;
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error al cargar horarios en el FAQ:', err);
+            }
+        }
+
+        function formatDaysListSpanish(days) {
+            if (!days || days.length === 0) return 'ningún día';
+            if (days.length === 7) return 'todos los días';
+            const dayNames = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+            const sorted = [...days].sort((a, b) => a - b);
+            
+            let contiguous = true;
+            for (let i = 1; i < sorted.length; i++) {
+                if (sorted[i] !== sorted[i-1] + 1) {
+                    contiguous = false;
+                    break;
+                }
+            }
+            
+            if (contiguous && sorted.length > 1) {
+                return `${dayNames[sorted[0]]} a ${dayNames[sorted[sorted.length - 1]]}`;
+            }
+            if (sorted.length === 1) return dayNames[sorted[0]];
+            if (sorted.length === 2) return `${dayNames[sorted[0]]} y ${dayNames[sorted[1]]}`;
+            
+            const formatted = sorted.map(d => dayNames[d]);
+            const last = formatted.pop();
+            return `${formatted.join(', ')} y ${last}`;
+        }
+
+        function formatWindowsList(windows) {
+            const valid = (windows || []).filter(w => w && w.trim() !== '');
+            if (valid.length === 1) return `a las ${valid[0]} hora Madrid`;
+            if (valid.length === 2) return `a las ${valid[0]} y ${valid[1]} hora Madrid`;
+            return `a las ${valid[0]}, ${valid[1]} y ${valid[2]} hora Madrid`;
+        }
+
+        window.addEventListener('DOMContentLoaded', loadFaqSchedules);
     </script>
 </body>
 </html>
