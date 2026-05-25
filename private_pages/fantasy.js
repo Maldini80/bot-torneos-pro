@@ -1667,7 +1667,7 @@ async function enterLeague(leagueId, keepCurrentTab = false, password = null, op
                 if (isLineupLocked()) {
                     btnSaveLineup.disabled = true;
                     btnSaveLineup.innerHTML = '<i class="fa-solid fa-lock"></i> Bloqueado';
-                    btnSaveLineup.title = 'Alineaciones bloqueadas de lunes a jueves de 21:30 a 01:30 del día siguiente (hora de Madrid)';
+                    btnSaveLineup.title = getLineupLockErrorText();
                     btnSaveLineup.style.opacity = '0.6';
                     btnSaveLineup.style.cursor = 'not-allowed';
                 } else {
@@ -2354,7 +2354,7 @@ function renderField() {
 // Open modal selection
 function openPositionSelector(posKey, idx) {
     if (isLineupLocked()) {
-        showToast('No puedes modificar tu alineación de lunes a jueves entre las 21:30 y las 01:30 del día siguiente (hora de Madrid).', 'error');
+        showToast(getLineupLockErrorText(), 'error');
         return;
     }
     selectedSlotPos = posKey;
@@ -2706,7 +2706,7 @@ async function executeSaveLineup(silent = false) {
     const isSilent = silent === true;
     if (myTeam.isSpectator) return;
     if (isLineupLocked()) {
-        showToast('No puedes modificar tu alineación de lunes a jueves entre las 21:30 y las 01:30 del día siguiente (hora de Madrid).', 'error');
+        showToast(getLineupLockErrorText(), 'error');
         return;
     }
     try {
@@ -3956,6 +3956,24 @@ function isLineupLocked() {
     }
 
     return false;
+}
+
+function getLineupLockErrorText() {
+    if (!lockLineupsActive || !lockScheduleConfig || !lockScheduleConfig.active) return "";
+    
+    const [startH, startM] = lockScheduleConfig.startTime.split(':').map(Number);
+    const duration = Number(lockScheduleConfig.durationHours || 4);
+    const startMin = startH * 60 + startM;
+    const endMinTotal = startMin + duration * 60;
+    const endH = Math.floor(endMinTotal / 60) % 24;
+    const endM = endMinTotal % 60;
+    const startStr = lockScheduleConfig.startTime;
+    const endStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+    const crossesMidnight = endMinTotal >= 1440;
+    const suffix = crossesMidnight ? ' del día siguiente' : '';
+    
+    const daysText = formatDaysList(lockScheduleConfig.days);
+    return `No puedes modificar tu alineación. Está bloqueada ${daysText} desde las ${startStr} hasta las ${endStr}${suffix} (hora de Madrid).`;
 }
 
 function updateLineupLockStatusUI() {

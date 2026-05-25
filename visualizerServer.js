@@ -7216,11 +7216,11 @@ export async function startVisualizerServer(discordClient) {
 
 
 
-    async function isLineupLocked() {
+    async function getLineupLockError() {
         const db = getDb();
         const config = await db.collection('fantasy_config').findOne({ key: 'lock_lineups_active' });
         const isLockEnabled = config ? !!config.value : true;
-        if (!isLockEnabled) return false;
+        if (!isLockEnabled) return null;
 
         const schedules = await db.collection('fantasy_config').findOne({ key: 'schedules' });
         const lockConfig = (schedules && schedules.lock) ? schedules.lock : {
@@ -7230,7 +7230,7 @@ export async function startVisualizerServer(discordClient) {
             durationHours: 4
         };
 
-        if (!lockConfig.active) return false;
+        if (!lockConfig.active) return null;
 
         const { day, hours, minutes } = getMadridTime();
         const totalMinutes = hours * 60 + minutes;
@@ -7240,20 +7240,45 @@ export async function startVisualizerServer(discordClient) {
         const durationMin = Number(lockConfig.durationHours || 4) * 60;
         const days = lockConfig.days || [1, 2, 3, 4];
 
+        let locked = false;
         // Case 1: Today is active, and time is within lock window starting today
         const diffToday = totalMinutes - startMin;
         if (days.includes(day) && diffToday >= 0 && diffToday < durationMin) {
-            return true;
+            locked = true;
         }
 
         // Case 2: Yesterday was active, and time is within lock window starting yesterday (crossover midnight)
         const yesterday = (day === 0) ? 6 : day - 1;
         const diffYesterday = (totalMinutes + 1440) - startMin;
         if (days.includes(yesterday) && diffYesterday >= 0 && diffYesterday < durationMin) {
-            return true;
+            locked = true;
         }
 
-        return false;
+        if (locked) {
+            const endTotalMin = (startMin + durationMin) % 1440;
+            const endH = String(Math.floor(endTotalMin / 60)).padStart(2, '0');
+            const endM = String(endTotalMin % 60).padStart(2, '0');
+            const daysNames = ["domingos", "lunes", "martes", "miércoles", "jueves", "viernes", "sábados"];
+            
+            // Build days text
+            let daysText = "";
+            if (days.length === 4 && days.includes(1) && days.includes(2) && days.includes(3) && days.includes(4)) {
+                daysText = "de lunes a jueves";
+            } else {
+                daysText = "los " + days.map(d => daysNames[d]).join(', ');
+            }
+            
+            const crossesMidnight = (startMin + durationMin) >= 1440;
+            const suffix = crossesMidnight ? ' del día siguiente' : '';
+            return `No puedes modificar tu alineación. Está bloqueada ${daysText} desde las ${lockConfig.startTime} hasta las ${endH}:${endM}${suffix} (hora de Madrid).`;
+        }
+
+        return null;
+    }
+
+    async function isLineupLocked() {
+        const err = await getLineupLockError();
+        return err !== null;
     }
 
     function isPlayerInLineup(lineup, playerName) {
@@ -7561,8 +7586,9 @@ export async function startVisualizerServer(discordClient) {
             const { lineup, formation } = req.body;
             if (!lineup || !formation) return res.status(400).json({ error: 'Faltan lineup o formation' });
 
-            if (await isLineupLocked()) {
-                return res.status(400).json({ error: 'No puedes modificar tu alineación de lunes a jueves entre las 21:30 y las 01:30 del día siguiente (hora de Madrid).' });
+            const lockError = await getLineupLockError();
+            if (lockError) {
+                return res.status(400).json({ error: lockError });
             }
 
             const db = getDb();
