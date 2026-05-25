@@ -416,7 +416,9 @@ export async function syncFantasyWithVpg() {
                                         existingStats.redCards = parseInt(player.red_card) || 0;
                                         existingStats.yellowCards = parseInt(player.yellow_card) || 0;
                                         existingStats.cleanSheets = parseInt(player.clean_sheet) || 0;
+                                        
                                         existingStats.ratings = Array(played).fill(avgRating);
+
                                         existingStats.wins = wins;
                                         existingStats.losses = losses;
                                         existingStats.ties = ties;
@@ -550,8 +552,32 @@ export async function syncFantasyWithVpg() {
                                             String(c.team_slug || '').toLowerCase().trim() === String(pData.vpgTeamSlug || '').toLowerCase().trim()
                                         );
                                         if (!matchesActiveContract) {
-                                            console.log(`[VPG SYNC] Saltando actualización de ${username} para ${leagueSlug} / ${pData.vpgTeamSlug} porque su contrato activo está en otro club (Contratos activos: ${activeContracts.map(c => c.team_slug).join(', ')}).`);
-                                            shouldSkip = true;
+                                            // El contrato activo no coincide con el equipo que estamos barriendo ahora.
+                                            // Verificamos si alguno de sus contratos activos pertenece a un equipo mapeado de nuestras ligas activas (dbTeams).
+                                            let contractTeam = null;
+                                            for (const contract of activeContracts) {
+                                                const cSlug = String(contract.team_slug || '').toLowerCase().trim();
+                                                const cName = String(contract.team_name || '').toLowerCase().trim();
+                                                const found = dbTeams.find(t => 
+                                                    String(t.vpgTeamSlug || '').toLowerCase().trim() === cSlug ||
+                                                    String(t.name || '').toLowerCase().trim() === cName
+                                                );
+                                                if (found) {
+                                                    contractTeam = found;
+                                                    break;
+                                                }
+                                            }
+
+                                            if (contractTeam) {
+                                                console.log(`[VPG SYNC] Re-mapeando club de ${username} a su nuevo contrato activo en VPG España: "${contractTeam.name}" (Liga: ${contractTeam.vpgLeagueSlug})`);
+                                                updateData.lastClub = contractTeam.name;
+                                                updateData.vpgLeagueSlug = contractTeam.vpgLeagueSlug;
+                                                updateData.vpgTeamSlug = contractTeam.vpgTeamSlug;
+                                                shouldSkip = false; // Permitimos actualizar sus estadísticas en este ciclo
+                                            } else {
+                                                console.log(`[VPG SYNC] Saltando actualización de ${username} para ${leagueSlug} / ${pData.vpgTeamSlug} porque su contrato activo está en otro club no mapeado.`);
+                                                shouldSkip = true;
+                                            }
                                         }
                                     } else {
                                         console.log(`[VPG SYNC] El jugador ${username} no tiene contratos activos en VPG. Usando división superior como criterio.`);

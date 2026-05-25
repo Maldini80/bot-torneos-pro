@@ -242,6 +242,32 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsA
     const pos = resolvePos(matchData.pos, matchData.archetypeid);
     const isGK = pos === 'POR';
 
+    const build = extractBuild(matchData);
+
+    // Evitar que partidos locales/EA pisen el club de VPG de jugadores ya sincronizados
+    const existing = await coll.findOne({ eaPlayerName: playerName });
+    let finalClubName = clubName;
+    let isVpg = isVpgClub;
+    if (existing) {
+        if (existing.vpgLeagueSlug) {
+            isVpg = true;
+            finalClubName = existing.lastClub || clubName;
+        }
+    }
+
+    if (isVpg) {
+        // Para jugadores de VPG, las estadísticas competitivas y el historial de ratings provienen 100% de la API de VPG.
+        // Solo guardamos la posición, club actual, última fecha activa y su equipación/build física.
+        await coll.updateOne(
+            { eaPlayerName: playerName },
+            { 
+                $set: { lastClub: finalClubName, lastActive: new Date(), lastPosition: pos, build: build }
+            },
+            { upsert: true }
+        );
+        return;
+    }
+
     // EA API keys son inconsistentes: a veces camelCase, a veces minúsculas
     const getVal = (obj, ...keys) => {
         for (const k of keys) { if (obj[k] !== undefined) return parseInt(obj[k]) || 0; }
@@ -273,14 +299,6 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsA
     };
 
     const rating = parseFloat(matchData.rating || 0);
-    const build = extractBuild(matchData);
-
-    // Evitar que partidos locales/EA pisen el club de VPG de jugadores ya sincronizados
-    const existing = await coll.findOne({ eaPlayerName: playerName });
-    let finalClubName = clubName;
-    if (existing && existing.vpgLeagueSlug) {
-        finalClubName = existing.lastClub || clubName;
-    }
 
     await coll.updateOne(
         { eaPlayerName: playerName },
@@ -299,16 +317,31 @@ async function updatePlayerProfile(coll, playerName, matchData, clubName, goalsA
  */
 async function updatePlayerProfileRatingOnly(coll, playerName, matchData, clubName, isVpgClub = false) {
     const pos = resolvePos(matchData.pos, matchData.archetypeid);
-    const rating = parseFloat(matchData.rating || 0);
     const build = extractBuild(matchData);
     
     // Evitar que partidos locales/EA pisen el club de VPG de jugadores ya sincronizados
     const existing = await coll.findOne({ eaPlayerName: playerName });
     let finalClubName = clubName;
-    if (existing && existing.vpgLeagueSlug) {
-        finalClubName = existing.lastClub || clubName;
+    let isVpg = isVpgClub;
+    if (existing) {
+        if (existing.vpgLeagueSlug) {
+            isVpg = true;
+            finalClubName = existing.lastClub || clubName;
+        }
     }
 
+    if (isVpg) {
+        await coll.updateOne(
+            { eaPlayerName: playerName },
+            { 
+                $set: { lastClub: finalClubName, lastActive: new Date(), lastPosition: pos, build: build }
+            },
+            { upsert: true }
+        );
+        return;
+    }
+
+    const rating = parseFloat(matchData.rating || 0);
     // Solo guardar rating (sin incrementar matchesPlayed ni stats)
     await coll.updateOne(
         { eaPlayerName: playerName },
