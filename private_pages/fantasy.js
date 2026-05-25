@@ -423,12 +423,11 @@ window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
     
-    // Check if already in standalone mode or already installed
+    // Check if already in standalone mode
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-    const isAlreadyInstalled = localStorage.getItem('pwa-installed') === 'true';
     
-    if (isStandalone || isAlreadyInstalled) {
-        console.log('[PWA] App is already installed or running in standalone mode.');
+    if (isStandalone) {
+        console.log('[PWA] App is running in standalone mode.');
         deferredPrompt = null;
         return;
     }
