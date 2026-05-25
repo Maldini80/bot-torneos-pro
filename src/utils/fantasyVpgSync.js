@@ -407,7 +407,7 @@ export async function syncFantasyWithVpg() {
 
                                 // Si es la misma posición de fantasía, no sumamos, sino que tomamos la de mejores puntos para evitar duplicar
                                 if (existing.lastPosition === fantasyPos) {
-                                    if ((parseFloat(player.points) || 0) > (existingStats.vpgPoints || 0)) {
+                                    if ((parseFloat(player.points) || 0) > (existingStats.vpgPoints || 0) || pSlug !== existing.vpgTeamSlug) {
                                         existingStats.matchesPlayed = played;
                                         existingStats.goals = parseInt(player.goals) || 0;
                                         existingStats.assists = parseInt(player.assists) || 0;
@@ -424,7 +424,7 @@ export async function syncFantasyWithVpg() {
 
                                         if (player.user_avatar) existing.avatar = player.user_avatar;
                                         if (player.user_nationality) existing.nationality = player.user_nationality;
-                                        if (dbTeam) existing.lastClub = dbTeam.name;
+                                        existing.lastClub = dbTeam ? dbTeam.name : (player.team_name || player.team_slug || "VPG Club");
                                         existing.vpgTeamSlug = pSlug;
                                     }
                                 } else {
@@ -463,7 +463,7 @@ export async function syncFantasyWithVpg() {
                                     existing.lastPosition = bestPosition;
                                     if (player.user_avatar) existing.avatar = player.user_avatar;
                                     if (player.user_nationality) existing.nationality = player.user_nationality;
-                                    if (dbTeam) existing.lastClub = dbTeam.name;
+                                    existing.lastClub = dbTeam ? dbTeam.name : (player.team_name || player.team_slug || "VPG Club");
                                     existing.vpgTeamSlug = pSlug;
                                 }
                             } else {
@@ -1908,7 +1908,7 @@ export async function autoResolveVpgPlayerMerges(db, ignoreLimit = false) {
             const norm2 = p2.normalized;
             const sim = getNameSimilarity(norm1, norm2);
             
-            if (sim >= 0.70) {
+            if (sim >= 0.60) {
                 potentialPairs.push({ p1, p2, sim });
             }
         }
