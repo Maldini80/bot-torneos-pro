@@ -5550,7 +5550,11 @@ export async function startVisualizerServer(discordClient) {
         // Check if user is the league creator or co-admin (helper)
         try {
             const db = getDb();
-            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(req.params.id) });
+            const leagueId = req.params.id;
+            if (!leagueId || !ObjectId.isValid(leagueId)) {
+                return res.status(403).json({ error: 'No tienes permisos para administrar esta liga.' });
+            }
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
             if (league && (league.createdBy === req.user.id || league.coAdmin === req.user.id)) return next();
         } catch (e) {
             console.error('[canAdminLeague] Error:', e);
