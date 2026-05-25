@@ -454,6 +454,18 @@ passport.deserializeUser((obj, done) => done(null, obj));
 app.use(passport.initialize());
 app.use(passport.session());
 
+const validateObjectIdParam = (req, res, next, value) => {
+    if (!/^[0-9a-fA-F]{24}$/.test(value)) {
+        return res.status(400).json({ error: 'ID no válido.' });
+    }
+    next();
+};
+
+app.param('id', validateObjectIdParam);
+app.param('leagueId', validateObjectIdParam);
+app.param('teamId', validateObjectIdParam);
+app.param('bidId', validateObjectIdParam);
+
 app.get('/login', (req, res, next) => {
     const returnTo = Buffer.from(req.query.returnTo || '/').toString('base64');
     passport.authenticate('discord', { state: returnTo })(req, res, next);

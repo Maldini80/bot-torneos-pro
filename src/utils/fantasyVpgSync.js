@@ -1199,16 +1199,6 @@ export async function generateRandomSquadForTeam(db, leagueId, teamId) {
         vpgLeagueSlug: { $in: vpgLeagues }
     }).toArray();
 
-    // Calculate price for all eligible players
-    const allEligiblePlayers = rawPlayers.map(p => {
-        const { price } = calculatePlayerPointsAndPrice(p);
-        return {
-            eaPlayerName: p.eaPlayerName,
-            lastPosition: p.manualPosition || p.lastPosition || 'MC',
-            price
-        };
-    });
-
     // 3. Filter out players already owned in this league (except by this team, if it's a reset)
     const otherTeams = await db.collection('fantasy_teams').find({
         leagueId: leagueId.toString(),
@@ -1225,21 +1215,44 @@ export async function generateRandomSquadForTeam(db, leagueId, teamId) {
             : []
     );
 
-    const pool = allEligiblePlayers.filter(p => {
-        const nameLower = p.eaPlayerName.toLowerCase();
-        if (ownedPlayerNames.has(nameLower)) return false;
-        if (marketFreeAgents.has(nameLower)) return false;
-        // Individual player price must not exceed 55M
-        if (p.price > 55000000) return false;
-        return true;
-    });
+    // Helper to evaluate and partition a player array
+    function getPartitionedPool(playersArray) {
+        const mapped = playersArray.map(p => {
+            const { price } = calculatePlayerPointsAndPrice(p);
+            return {
+                eaPlayerName: p.eaPlayerName,
+                lastPosition: p.manualPosition || p.lastPosition || 'MC',
+                price
+            };
+        });
+        const filtered = mapped.filter(p => {
+            const nameLower = p.eaPlayerName.toLowerCase();
+            if (ownedPlayerNames.has(nameLower)) return false;
+            if (marketFreeAgents.has(nameLower)) return false;
+            if (p.price > 55000000) return false;
+            return true;
+        });
+        return {
+            pool: filtered,
+            poolPOR: filtered.filter(p => isGoalkeeper(p.lastPosition)),
+            poolCB: filtered.filter(p => isCentralDefender(p.lastPosition)),
+            poolDC: filtered.filter(p => p.lastPosition === 'DC'),
+            poolMCStrict: filtered.filter(p => ['MC', 'MCD', 'MCO'].includes(p.lastPosition)),
+            poolCARR: filtered.filter(p => isLateral(p.lastPosition))
+        };
+    }
 
-    // Partition available pool by position constraints
-    const poolPOR = pool.filter(p => isGoalkeeper(p.lastPosition));
-    const poolCB = pool.filter(p => isCentralDefender(p.lastPosition));
-    const poolDC = pool.filter(p => p.lastPosition === 'DC');
-    const poolMCStrict = pool.filter(p => ['MC', 'MCD', 'MCO'].includes(p.lastPosition));
-    const poolCARR = pool.filter(p => isLateral(p.lastPosition));
+    // Try with league's own divisions
+    let partition = getPartitionedPool(rawPlayers);
+    
+    // If not enough players, try with all players in DB
+    if (partition.poolPOR.length < 1 || partition.poolCB.length < 3 || partition.poolDC.length < 3 || partition.poolMCStrict.length < 4 || partition.poolCARR.length < 3) {
+        console.warn(`[generateRandomSquadForTeam] Not enough players for league divisions ${vpgLeagues.join(', ')}. Falling back to all players in DB.`);
+        const fallbackPlayers = await db.collection('player_profiles').find({}).toArray();
+        partition = getPartitionedPool(fallbackPlayers);
+    }
+
+    const { pool, poolPOR, poolCB, poolDC, poolMCStrict, poolCARR } = partition;
 
     // Validate that we have enough candidates in the database
     if (poolPOR.length < 1 || poolCB.length < 3 || poolDC.length < 3 || poolMCStrict.length < 4 || poolCARR.length < 3) {
