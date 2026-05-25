@@ -61,8 +61,8 @@ const VPG_SPAIN_LEAGUES = [
     { id: 8, title: 'CUARTA DIVISION B', slug: 'cuarta-division-b-spain' },
     { id: 9, title: 'QUINTA DIVISION A', slug: 'quinta-division-a-spain' },
     { id: 10, title: 'QUINTA DIVISION B', slug: 'quinta-division-b-spain' },
-    { id: 11, title: 'QUINTA DIVISION C', slug: 'quinta-division-c-spain' },
-    { id: 12, title: 'QUINTA DIVISION D', slug: 'quinta-division-d-spain' },
+    { id: 11, title: 'QUINTA DIVISION C', slug: 'quinta-division-c' },
+    { id: 12, title: 'QUINTA DIVISION D', slug: 'quinta-division-d' },
 ];
 
 /**
