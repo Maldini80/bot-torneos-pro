@@ -423,6 +423,16 @@ window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     deferredPrompt = e;
     
+    // Check if already in standalone mode or already installed
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    const isAlreadyInstalled = localStorage.getItem('pwa-installed') === 'true';
+    
+    if (isStandalone || isAlreadyInstalled) {
+        console.log('[PWA] App is already installed or running in standalone mode.');
+        deferredPrompt = null;
+        return;
+    }
+    
     // Show install buttons
     const selectorBtn = document.getElementById('pwa-install-btn-selector');
     const dashBtn = document.getElementById('pwa-install-btn-dash');
@@ -438,6 +448,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
 window.addEventListener('appinstalled', (evt) => {
     console.log('[PWA] App installed successfully');
+    localStorage.setItem('pwa-installed', 'true');
     deferredPrompt = null;
     hidePwaInstallBanner();
     
