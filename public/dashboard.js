@@ -1541,8 +1541,10 @@ class DashboardApp {
                 if (userData && userData.isAdmin) isAdmin = true;
             } catch (e) { /* not admin or not logged in */ }
             if (isAdmin) {
+                const mk = document.getElementById('dash-admin-market');
                 const bf = document.getElementById('dash-admin-backfill');
                 const lg = document.getElementById('dash-admin-leagues');
+                if (mk) { mk.style.display = 'inline-block'; mk.onclick = () => this.triggerMarketAutomation(); }
                 if (bf) { bf.style.display = 'inline-block'; bf.onclick = () => this.triggerBackfill(); }
                 if (lg) { lg.style.display = 'inline-block'; lg.onclick = () => this.triggerLeagueRefresh(); }
             }
@@ -1678,6 +1680,18 @@ class DashboardApp {
             const res = await fetch('/api/admin/recalculate-leagues', { method: 'POST' });
             const data = await res.json();
             if (data.success) { alert('✅ ' + data.message); this.loadDashRanking(); } else alert('❌ Error: ' + data.error);
+        } catch (e) { alert('❌ Error de red.'); }
+        finally { btn.innerText = orig; btn.disabled = false; }
+    }
+
+    async triggerMarketAutomation() {
+        if (!confirm('⚠️ ¿Seguro que quieres ejecutar la adjudicación de mercado y la renovación de agentes libres de forma manual ahora mismo?')) return;
+        const btn = document.getElementById('dash-admin-market');
+        const orig = btn.innerText; btn.innerText = '⏳ Adjudicando...'; btn.disabled = true;
+        try {
+            const res = await fetch('/api/admin/run-market-automation', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) { alert('✅ ' + data.message); } else alert('❌ Error: ' + data.error);
         } catch (e) { alert('❌ Error de red.'); }
         finally { btn.innerText = orig; btn.disabled = false; }
     }

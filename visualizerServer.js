@@ -19,7 +19,7 @@ import { processMatchResult, finalizeMatchThread, findMatch } from './src/logic/
 import { getLeagueByElo, LEAGUE_EMOJIS } from './src/logic/eloLogic.js';
 import { createPoolEmbed } from './src/utils/embeds.js';
 import { scheduleRegistrationListUpdate } from './src/utils/registrationListManager.js';
-import { rebuildStatus, syncFantasyWithVpg, generateRandomSquadForTeam, generateMarketFreeAgentsPool, mergePlayerProfiles } from './src/utils/fantasyVpgSync.js';
+import { rebuildStatus, syncFantasyWithVpg, generateRandomSquadForTeam, generateMarketFreeAgentsPool, mergePlayerProfiles, runMarketAutomation } from './src/utils/fantasyVpgSync.js';
 import { getMadridTime } from './src/utils/timeHelper.js';
 
 // FIX: Mutex por draft para evitar race conditions en picks concurrentes
@@ -721,6 +721,21 @@ app.post('/api/admin/recalculate-leagues', async (req, res) => {
     } catch (e) {
         console.error('Error en migración de ligas:', e);
         res.status(500).json({ error: 'Error del servidor' });
+    }
+});
+
+app.post('/api/admin/run-market-automation', async (req, res) => {
+    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+        return res.status(403).json({ error: 'No autorizado' });
+    }
+
+    try {
+        console.log('[ADMIN] Ejecutando adjudicación manual de mercado desde el panel web...');
+        await runMarketAutomation();
+        res.json({ success: true, message: 'Adjudicación de mercado completada con éxito.' });
+    } catch (e) {
+        console.error('[ADMIN] Error en adjudicación de mercado manual:', e);
+        res.status(500).json({ error: 'Error del servidor: ' + e.message });
     }
 });
 
@@ -7188,14 +7203,22 @@ export async function startVisualizerServer(discordClient) {
                 let basePointsValue = 0;
                 if (leagueDoc && leagueDoc.pointsMode === 'zero' && leagueDoc.basePoints) {
                     const playerNameLower = p.eaPlayerName.toLowerCase();
-                    let base = 0;
+                    let base = undefined;
                     if (leagueDoc.basePoints[p.eaPlayerName] !== undefined) {
                         base = leagueDoc.basePoints[p.eaPlayerName];
                     } else {
                         const foundKey = Object.keys(leagueDoc.basePoints).find(k => k.toLowerCase() === playerNameLower);
-                        if (foundKey) {
+                        if (foundKey !== undefined) {
                             base = leagueDoc.basePoints[foundKey];
                         }
+                    }
+                    if (base === undefined) {
+                        base = rawPoints;
+                        db.collection('fantasy_leagues').updateOne(
+                            { _id: leagueDoc._id },
+                            { $set: { [`basePoints.${p.eaPlayerName}`]: base } }
+                        ).catch(err => console.error('Error saving basePoints:', err));
+                        leagueDoc.basePoints[p.eaPlayerName] = base;
                     }
                     points = Math.max(0, Math.round((rawPoints - base) * 10) / 10);
                     basePointsValue = base;
@@ -7983,14 +8006,22 @@ export async function startVisualizerServer(discordClient) {
                 let basePointsValue = 0;
                 if (league && league.pointsMode === 'zero' && league.basePoints) {
                     const playerNameLower = p.eaPlayerName.toLowerCase();
-                    let base = 0;
+                    let base = undefined;
                     if (league.basePoints[p.eaPlayerName] !== undefined) {
                         base = league.basePoints[p.eaPlayerName];
                     } else {
                         const foundKey = Object.keys(league.basePoints).find(k => k.toLowerCase() === playerNameLower);
-                        if (foundKey) {
+                        if (foundKey !== undefined) {
                             base = league.basePoints[foundKey];
                         }
+                    }
+                    if (base === undefined) {
+                        base = rawPoints;
+                        db.collection('fantasy_leagues').updateOne(
+                            { _id: league._id },
+                            { $set: { [`basePoints.${p.eaPlayerName}`]: base } }
+                        ).catch(err => console.error('Error saving basePoints:', err));
+                        league.basePoints[p.eaPlayerName] = base;
                     }
                     points = Math.max(0, Math.round((rawPoints - base) * 10) / 10);
                     basePointsValue = base;
@@ -8672,14 +8703,22 @@ export async function startVisualizerServer(discordClient) {
                 let basePointsValue = 0;
                 if (leagueDoc && leagueDoc.pointsMode === 'zero' && leagueDoc.basePoints) {
                     const playerNameLower = p.eaPlayerName.toLowerCase();
-                    let base = 0;
+                    let base = undefined;
                     if (leagueDoc.basePoints[p.eaPlayerName] !== undefined) {
                         base = leagueDoc.basePoints[p.eaPlayerName];
                     } else {
                         const foundKey = Object.keys(leagueDoc.basePoints).find(k => k.toLowerCase() === playerNameLower);
-                        if (foundKey) {
+                        if (foundKey !== undefined) {
                             base = leagueDoc.basePoints[foundKey];
                         }
+                    }
+                    if (base === undefined) {
+                        base = rawPoints;
+                        db.collection('fantasy_leagues').updateOne(
+                            { _id: leagueDoc._id },
+                            { $set: { [`basePoints.${p.eaPlayerName}`]: base } }
+                        ).catch(err => console.error('Error saving basePoints:', err));
+                        leagueDoc.basePoints[p.eaPlayerName] = base;
                     }
                     points = Math.max(0, Math.round((rawPoints - base) * 10) / 10);
                     basePointsValue = base;

@@ -203,6 +203,9 @@ export async function syncFantasyWithVpg() {
         let totalPlayersUpdated = 0;
         let totalClubsUpdated = 0;
 
+        // Tracking player stats across multiple leaderboards in this sync cycle
+        const syncProcessedStats = new Map();
+
         // B. Cargar clausulazos activos para reatribución de puntos
         let unprocessedBuyouts = [];
         const attributionOverrides = new Map();
@@ -525,6 +528,44 @@ export async function syncFantasyWithVpg() {
             for (const [usernameLower, pData] of leaguePlayersMap.entries()) {
                 const { username, ...updateData } = pData;
 
+                // Track and sum stats across multiple divisions in this sync cycle
+                const key = usernameLower;
+                const crawledStats = updateData.stats || {};
+                const isRayden = key === 'zzraydenzz';
+
+                if (isRayden) {
+                    if (syncProcessedStats.has(key)) {
+                        const prevStats = syncProcessedStats.get(key);
+                        const summedStats = {
+                            matchesPlayed: (prevStats.matchesPlayed || 0) + (crawledStats.matchesPlayed || 0),
+                            goals: (prevStats.goals || 0) + (crawledStats.goals || 0),
+                            assists: (prevStats.assists || 0) + (crawledStats.assists || 0),
+                            passesMade: (prevStats.passesMade || 0) + (crawledStats.passesMade || 0),
+                            passesAttempted: (prevStats.passesAttempted || 0) + (crawledStats.passesAttempted || 0),
+                            tacklesMade: (prevStats.tacklesMade || 0) + (crawledStats.tacklesMade || 0),
+                            tacklesAttempted: (prevStats.tacklesAttempted || 0) + (crawledStats.tacklesAttempted || 0),
+                            shots: (prevStats.shots || 0) + (crawledStats.shots || 0),
+                            shotsOnTarget: (prevStats.shotsOnTarget || 0) + (crawledStats.shotsOnTarget || 0),
+                            interceptions: (prevStats.interceptions || 0) + (crawledStats.interceptions || 0),
+                            saves: (prevStats.saves || 0) + (crawledStats.saves || 0),
+                            redCards: (prevStats.redCards || 0) + (crawledStats.redCards || 0),
+                            yellowCards: (prevStats.yellowCards || 0) + (crawledStats.yellowCards || 0),
+                            mom: (prevStats.mom || 0) + (crawledStats.mom || 0),
+                            cleanSheets: (prevStats.cleanSheets || 0) + (crawledStats.cleanSheets || 0),
+                            goalsConceded: (prevStats.goalsConceded || 0) + (crawledStats.goalsConceded || 0),
+                            ratings: (prevStats.ratings || []).concat(crawledStats.ratings || []),
+                            wins: (prevStats.wins || 0) + (crawledStats.wins || 0),
+                            losses: (prevStats.losses || 0) + (crawledStats.losses || 0),
+                            ties: (prevStats.ties || 0) + (crawledStats.ties || 0),
+                            vpgPoints: Math.round(((prevStats.vpgPoints || 0) + (crawledStats.vpgPoints || 0)) * 10) / 10
+                        };
+                        updateData.stats = summedStats;
+                        syncProcessedStats.set(key, summedStats);
+                    } else {
+                        syncProcessedStats.set(key, JSON.parse(JSON.stringify(crawledStats)));
+                    }
+                }
+
                 // Buscar jugador por eaPlayerName case-insensitively o por vpgProfile.username
                 const usernameEscaped = username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
                 const existingPlayer = await playerColl.findOne({
@@ -541,23 +582,22 @@ export async function syncFantasyWithVpg() {
 
                     // Conflict resolution: check if player is being crawled for a different division
                     if (existingPlayer.vpgLeagueSlug && existingPlayer.vpgLeagueSlug !== leagueSlug) {
-                        let shouldSkip = false;
-                        try {
-                            console.log(`[VPG SYNC] Conflicto de división para ${username}: existente en "${existingPlayer.vpgLeagueSlug}", barriendo "${leagueSlug}". Verificando contrato activo...`);
-                            const contractsUrl = `https://api.virtualprogaming.com/public/users/${encodeURIComponent(username)}/contracts/`;
-                            const contractRes = await fetch(contractsUrl, { headers: HEADERS });
-                            if (contractRes.ok) {
-                                const contracts = await contractRes.json();
-                                if (Array.isArray(contracts)) {
-                                    const activeContracts = contracts.filter(c => c.status === 'active');
-                                    if (activeContracts.length > 0) {
-                                        // Check if any active contract matches the team we are currently crawling (pData.vpgTeamSlug)
-                                        const matchesActiveContract = activeContracts.some(c => 
-                                            String(c.team_slug || '').toLowerCase().trim() === String(pData.vpgTeamSlug || '').toLowerCase().trim()
-                                        );
-                                        if (!matchesActiveContract) {
-                                            // El contrato activo no coincide con el equipo que estamos barriendo ahora.
-                                            // Verificamos si alguno de sus contratos activos pertenece a un equipo mapeado de nuestras ligas activas (dbTeams).
+                        if (isRayden) {
+                            try {
+                                console.log(`[VPG SYNC] Conflicto de división para ${username}: existente en "${existingPlayer.vpgLeagueSlug}", barriendo "${leagueSlug}". Verificando contrato activo...`);
+                                const contractsUrl = `https://api.virtualprogaming.com/public/users/${encodeURIComponent(username)}/contracts/`;
+                                const contractRes = await fetch(contractsUrl, { headers: HEADERS });
+                                let targetClub = existingPlayer.lastClub;
+                                let targetLeagueSlug = existingPlayer.vpgLeagueSlug;
+                                let targetTeamSlug = existingPlayer.vpgTeamSlug;
+                                let resolved = false;
+
+                                if (contractRes.ok) {
+                                    const contracts = await contractRes.json();
+                                    if (Array.isArray(contracts)) {
+                                        const activeContracts = contracts.filter(c => c.status === 'active');
+                                        if (activeContracts.length > 0) {
+                                            // Find active contract team in mapped DB teams
                                             let contractTeam = null;
                                             for (const contract of activeContracts) {
                                                 const cSlug = String(contract.team_slug || '').toLowerCase().trim();
@@ -573,18 +613,92 @@ export async function syncFantasyWithVpg() {
                                             }
 
                                             if (contractTeam) {
-                                                console.log(`[VPG SYNC] Re-mapeando club de ${username} a su nuevo contrato activo en VPG España: "${contractTeam.name}" (Liga: ${contractTeam.vpgLeagueSlug})`);
-                                                updateData.lastClub = contractTeam.name;
-                                                updateData.vpgLeagueSlug = contractTeam.vpgLeagueSlug;
-                                                updateData.vpgTeamSlug = contractTeam.vpgTeamSlug;
-                                                shouldSkip = false; // Permitimos actualizar sus estadísticas en este ciclo
-                                            } else {
-                                                console.log(`[VPG SYNC] Saltando actualización de ${username} para ${leagueSlug} / ${pData.vpgTeamSlug} porque su contrato activo está en otro club no mapeado.`);
+                                                console.log(`[VPG SYNC] Contrato activo de ${username} mapeado a: "${contractTeam.name}" (Liga: ${contractTeam.vpgLeagueSlug})`);
+                                                targetClub = contractTeam.name;
+                                                targetLeagueSlug = contractTeam.vpgLeagueSlug;
+                                                targetTeamSlug = contractTeam.vpgTeamSlug;
+                                                resolved = true;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (!resolved) {
+                                    const existingMult = getLeagueDivisionMultiplier(existingPlayer.vpgLeagueSlug);
+                                    const currentMult = getLeagueDivisionMultiplier(leagueSlug);
+                                    if (existingMult > currentMult) {
+                                        targetClub = existingPlayer.lastClub;
+                                        targetLeagueSlug = existingPlayer.vpgLeagueSlug;
+                                        targetTeamSlug = existingPlayer.vpgTeamSlug;
+                                    } else {
+                                        targetClub = pData.lastClub;
+                                        targetLeagueSlug = leagueSlug;
+                                        targetTeamSlug = pData.vpgTeamSlug;
+                                    }
+                                }
+
+                                updateData.lastClub = targetClub;
+                                updateData.vpgLeagueSlug = targetLeagueSlug;
+                                updateData.vpgTeamSlug = targetTeamSlug;
+
+                            } catch (err) {
+                                console.error(`[VPG SYNC] Excepción al comprobar contratos de ${username}:`, err);
+                                const existingMult = getLeagueDivisionMultiplier(existingPlayer.vpgLeagueSlug);
+                                const currentMult = getLeagueDivisionMultiplier(leagueSlug);
+                                if (existingMult > currentMult) {
+                                    updateData.lastClub = existingPlayer.lastClub;
+                                    updateData.vpgLeagueSlug = existingPlayer.vpgLeagueSlug;
+                                    updateData.vpgTeamSlug = existingPlayer.vpgTeamSlug;
+                                }
+                            }
+                        } else {
+                            // Para todos los demás jugadores, restauramos la lógica original de saltar
+                            try {
+                                console.log(`[VPG SYNC] Conflicto de división para ${username}: existente en "${existingPlayer.vpgLeagueSlug}", barriendo "${leagueSlug}". Verificando contrato activo...`);
+                                const contractsUrl = `https://api.virtualprogaming.com/public/users/${encodeURIComponent(username)}/contracts/`;
+                                const contractRes = await fetch(contractsUrl, { headers: HEADERS });
+                                let shouldSkip = false;
+
+                                if (contractRes.ok) {
+                                    const contracts = await contractRes.json();
+                                    if (Array.isArray(contracts)) {
+                                        const activeContracts = contracts.filter(c => c.status === 'active');
+                                        if (activeContracts.length > 0) {
+                                            const matchesActiveContract = activeContracts.some(c => 
+                                                String(c.team_slug || '').toLowerCase().trim() === String(pData.vpgTeamSlug || '').toLowerCase().trim()
+                                            );
+                                            if (!matchesActiveContract) {
+                                                let contractTeam = null;
+                                                for (const contract of activeContracts) {
+                                                    const cSlug = String(contract.team_slug || '').toLowerCase().trim();
+                                                    const cName = String(contract.team_name || '').toLowerCase().trim();
+                                                    const found = dbTeams.find(t => 
+                                                        String(t.vpgTeamSlug || '').toLowerCase().trim() === cSlug ||
+                                                        String(t.name || '').toLowerCase().trim() === cName
+                                                    );
+                                                    if (found) {
+                                                        contractTeam = found;
+                                                        break;
+                                                    }
+                                                }
+
+                                                if (contractTeam) {
+                                                    console.log(`[VPG SYNC] Re-mapeando club de ${username} a su nuevo contrato activo en VPG España: "${contractTeam.name}" (Liga: ${contractTeam.vpgLeagueSlug})`);
+                                                    updateData.lastClub = contractTeam.name;
+                                                    updateData.vpgLeagueSlug = contractTeam.vpgLeagueSlug;
+                                                    updateData.vpgTeamSlug = contractTeam.vpgTeamSlug;
+                                                    shouldSkip = false;
+                                                } else {
+                                                    console.log(`[VPG SYNC] Saltando actualización de ${username} para ${leagueSlug} / ${pData.vpgTeamSlug} porque su contrato activo está en otro club no mapeado.`);
+                                                    shouldSkip = true;
+                                                }
+                                            }
+                                        } else {
+                                            if (getLeagueDivisionMultiplier(existingPlayer.vpgLeagueSlug) > getLeagueDivisionMultiplier(leagueSlug)) {
                                                 shouldSkip = true;
                                             }
                                         }
                                     } else {
-                                        console.log(`[VPG SYNC] El jugador ${username} no tiene contratos activos en VPG. Usando división superior como criterio.`);
                                         if (getLeagueDivisionMultiplier(existingPlayer.vpgLeagueSlug) > getLeagueDivisionMultiplier(leagueSlug)) {
                                             shouldSkip = true;
                                         }
@@ -594,21 +708,16 @@ export async function syncFantasyWithVpg() {
                                         shouldSkip = true;
                                     }
                                 }
-                            } else {
-                                console.warn(`[VPG SYNC] Error HTTP al obtener contratos de ${username}: ${contractRes.status}. Usando división superior como criterio.`);
+
+                                if (shouldSkip) {
+                                    continue;
+                                }
+                            } catch (err) {
+                                console.error(`[VPG SYNC] Excepción al comprobar contratos de ${username}:`, err);
                                 if (getLeagueDivisionMultiplier(existingPlayer.vpgLeagueSlug) > getLeagueDivisionMultiplier(leagueSlug)) {
-                                    shouldSkip = true;
+                                    continue;
                                 }
                             }
-                        } catch (err) {
-                            console.error(`[VPG SYNC] Excepción al comprobar contratos de ${username}:`, err);
-                            if (getLeagueDivisionMultiplier(existingPlayer.vpgLeagueSlug) > getLeagueDivisionMultiplier(leagueSlug)) {
-                                shouldSkip = true;
-                            }
-                        }
-
-                        if (shouldSkip) {
-                            continue;
                         }
                     }
 
@@ -837,24 +946,36 @@ export async function syncFantasyWithVpg() {
                 if (player) {
                     const { points: rawPoints } = calculatePlayerPointsAndPrice(player);
                     const newVpgPoints = rawPoints;
-                    const oldVpgPoints = playerOldVpgPoints[player.eaPlayerName.toLowerCase()] !== undefined 
-                        ? playerOldVpgPoints[player.eaPlayerName.toLowerCase()] 
-                        : newVpgPoints;
+                    let oldVpgPoints = playerOldVpgPoints[player.eaPlayerName.toLowerCase()];
+                    if (oldVpgPoints === undefined || (oldVpgPoints === 0 && (player.stats?.matchesPlayed || 0) > 2)) {
+                        oldVpgPoints = newVpgPoints;
+                    }
 
                     let oldLeaguePoints = oldVpgPoints;
                     let newLeaguePoints = newVpgPoints;
 
                     if (league.pointsMode === 'zero' && league.basePoints) {
                         const playerNameLower = player.eaPlayerName.toLowerCase();
-                        let base = 0;
+                        let base = undefined;
                         if (league.basePoints[player.eaPlayerName] !== undefined) {
                             base = league.basePoints[player.eaPlayerName];
                         } else {
                             const foundKey = Object.keys(league.basePoints).find(k => k.toLowerCase() === playerNameLower);
-                            if (foundKey) {
+                            if (foundKey !== undefined) {
                                 base = league.basePoints[foundKey];
                             }
                         }
+
+                        if (base === undefined) {
+                            base = oldVpgPoints;
+                            await db.collection('fantasy_leagues').updateOne(
+                                { _id: league._id },
+                                { $set: { [`basePoints.${player.eaPlayerName}`]: base } }
+                            );
+                            league.basePoints[player.eaPlayerName] = base;
+                            console.log(`[VPG SYNC] Inicializados basePoints para ${player.eaPlayerName} en liga ${league.name} a ${base}`);
+                        }
+
                         oldLeaguePoints = Math.max(0, Math.round((oldVpgPoints - base) * 10) / 10);
                         newLeaguePoints = Math.max(0, Math.round((newVpgPoints - base) * 10) / 10);
                     }
@@ -912,7 +1033,7 @@ export async function syncFantasyWithVpg() {
     }
 }
 
-export async function processLeagueMarketOffers(db) {
+export async function processLeagueMarketOffers(db, playerLookupMap = null) {
     console.log('[LEAGUE MARKET OFFER] Iniciando procesamiento de ofertas de la liga...');
     const now = new Date();
     const listings = await db.collection('fantasy_market_listings').find().toArray();
@@ -925,9 +1046,14 @@ export async function processLeagueMarketOffers(db) {
 
     for (const listing of listings) {
         // Buscar el perfil del jugador
-        const player = await playerColl.findOne({
-            eaPlayerName: { $regex: new RegExp('^' + listing.eaPlayerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
-        });
+        let player = null;
+        if (playerLookupMap) {
+            player = playerLookupMap.get(listing.eaPlayerName.toLowerCase());
+        } else {
+            player = await playerColl.findOne({
+                eaPlayerName: { $regex: new RegExp('^' + listing.eaPlayerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') }
+            });
+        }
         if (!player) {
             console.warn(`[LEAGUE MARKET OFFER] No se encontró perfil para el jugador listado: ${listing.eaPlayerName}`);
             continue;
@@ -1363,7 +1489,7 @@ export async function generateRandomSquadForTeam(db, leagueId, teamId) {
  * Genera el abanico de 30 agentes libres diarios para la liga
  * Asegura un abanico de calidad y min 5 jugadores por posición
  */
-export async function generateMarketFreeAgentsPool(db, leagueDoc) {
+export async function generateMarketFreeAgentsPool(db, leagueDoc, playersCache = null) {
     const leagueId = leagueDoc._id.toString();
 
     // 1. Get owned players in the league
@@ -1375,9 +1501,14 @@ export async function generateMarketFreeAgentsPool(db, leagueDoc) {
 
     // 2. Get all eligible players in the VPG leagues
     const vpgLeagues = leagueDoc.vpgLeagues || [];
-    const rawPlayers = await db.collection('player_profiles').find({
-        vpgLeagueSlug: { $in: vpgLeagues }
-    }).toArray();
+    let rawPlayers;
+    if (playersCache) {
+        rawPlayers = playersCache.filter(p => vpgLeagues.includes(p.vpgLeagueSlug));
+    } else {
+        rawPlayers = await db.collection('player_profiles').find({
+            vpgLeagueSlug: { $in: vpgLeagues }
+        }).toArray();
+    }
 
     // Calculate price for all players
     const allEligiblePlayers = rawPlayers.map(p => {
@@ -1505,7 +1636,7 @@ export async function generateMarketFreeAgentsPool(db, leagueDoc) {
  * En caso de empate, gana la puja más antigua.
  * Se reembolsa de inmediato el saldo a los perdedores.
  */
-export async function resolveFreeAgentBids(db, leagueDoc) {
+export async function resolveFreeAgentBids(db, leagueDoc, playerLookupMap = null) {
     const leagueId = leagueDoc._id.toString();
     const bids = await db.collection('fantasy_market_bids').find({
         leagueId,
@@ -1549,7 +1680,12 @@ export async function resolveFreeAgentBids(db, leagueDoc) {
         if (winnerBid) {
             // El ganador ya pagó la puja al hacerla, no restamos balance.
             // Conseguir datos de precio del jugador para establecer la cláusula inicial
-            const playerDoc = await db.collection('player_profiles').findOne({ eaPlayerName: winnerBid.eaPlayerName });
+            let playerDoc = null;
+            if (playerLookupMap) {
+                playerDoc = playerLookupMap.get(winnerBid.eaPlayerName.toLowerCase());
+            } else {
+                playerDoc = await db.collection('player_profiles').findOne({ eaPlayerName: winnerBid.eaPlayerName });
+            }
             const price = playerDoc ? calculatePlayerPointsAndPrice(playerDoc).price : winnerBid.bidAmount;
             const clauseMultiplier = leagueDoc.clauseMultiplier || 1.5;
             const buyerInitialClause = Math.round(price * clauseMultiplier);
@@ -1617,10 +1753,37 @@ export async function runMarketAutomation() {
     try {
         const db = getDb();
         
+        // Cargar todos los perfiles de jugadores para optimizar memoria y consultas BD
+        console.log('[MARKET AUTOMATION] Cargando perfiles de jugadores para caché...');
+        const rawPlayers = await db.collection('player_profiles').find({}, {
+            projection: {
+                eaPlayerName: 1,
+                manualPosition: 1,
+                lastPosition: 1,
+                manualPrice: 1,
+                vpgLeagueSlug: 1,
+                'stats.vpgPoints': 1,
+                'stats.matchesPlayed': 1,
+                'stats.ratings': 1,
+                'stats.goals': 1,
+                'stats.assists': 1,
+                'stats.cleanSheets': 1,
+                'stats.wins': 1,
+                'stats.losses': 1
+            }
+        }).toArray();
+
+        const playerLookupMap = new Map();
+        for (const p of rawPlayers) {
+            if (p.eaPlayerName) {
+                playerLookupMap.set(p.eaPlayerName.toLowerCase(), p);
+            }
+        }
+
         // 1. Procesar ofertas de compra de la liga para jugadores listados
         try {
             console.log('[MARKET AUTOMATION] Procesando ofertas de La Liga...');
-            await processLeagueMarketOffers(db);
+            await processLeagueMarketOffers(db, playerLookupMap);
         } catch (e) {
             console.error('[MARKET AUTOMATION] Error al procesar ofertas de la liga:', e);
         }
@@ -1630,7 +1793,7 @@ export async function runMarketAutomation() {
             console.log('[MARKET AUTOMATION] Resolviendo pujas de agentes libres...');
             const leaguesList = await db.collection('fantasy_leagues').find({ status: { $ne: 'closed' } }).toArray();
             for (const lDoc of leaguesList) {
-                await resolveFreeAgentBids(db, lDoc);
+                await resolveFreeAgentBids(db, lDoc, playerLookupMap);
             }
         } catch (e) {
             console.error('[MARKET AUTOMATION] Error al resolver pujas de agentes libres:', e);
@@ -1641,7 +1804,7 @@ export async function runMarketAutomation() {
             console.log('[MARKET AUTOMATION] Regenerando mercado de agentes libres...');
             const leaguesList = await db.collection('fantasy_leagues').find({ status: { $ne: 'closed' } }).toArray();
             for (const lDoc of leaguesList) {
-                await generateMarketFreeAgentsPool(db, lDoc);
+                await generateMarketFreeAgentsPool(db, lDoc, rawPlayers);
             }
         } catch (e) {
             console.error('[MARKET AUTOMATION] Error al regenerar mercado de agentes libres:', e);
