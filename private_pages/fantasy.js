@@ -1280,26 +1280,27 @@ async function showLeagueSelector() {
     
     leaguesGrid.innerHTML = `<div class="loading-state"><i class="fa-solid fa-spinner fa-spin"></i> Cargando ligas...</div>`;
     
-    // Load VPG leagues for the creation form dropdown
-    await loadCreationVpgLeagues();
-    
     try {
-        const res = await fetch('/api/fantasy/leagues');
-        if (!res.ok) {
-            if (res.status === 401) {
+        // Parallelize both API calls for faster loading
+        const [_, leaguesRes] = await Promise.all([
+            loadCreationVpgLeagues(),
+            fetch('/api/fantasy/leagues')
+        ]);
+        if (!leaguesRes.ok) {
+            if (leaguesRes.status === 401) {
                 window.location.href = '/login?returnTo=/fantasy';
                 return;
             }
             throw new Error('No se pudieron obtener las ligas.');
         }
-        const data = await res.json();
+        const data = await leaguesRes.json();
         activeFantasyLeagues = data.leagues || [];
         
         renderLeaguesList('');
         
-        // Load pending league requests for admins
+        // Load pending league requests for admins (non-blocking)
         if (currentUser && currentUser.isAdmin) {
-            await loadPendingLeagueRequests();
+            loadPendingLeagueRequests();
         }
     } catch (e) {
         console.error(e);
@@ -1307,9 +1308,10 @@ async function showLeagueSelector() {
     }
 }
 
-function getLeagueCoverImage(vpgLeagues) {
+// Returns a lightweight CSS gradient + accent color instead of heavy PNG images (~4.8MB saved)
+function getLeagueGradientInfo(vpgLeagues) {
     if (!vpgLeagues || !Array.isArray(vpgLeagues) || vpgLeagues.length === 0) {
-        return '';
+        return null;
     }
     const divisions = vpgLeagues.map(slug => {
         const s = slug.toLowerCase().trim();
@@ -1317,20 +1319,20 @@ function getLeagueCoverImage(vpgLeagues) {
         if (s.includes('cuarta')) return 'cuarta';
         if (s.includes('tercera')) return 'tercera';
         if (s.includes('segunda')) return 'segunda';
-        // Por descarte, si no es de 2ª a 5ª, pertenece a la categoría por defecto (1ª División / Primera)
         return 'primera';
     });
     const uniqueDivisions = [...new Set(divisions)];
+    const gradients = {
+        primera:  { bg: 'linear-gradient(135deg, #1a1225 0%, #2d1b4e 40%, #4a2d7a 70%, #1a1225 100%)', accent: '#c9a0ff', icon: '🏆', label: '1ª' },
+        segunda:  { bg: 'linear-gradient(135deg, #121a28 0%, #1e3a5f 40%, #2a5080 70%, #121a28 100%)', accent: '#7eb8e0', icon: '🥈', label: '2ª' },
+        tercera:  { bg: 'linear-gradient(135deg, #1a1510 0%, #3d2e1a 40%, #5a4528 70%, #1a1510 100%)', accent: '#c9a46c', icon: '🥉', label: '3ª' },
+        cuarta:   { bg: 'linear-gradient(135deg, #0f1a14 0%, #1a3d28 40%, #285a3d 70%, #0f1a14 100%)', accent: '#5fd4a0', icon: '⚡', label: '4ª' },
+        quinta:   { bg: 'linear-gradient(135deg, #0f141a 0%, #1a2d4e 40%, #284070 70%, #0f141a 100%)', accent: '#5da0e0', icon: '🌟', label: '5ª' },
+    };
     if (uniqueDivisions.length > 1) {
-        return '/vpg_mixed_cover.png'; // Diferentes divisiones mezcladas
+        return { bg: 'linear-gradient(135deg, #1a1225 0%, #1a2d4e 35%, #3d2e1a 65%, #1a1225 100%)', accent: '#e0a0ff', icon: '🌐', label: 'Mix' };
     }
-    const div = uniqueDivisions[0];
-    if (div === 'primera') return '/vpg_primera_cover.png';
-    if (div === 'segunda') return '/vpg_segunda_cover.png';
-    if (div === 'tercera') return '/vpg_tercera_cover.png';
-    if (div === 'cuarta') return '/vpg_cuarta_cover.png';
-    if (div === 'quinta') return '/vpg_quinta_cover.png';
-    return '';
+    return gradients[uniqueDivisions[0]] || null;
 }
 
 // Render the leagues grid with optional name filtering
@@ -1355,9 +1357,12 @@ function renderLeaguesList(filterText = '') {
         const card = document.createElement('div');
         card.className = 'league-card';
         
-        const coverImg = getLeagueCoverImage(league.vpgLeagues);
-        if (coverImg) {
-            card.style.setProperty('--card-bg', `url("${coverImg}")`);
+        const gradientInfo = getLeagueGradientInfo(league.vpgLeagues);
+        if (gradientInfo) {
+            card.style.setProperty('--card-gradient', gradientInfo.bg);
+            card.style.setProperty('--card-accent', gradientInfo.accent);
+            card.setAttribute('data-division-icon', gradientInfo.icon);
+            card.setAttribute('data-division-label', gradientInfo.label);
             card.classList.add('has-cover');
         }
         
@@ -1642,12 +1647,17 @@ async function enterLeague(leagueId, keepCurrentTab = false, password = null, op
         currentLeagueId = leagueId;
         sessionStorage.setItem('selected_league_id', leagueId);
         
-        // Fetch active league details
-        const leaguesRes = await fetch('/api/fantasy/leagues');
-        const leaguesData = await leaguesRes.json();
-        activeLeague = leaguesData.leagues.find(l => l._id === leagueId);
+        // Use already-loaded leagues data instead of redundant API call
+        activeLeague = activeFantasyLeagues.find(l => l._id === leagueId);
         if (!activeLeague) {
-            throw new Error('No se pudo encontrar la información de la liga activa.');
+            // Fallback: fetch from server if local data is stale
+            const leaguesRes = await fetch('/api/fantasy/leagues');
+            const leaguesData = await leaguesRes.json();
+            activeFantasyLeagues = leaguesData.leagues || [];
+            activeLeague = activeFantasyLeagues.find(l => l._id === leagueId);
+            if (!activeLeague) {
+                throw new Error('No se pudo encontrar la información de la liga activa.');
+            }
         }
         
         // Initialize dashboard UI

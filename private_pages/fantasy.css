@@ -1286,48 +1286,56 @@ body {
 }
 
 .league-card.has-cover {
-    background: rgba(9, 9, 11, 0.6);
+    background: var(--card-gradient, rgba(9, 9, 11, 0.6));
+    border-color: rgba(255, 255, 255, 0.08);
 }
 
 .league-card.has-cover::before {
-    content: '';
+    content: attr(data-division-icon);
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-image: var(--card-bg);
-    background-size: cover;
-    background-position: center;
-    background-repeat: no-repeat;
+    top: 12px;
+    right: 14px;
+    font-size: 1.8rem;
+    opacity: 0.25;
     z-index: 0;
-    transition: transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+    transition: opacity 0.3s ease, transform 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+    filter: grayscale(0.3);
+    pointer-events: none;
 }
 
 .league-card.has-cover:hover::before {
-    transform: scale(1.08);
+    opacity: 0.5;
+    transform: scale(1.15) rotate(-5deg);
 }
 
 .league-card.has-cover::after {
-    content: '';
+    content: attr(data-division-label);
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(to bottom, rgba(9, 9, 11, 0.55) 0%, rgba(9, 9, 11, 0.96) 100%);
-    z-index: 1;
-    transition: background 0.3s ease;
+    top: 14px;
+    right: 14px;
+    font-size: 0.6rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--card-accent, #94a3b8);
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(6px);
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    z-index: 3;
+    transition: all 0.3s ease;
 }
 
 .league-card.has-cover:hover::after {
-    background: linear-gradient(to bottom, rgba(9, 9, 11, 0.4) 0%, rgba(9, 9, 11, 0.92) 100%);
+    background: rgba(0, 0, 0, 0.5);
+    border-color: var(--card-accent, rgba(255, 255, 255, 0.2));
 }
 
 .league-card.has-cover .league-meta {
-    background: rgba(9, 9, 11, 0.82);
+    background: rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.06);
     color: #cbd5e1;
 }
 
@@ -1349,7 +1357,8 @@ body {
 }
 
 .league-card.has-cover:hover {
-    background: rgba(9, 9, 11, 0.7);
+    filter: brightness(1.15);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4), 0 0 15px color-mix(in srgb, var(--card-accent, #00f2fe) 20%, transparent);
 }
 
 .league-card h3 {
