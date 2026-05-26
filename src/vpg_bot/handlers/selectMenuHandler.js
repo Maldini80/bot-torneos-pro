@@ -402,7 +402,8 @@ module.exports = async (client, interaction) => {
             if (customId === 'search_team_league_filter') filter['teamId.league'] = selectedValue;
         }
 
-        const offers = await TeamOffer.find(filter).populate('teamId').limit(10);
+        const rawOffers = await TeamOffer.find(filter).populate('teamId').limit(10);
+        const offers = rawOffers.filter(o => o.teamId != null);
         if (offers.length === 0) {
             return interaction.editReply({ content: t('errorNoOffersFound', member) });
         }
