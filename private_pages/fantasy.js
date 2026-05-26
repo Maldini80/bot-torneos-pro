@@ -1939,7 +1939,7 @@ function filterAndRenderMarket() {
         } else if (isOwned) {
             actionCol = `<button class="btn btn-secondary btn-xs" disabled><i class="fa-solid fa-check"></i> En tu equipo</button>`;
         } else if (p.owner) {
-            const clauseVal = p.clause || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
+            const clauseVal = Math.max(p.clause || 0, Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5)));
             let isProtected = false;
             let timeStr = '';
             if (p.protectedUntil) {
@@ -2038,7 +2038,7 @@ function filterAndRenderMarket() {
 
             const clausulazoBtn = row.querySelector('.btn-clausulazo');
             if (clausulazoBtn && activeLeague && activeLeague.marketOpen && !clausulazoBtn.disabled) {
-                const clauseVal = p.clause || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
+                const clauseVal = Math.max(p.clause || 0, Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5)));
                 clausulazoBtn.addEventListener('click', () => executeClausulazo(p, clauseVal));
             }
         }
@@ -2073,7 +2073,7 @@ function renderSquadList() {
         const isAligned = isPlayerInLineup(playerName);
         const row = document.createElement('tr');
 
-        const playerClause = myTeam.clauses?.[playerName] || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
+        const playerClause = Math.max(myTeam.clauses?.[playerName] || 0, Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5)));
         const isListed = (marketListings || []).some(l => l.eaPlayerName === playerName);
 
         let protectionHtml = '';
@@ -2384,6 +2384,24 @@ function renderField() {
             soccerField.appendChild(node);
         });
     }
+
+    // Aviso visual: 11 titulares requeridos para puntuar
+    const lineupWarning = document.getElementById('lineup-incomplete-warning');
+    if (lineupWarning) {
+        let filledCount = 0;
+        if (myTeam.lineup) {
+            if (myTeam.lineup.POR) filledCount++;
+            if (Array.isArray(myTeam.lineup.DFC)) filledCount += myTeam.lineup.DFC.filter(p => p).length;
+            if (Array.isArray(myTeam.lineup.MC)) filledCount += myTeam.lineup.MC.filter(p => p).length;
+            if (Array.isArray(myTeam.lineup.DC)) filledCount += myTeam.lineup.DC.filter(p => p).length;
+        }
+        if (filledCount < 11) {
+            lineupWarning.style.display = 'flex';
+            lineupWarning.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i> <span><strong>Once incompleto (${filledCount}/11):</strong> Tu equipo no puntuará en la próxima jornada. Necesitas tener los 11 puestos ocupados.</span>`;
+        } else {
+            lineupWarning.style.display = 'none';
+        }
+    }
 }
 
 // Open modal selection
@@ -2411,7 +2429,7 @@ function openPositionSelector(posKey, idx) {
 
     if (alignedPlayer && alignedPlayerProfile) {
         const p = alignedPlayerProfile;
-        const clauseVal = myTeam.clauses?.[alignedPlayer] || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
+        const clauseVal = Math.max(myTeam.clauses?.[alignedPlayer] || 0, Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5)));
         const displayedPoints = p ? Math.round(p.points * 10) / 10 : 0;
         const tierPoints = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
 
@@ -2813,6 +2831,7 @@ async function loadNewsFeed() {
             else if (item.type === 'fichaje') icon = 'fa-handshake';
             else if (item.type === 'venta') icon = 'fa-coins';
             else if (item.type === 'oferta') icon = 'fa-tag';
+            else if (item.type === 'reward') icon = 'fa-sack-dollar';
             
             const div = document.createElement('div');
             div.className = `news-timeline-item type-${item.type || 'fichaje'}`;
@@ -2865,6 +2884,7 @@ async function loadMiniNewsWidget() {
             else if (item.type === 'fichaje') icon = 'fa-handshake';
             else if (item.type === 'venta') icon = 'fa-coins';
             else if (item.type === 'oferta') icon = 'fa-tag';
+            else if (item.type === 'reward') icon = 'fa-sack-dollar';
             
             const itemDiv = document.createElement('div');
             itemDiv.className = `mini-news-item type-${item.type || 'fichaje'}`;
@@ -3021,7 +3041,7 @@ async function showRivalTeam(discordId, teamName) {
                         };
                     }
                     
-                    const clauseVal = (rivalTeam.clauses && rivalTeam.clauses[p.eaPlayerName]) || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
+                    const clauseVal = Math.max((rivalTeam.clauses && rivalTeam.clauses[p.eaPlayerName]) || 0, Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5)));
                     let isProtected = false;
                     let timeStr = '';
                     if (rivalTeam.clausesProtectedUntil && rivalTeam.clausesProtectedUntil[p.eaPlayerName]) {
@@ -5281,7 +5301,7 @@ async function openPlayerStatsModalByName(playerName) {
     }
 
     // Determine clauseVal
-    let clauseVal = p.clause || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
+    let clauseVal = Math.max(p.clause || 0, Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5)));
     
     // If not set on player profile directly, look if any team owns him to fetch their customized clause
     if (!p.clause && currentLeagueId) {
@@ -5292,7 +5312,7 @@ async function openPlayerStatsModalByName(playerName) {
                 const teams = data.teams || [];
                 const ownerTeam = teams.find(t => t.players && t.players.includes(p.eaPlayerName));
                 if (ownerTeam) {
-                    clauseVal = ownerTeam.clauses?.[p.eaPlayerName] || Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5));
+                    clauseVal = Math.max(ownerTeam.clauses?.[p.eaPlayerName] || 0, Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5)));
                 }
             }
         } catch (e) {

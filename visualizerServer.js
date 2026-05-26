@@ -7433,7 +7433,9 @@ export async function startVisualizerServer(discordClient) {
 
                 // Determine clause value
                 const ownerClauses = ownerTeam.clauses || {};
-                const clauseAmount = ownerClauses[eaPlayerName] || Math.round(price * clauseMultiplier);
+                const dynamicClause = Math.round(price * clauseMultiplier);
+                const storedClause = ownerClauses[eaPlayerName] || 0;
+                const clauseAmount = Math.max(dynamicClause, storedClause);
 
                 if (userTeam.balance < clauseAmount) {
                     return res.status(400).json({ error: `Saldo insuficiente para clausulazo. Requiere ${clauseAmount.toLocaleString('es-ES')} €.` });
@@ -7886,7 +7888,9 @@ export async function startVisualizerServer(discordClient) {
             const clauseMultiplier = league.clauseMultiplier || 1.5;
             
             const currentClauses = userTeam.clauses || {};
-            const currentClause = currentClauses[eaPlayerName] || Math.round(price * clauseMultiplier);
+            const dynamicClause = Math.round(price * clauseMultiplier);
+            const storedClause = currentClauses[eaPlayerName] || 0;
+            const currentClause = Math.max(dynamicClause, storedClause);
 
             if (newClauseAmount <= currentClause) {
                 return res.status(400).json({ error: `La nueva cláusula debe ser superior a la actual (${currentClause.toLocaleString('es-ES')} €).` });

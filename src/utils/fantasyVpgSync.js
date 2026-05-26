@@ -909,6 +909,15 @@ export async function syncFantasyWithVpg() {
                 if (Array.isArray(lineup.DC)) lineup.DC.forEach(p => p && (playerStartersStatus[p.toLowerCase()] = true));
             }
 
+            // Solo puntúan si tienen 11 titulares completos
+            const starterCount = Object.keys(playerStartersStatus).length;
+            if (starterCount < 11) {
+                if (starterCount > 0) {
+                    console.log(`[VPG SYNC] El equipo ${fTeam.teamName} no tiene 11 titulares (${starterCount}/11). No puntúa esta jornada.`);
+                }
+                continue;
+            }
+
             // Construir lista efectiva de jugadores aplicando reatribución por robo
             const effectivePlayers = [];
             for (const pName of (fTeam.players || [])) {
@@ -999,6 +1008,17 @@ export async function syncFantasyWithVpg() {
                     }
                 );
                 console.log(`[VPG SYNC] El equipo ${fTeam.teamName} ha ganado ${rewardAmount.toLocaleString('es-ES')} € por ${teamDeltaPoints} puntos ganados por sus titulares en esta jornada.`);
+
+                // Registrar noticia de reward en el feed de la liga
+                try {
+                    const { logFantasyNews } = await import('./fantasyNewsLogger.js');
+                    await logFantasyNews(fTeam.leagueId, 'reward', 
+                        `💰 ${fTeam.teamName} recibe ${rewardAmount.toLocaleString('es-ES')} € por obtener ${teamDeltaPoints} puntos de sus titulares.`,
+                        { teamName: fTeam.teamName, discordId: fTeam.discordId, points: teamDeltaPoints, reward: rewardAmount }
+                    );
+                } catch (newsErr) {
+                    console.error('[VPG SYNC] Error al registrar noticia de reward:', newsErr.message);
+                }
             }
         }
 
