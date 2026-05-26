@@ -6048,11 +6048,28 @@ export async function startVisualizerServer(discordClient) {
             const db = getDb();
             const discordId = req.user.id;
             const leagues = await db.collection('fantasy_leagues').find({ $or: [{ approved: true }, { approved: { $exists: false } }] }).sort({ createdAt: -1 }).toArray();
-            // For each league, count participants and check current user status
+            
+            // Optimize: fetch all teams in these leagues in a single query to avoid loop queries
+            const leagueIds = leagues.map(l => l._id.toString());
+            const allTeams = await db.collection('fantasy_teams').find({ leagueId: { $in: leagueIds } }).toArray();
+
+            // Map to aggregate teams per league
+            const teamsByLeague = new Map();
+            for (const team of allTeams) {
+                const lid = team.leagueId;
+                if (!teamsByLeague.has(lid)) {
+                    teamsByLeague.set(lid, []);
+                }
+                teamsByLeague.get(lid).push(team);
+            }
+
             for (const league of leagues) {
-                league.participantCount = await db.collection('fantasy_teams').countDocuments({ leagueId: league._id.toString() });
+                const lid = league._id.toString();
+                const leagueTeams = teamsByLeague.get(lid) || [];
                 
-                const userTeam = await db.collection('fantasy_teams').findOne({ discordId, leagueId: league._id.toString() });
+                league.participantCount = leagueTeams.length;
+                
+                const userTeam = leagueTeams.find(t => t.discordId === discordId);
                 if (userTeam) {
                     league.isJoined = true;
                     league.isApproved = !!userTeam.approved;
