@@ -1744,7 +1744,7 @@ async function enterLeague(leagueId, keepCurrentTab = false, password = null, op
             }
         } else {
             userBalanceEl.textContent = formatCurrency(myTeam.balance);
-            totalPointsEl.textContent = `${myTeam.points} pts`;
+            totalPointsEl.textContent = `${Math.round((myTeam.points || 0) * 10) / 10} pts`;
             if (formationSelect) {
                 formationSelect.value = myTeam.formation;
                 formationSelect.disabled = isLineupLocked();
@@ -3018,7 +3018,7 @@ async function loadLeaderboard() {
                 <td class="text-center font-weight-bold col-hide-sm" style="font-weight: 600;">${manager.playerCount}</td>
                 <td class="text-center text-muted col-hide-md">${manager.formation || '4-3-3'}</td>
                 <td class="text-right text-white" style="font-weight: 600;">${formattedLineupValue}</td>
-                <td class="text-right text-yellow" style="font-weight: 700; font-size: 1.05rem;">${manager.points} pts</td>
+                <td class="text-right text-yellow" style="font-weight: 700; font-size: 1.05rem;">${Math.round((manager.points || 0) * 10) / 10} pts</td>
                 <td class="text-center">
                     <button class="btn btn-secondary btn-xs btn-view-rival" data-discord-id="${manager.discordId}"><i class="fa-solid fa-eye"></i> Ver Once</button>
                 </td>
@@ -3075,7 +3075,7 @@ async function showRivalTeam(discordId, teamName) {
         if (!res.ok) throw new Error('No se pudo cargar el equipo rival.');
         const rivalTeam = await res.json();
         
-        rivalPointsVal.textContent = `${rivalTeam.points} pts`;
+        rivalPointsVal.textContent = `${Math.round((rivalTeam.points || 0) * 10) / 10} pts`;
         rivalFormationVal.textContent = rivalTeam.formation || '4-3-3';
         
         // Render tabular list
@@ -3465,13 +3465,13 @@ async function loadAdminPanelData() {
                         <div style="font-weight: 600; color: #fff;">${team.discordUsername}${roleBadge}</div>
                         <div style="font-size: 0.75rem; color: #64748b;">ID: ${team.discordId}</div>
                         <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
-                            <span>Equipo: <span class="rival-team-link" style="cursor: pointer; text-decoration: underline; color: #3b82f6;">${team.teamName}</span></span> • <span>${(team.players || []).length} jug.</span> • <span class="text-yellow" style="font-weight: 600;">${team.points} pts</span> • <span>Presupuesto: ${formatCurrency(team.balance)}</span>
+                            <span>Equipo: <span class="rival-team-link" style="cursor: pointer; text-decoration: underline; color: #3b82f6;">${team.teamName}</span></span> • <span>${(team.players || []).length} jug.</span> • <span class="text-yellow" style="font-weight: 600;">${Math.round((team.points || 0) * 10) / 10} pts</span> • <span>Presupuesto: ${formatCurrency(team.balance)}</span>
                         </div>
                     </td>
                     <td class="col-hide-md"><div class="rival-team-link" style="font-weight: 600; cursor: pointer; text-decoration: underline; color: #3b82f6;">${team.teamName}</div></td>
                     <td class="text-center col-hide-sm">${(team.players || []).length} jugadores</td>
                     <td class="text-right price-text col-hide-sm">${formatCurrency(team.balance)}</td>
-                    <td class="text-right text-yellow col-hide-sm" style="font-weight: 700;">${team.points} pts</td>
+                    <td class="text-right text-yellow col-hide-sm" style="font-weight: 700;">${Math.round((team.points || 0) * 10) / 10} pts</td>
                     <td class="text-center">
                         <div style="display: flex; gap: 4px; justify-content: center; align-items: center; flex-wrap: wrap;">
                             <button class="btn btn-primary btn-xs btn-manage-players" data-team-id="${team._id}"><i class="fa-solid fa-users"></i> Jugadores</button>
@@ -4966,7 +4966,7 @@ async function handleAdminPlayerSearch() {
                             ${newBadgeHtml}
                         </div>
                         <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
-                            ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${p.points} pts</span>
+                            ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${Math.round((p.points || 0) * 10) / 10} pts</span>
                         </div>
                     </td>
                     <td class="col-hide-md"><div>${p.lastClub}</div></td>
@@ -4975,7 +4975,7 @@ async function handleAdminPlayerSearch() {
                             ${selectOptionsHtml}
                         </select>
                     </td>
-                    <td class="text-center col-hide-sm" style="font-weight: 600;">${p.points}</td>
+                    <td class="text-center col-hide-sm" style="font-weight: 600;">${Math.round((p.points || 0) * 10) / 10}</td>
                     <td class="text-right ${hasManualPrice ? 'text-yellow' : 'price-text'}" style="font-weight: 600;">
                         ${priceText} ${hasManualPrice ? '<i class="fa-solid fa-hand-holding-dollar" title="Precio manual establecido"></i>' : ''}
                     </td>
@@ -5029,7 +5029,7 @@ async function handleAdminPlayerSearch() {
                             ${newBadgeHtml}
                         </div>
                         <div class="mobile-only-details" style="display: none; font-size: 0.75rem; color: #64748b; margin-top: 2px;">
-                            ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${p.points} pts</span>
+                            ${p.lastClub} • <span class="text-yellow" style="font-weight: 600;">${Math.round((p.points || 0) * 10) / 10} pts</span>
                         </div>
                     </td>
                     <td class="col-hide-md"><div>${p.lastClub}</div></td>
@@ -5038,7 +5038,7 @@ async function handleAdminPlayerSearch() {
                             ${displayPos} ${hasManualPosition ? '<i class="fa-solid fa-circle-info" style="font-size:0.75rem; margin-left:2px;"></i>' : ''}
                         </span>
                     </td>
-                    <td class="text-center col-hide-sm" style="font-weight: 600;">${p.points}</td>
+                    <td class="text-center col-hide-sm" style="font-weight: 600;">${Math.round((p.points || 0) * 10) / 10}</td>
                     <td class="text-right ${hasManualPrice ? 'text-yellow' : 'price-text'}" style="font-weight: 600;">
                         ${priceText} ${hasManualPrice ? '<i class="fa-solid fa-hand-holding-dollar" title="Precio manual establecido por el administrador"></i>' : ''}
                     </td>

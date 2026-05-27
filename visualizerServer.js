@@ -494,10 +494,20 @@ app.get('/login', (req, res, next) => {
     passport.authenticate('discord', { state: returnTo })(req, res, next);
 });
 
-app.get('/callback', passport.authenticate('discord', { failureRedirect: '/' }), (req, res) => {
-    const returnTo = Buffer.from(req.query.state, 'base64').toString('utf8');
-    res.redirect(returnTo || '/');
-});
+app.get('/callback', 
+    passport.authenticate('discord', { failureRedirect: '/' }), 
+    (req, res) => {
+        const returnTo = req.query.state ? Buffer.from(req.query.state, 'base64').toString('utf8') : '/';
+        res.redirect(returnTo || '/');
+    },
+    (err, req, res, next) => {
+        if (err) {
+            console.warn('[Auth Callback] Error en el callback de Discord (posible código/sesión expirada):', err.message || err);
+            return res.redirect('/');
+        }
+        next(err);
+    }
+);
 
 app.get('/logout', (req, res) => {
     req.logout(() => {
