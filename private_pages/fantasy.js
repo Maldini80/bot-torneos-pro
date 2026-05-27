@@ -275,6 +275,18 @@ let marketScheduleConfig = {
     days: [0, 1, 2, 3, 4, 5, 6],
     windows: ["18:00", "", ""]
 };
+let clauseLockScheduleConfig = {
+    active: true,
+    days: [1, 2, 3, 4],
+    startTime: "18:30",
+    durationHours: 5.5
+};
+let marketLockScheduleConfig = {
+    active: false,
+    days: [1, 2, 3, 4],
+    startTime: "18:00",
+    durationHours: 8
+};
 
 // DOM Elements - Dashboard View
 const activeLeagueName = document.getElementById('active-league-name');
@@ -914,6 +926,26 @@ function setupEventHandlers() {
                 showToast('Configuración de bloqueo de alineaciones inválida.', 'error');
                 return;
             }
+
+            const clauseActive = document.getElementById('sched-clauseLock-active').checked;
+            const clauseDays = Array.from(document.querySelectorAll('#sched-clauseLock-days input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
+            const clauseStart = document.getElementById('sched-clauseLock-start').value.trim();
+            const clauseDuration = parseFloat(document.getElementById('sched-clauseLock-duration').value);
+            
+            if (!clauseStart || isNaN(clauseDuration) || clauseDuration < 0.1 || clauseDuration > 24) {
+                showToast('Configuración de bloqueo de clausulazo inválida.', 'error');
+                return;
+            }
+
+            const marketLockActive = document.getElementById('sched-marketLock-active').checked;
+            const marketLockDays = Array.from(document.querySelectorAll('#sched-marketLock-days input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
+            const marketLockStart = document.getElementById('sched-marketLock-start').value.trim();
+            const marketLockDuration = parseFloat(document.getElementById('sched-marketLock-duration').value);
+            
+            if (!marketLockStart || isNaN(marketLockDuration) || marketLockDuration < 0.1 || marketLockDuration > 24) {
+                showToast('Configuración de bloqueo de mercado inválida.', 'error');
+                return;
+            }
             
             const payload = {
                 market: {
@@ -931,6 +963,18 @@ function setupEventHandlers() {
                     days: lockDays,
                     startTime: lockStart,
                     durationHours: lockDuration
+                },
+                clauseLock: {
+                    active: clauseActive,
+                    days: clauseDays,
+                    startTime: clauseStart,
+                    durationHours: clauseDuration
+                },
+                marketLock: {
+                    active: marketLockActive,
+                    days: marketLockDays,
+                    startTime: marketLockStart,
+                    durationHours: marketLockDuration
                 }
             };
             
@@ -2027,8 +2071,12 @@ function filterAndRenderMarket() {
                     <div class="text-yellow" style="font-weight: 700;">${formatCurrency(clauseVal)}</div>
                 `;
                 if (activeLeague && activeLeague.allowClauses !== false) {
-                    if (isBuyoutLocked()) {
-                        actionCol = `<button class="btn btn-warning btn-xs btn-clausulazo" disabled style="opacity: 0.6; cursor: not-allowed;" title="Clausulazos bloqueados de lunes a jueves de 18:30 a 23:59 (hora de Madrid)"><i class="fa-solid fa-lock"></i> Lock</button>`;
+                    const buyoutErr = getBuyoutLockError();
+                    const marketLockErr = getMarketLockError();
+                    if (marketLockErr) {
+                        actionCol = `<button class="btn btn-warning btn-xs btn-clausulazo" disabled style="opacity: 0.6; cursor: not-allowed;" title="${marketLockErr}"><i class="fa-solid fa-lock"></i> Lock</button>`;
+                    } else if (buyoutErr) {
+                        actionCol = `<button class="btn btn-warning btn-xs btn-clausulazo" disabled style="opacity: 0.6; cursor: not-allowed;" title="${buyoutErr}"><i class="fa-solid fa-lock"></i> Lock</button>`;
                     } else {
                         actionCol = `<button class="btn btn-warning btn-xs btn-clausulazo" data-name="${p.eaPlayerName}" data-clause="${clauseVal}" data-owner="${p.owner}" ${(!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}><i class="fa-solid fa-bolt"></i> Clausulazo</button>`;
                     }
@@ -2039,8 +2087,10 @@ function filterAndRenderMarket() {
         } else {
             const bidCount = p.bidCount || 0;
             const bidCountText = bidCount > 0 ? `${bidCount} ${bidCount === 1 ? 'puja' : 'pujas'}` : 'Sin pujas';
+            const isMarketLck = isMarketLocked();
+            const marketLockErr = getMarketLockError();
             actionCol = `
-                <button class="btn btn-success btn-xs btn-open-free-agent-bid" data-name="${p.eaPlayerName}" ${activeLeague && (!activeLeague.marketOpen || activeLeague.status === 'closed') ? 'disabled' : ''}>
+                <button class="btn btn-success btn-xs btn-open-free-agent-bid" data-name="${p.eaPlayerName}" ${(activeLeague && (!activeLeague.marketOpen || activeLeague.status === 'closed') || isMarketLck) ? 'disabled' : ''} ${isMarketLck ? `title="${marketLockErr}" style="opacity: 0.6; cursor: not-allowed;"` : ''}>
                     <i class="fa-solid fa-gavel"></i> Pujar
                 </button>
                 <div class="text-center" style="font-size: 0.7rem; color: ${bidCount > 0 ? '#38bdf8' : '#64748b'}; margin-top: 4px; font-weight: 500;">
@@ -2774,6 +2824,12 @@ async function buyPlayer(player) {
 
 // Sell Player Operation
 async function sellPlayer(player) {
+    const marketLockErr = getMarketLockError();
+    if (marketLockErr) {
+        showToast(marketLockErr, 'error');
+        return;
+    }
+
     const saleReimbursement = Math.round(player.price * 0.65);
     if (!confirm(`¿Estás seguro de que deseas vender a ${player.eaPlayerName} a la máquina por el 65% de su valor (${formatCurrency(saleReimbursement)})?`)) {
         return;
@@ -3142,15 +3198,22 @@ async function showRivalTeam(discordId, teamName) {
                             actionCol = `<span class="text-muted" style="font-size: 0.75rem;"><i class="fa-solid fa-clock"></i> Pendiente</span>`;
                         }
                     } else {
-                        let bidButton = `<button class="btn btn-success btn-xs btn-rival-bid" data-name="${p.eaPlayerName}" style="padding: 3px 8px; font-size: 0.7rem; font-weight: 600;"><i class="fa-solid fa-gavel"></i> Pujar</button>`;
+                        const isMarketLck = isMarketLocked();
+                        const marketLockErr = getMarketLockError();
+                        let bidButton = `<button class="btn btn-success btn-xs btn-rival-bid" data-name="${p.eaPlayerName}" style="padding: 3px 8px; font-size: 0.7rem; font-weight: 600;" ${isMarketLck ? `disabled style="opacity: 0.6; cursor: not-allowed;" title="${marketLockErr}"` : ''}><i class="fa-solid fa-gavel"></i> Pujar</button>`;
                         let clauseButton = '';
                         if (activeLeague && activeLeague.allowClauses !== false) {
                             if (isProtected) {
                                 clauseButton = `<button class="btn btn-warning btn-xs btn-rival-clausulazo" disabled style="opacity: 0.6; cursor: not-allowed; padding: 3px 8px; font-size: 0.7rem; font-weight: 600;" title="Protegido durante ${timeStr}"><i class="fa-solid fa-lock"></i> Lock</button>`;
-                            } else if (isBuyoutLocked()) {
-                                clauseButton = `<button class="btn btn-warning btn-xs btn-rival-clausulazo" disabled style="opacity: 0.6; cursor: not-allowed; padding: 3px 8px; font-size: 0.7rem; font-weight: 600;" title="Clausulazos bloqueados de lunes a jueves de 18:30 a 23:59 (hora de Madrid)"><i class="fa-solid fa-lock"></i> Lock</button>`;
                             } else {
-                                clauseButton = `<button class="btn btn-warning btn-xs btn-rival-clausulazo" data-name="${p.eaPlayerName}" data-clause="${clauseVal}" style="padding: 3px 8px; font-size: 0.7rem; font-weight: 600;"><i class="fa-solid fa-bolt"></i> Robo</button>`;
+                                const buyoutErr = getBuyoutLockError();
+                                if (marketLockErr) {
+                                    clauseButton = `<button class="btn btn-warning btn-xs btn-rival-clausulazo" disabled style="opacity: 0.6; cursor: not-allowed; padding: 3px 8px; font-size: 0.7rem; font-weight: 600;" title="${marketLockErr}"><i class="fa-solid fa-lock"></i> Lock</button>`;
+                                } else if (buyoutErr) {
+                                    clauseButton = `<button class="btn btn-warning btn-xs btn-rival-clausulazo" disabled style="opacity: 0.6; cursor: not-allowed; padding: 3px 8px; font-size: 0.7rem; font-weight: 600;" title="${buyoutErr}"><i class="fa-solid fa-lock"></i> Lock</button>`;
+                                } else {
+                                    clauseButton = `<button class="btn btn-warning btn-xs btn-rival-clausulazo" data-name="${p.eaPlayerName}" data-clause="${clauseVal}" style="padding: 3px 8px; font-size: 0.7rem; font-weight: 600;"><i class="fa-solid fa-bolt"></i> Robo</button>`;
+                                }
                             }
                         }
                         actionCol = `<div style="display: flex; gap: 5px; justify-content: center; align-items: center;">${bidButton}${clauseButton}</div>`;
@@ -4265,16 +4328,204 @@ function updateLineupLockStatusUI() {
     }
 }
 
-function isBuyoutLocked() {
+function getBuyoutLockError() {
+    const lockConfig = clauseLockScheduleConfig || {
+        active: true,
+        days: [1, 2, 3, 4],
+        startTime: "18:30",
+        durationHours: 5.5
+    };
+
+    if (!lockConfig.active) return null;
+
     const { day, hours, minutes } = getMadridTime();
-    if (day >= 1 && day <= 4) { // Monday to Thursday
-        const totalMinutes = hours * 60 + minutes;
-        // 18:30 is 1110 minutes. 23:59 is 1439 minutes.
-        if (totalMinutes >= 1110 && totalMinutes <= 1439) {
-            return true;
-        }
+    const totalMinutes = hours * 60 + minutes;
+
+    const [startH, startM] = lockConfig.startTime.split(':').map(Number);
+    const startMin = startH * 60 + startM;
+    const durationMin = Number(lockConfig.durationHours || 5.5) * 60;
+    const days = lockConfig.days || [1, 2, 3, 4];
+
+    let locked = false;
+    const diffToday = totalMinutes - startMin;
+    if (days.includes(day) && diffToday >= 0 && diffToday < durationMin) {
+        locked = true;
     }
-    return false;
+
+    const yesterday = (day === 0) ? 6 : day - 1;
+    const diffYesterday = (totalMinutes + 1440) - startMin;
+    if (days.includes(yesterday) && diffYesterday >= 0 && diffYesterday < durationMin) {
+        locked = true;
+    }
+
+    if (locked) {
+        const endTotalMin = Math.round(startMin + durationMin) % 1440;
+        const endH = String(Math.floor(endTotalMin / 60)).padStart(2, '0');
+        const endM = String(endTotalMin % 60).padStart(2, '0');
+        const daysNames = ["domingos", "lunes", "martes", "miércoles", "jueves", "viernes", "sábados"];
+        
+        let daysText = "";
+        if (days.length === 4 && days.includes(1) && days.includes(2) && days.includes(3) && days.includes(4)) {
+            daysText = "de lunes a jueves";
+        } else if (days.length === 7) {
+            daysText = "todos los días";
+        } else {
+            daysText = "los " + days.map(d => daysNames[d]).join(', ');
+        }
+        
+        const crossesMidnight = (startMin + durationMin) >= 1440;
+        const suffix = crossesMidnight ? ' del día siguiente' : '';
+        return `Clausulazos bloqueados ${daysText} desde las ${lockConfig.startTime} hasta las ${endH}:${endM}${suffix} (hora de Madrid).`;
+    }
+
+    return null;
+}
+
+function getMarketLockError() {
+    const lockConfig = marketLockScheduleConfig || {
+        active: false,
+        days: [1, 2, 3, 4],
+        startTime: "18:00",
+        durationHours: 8
+    };
+
+    if (!lockConfig.active) return null;
+
+    const { day, hours, minutes } = getMadridTime();
+    const totalMinutes = hours * 60 + minutes;
+
+    const [startH, startM] = lockConfig.startTime.split(':').map(Number);
+    const startMin = startH * 60 + startM;
+    const durationMin = Number(lockConfig.durationHours || 8) * 60;
+    const days = lockConfig.days || [1, 2, 3, 4];
+
+    let locked = false;
+    const diffToday = totalMinutes - startMin;
+    if (days.includes(day) && diffToday >= 0 && diffToday < durationMin) {
+        locked = true;
+    }
+
+    const yesterday = (day === 0) ? 6 : day - 1;
+    const diffYesterday = (totalMinutes + 1440) - startMin;
+    if (days.includes(yesterday) && diffYesterday >= 0 && diffYesterday < durationMin) {
+        locked = true;
+    }
+
+    if (locked) {
+        const endTotalMin = Math.round(startMin + durationMin) % 1440;
+        const endH = String(Math.floor(endTotalMin / 60)).padStart(2, '0');
+        const endM = String(endTotalMin % 60).padStart(2, '0');
+        const daysNames = ["domingos", "lunes", "martes", "miércoles", "jueves", "viernes", "sábados"];
+        
+        let daysText = "";
+        if (days.length === 4 && days.includes(1) && days.includes(2) && days.includes(3) && days.includes(4)) {
+            daysText = "de lunes a jueves";
+        } else if (days.length === 7) {
+            daysText = "todos los días";
+        } else {
+            daysText = "los " + days.map(d => daysNames[d]).join(', ');
+        }
+        
+        const crossesMidnight = (startMin + durationMin) >= 1440;
+        const suffix = crossesMidnight ? ' del día siguiente' : '';
+        return `Mercado bloqueado ${daysText} desde las ${lockConfig.startTime} hasta las ${endH}:${endM}${suffix} (hora de Madrid).`;
+    }
+
+    return null;
+}
+
+function isBuyoutLocked() {
+    return getBuyoutLockError() !== null;
+}
+
+function isMarketLocked() {
+    return getMarketLockError() !== null;
+}
+
+function updateClauseLockStatusUI() {
+    const indicator = document.getElementById('clause-lock-status-indicator');
+    if (!indicator) return;
+
+    if (!clauseLockScheduleConfig || !clauseLockScheduleConfig.active) {
+        indicator.style.display = 'flex';
+        indicator.style.background = 'rgba(56, 189, 248, 0.1)';
+        indicator.style.border = '1px solid rgba(56, 189, 248, 0.3)';
+        indicator.style.color = '#38bdf8';
+        indicator.innerHTML = '<i class="fa-solid fa-lock-open"></i> <span><strong>Bloqueo de Clausulazo:</strong> Desactivado por el administrador. Se permiten robos a cualquier hora.</span>';
+        return;
+    }
+
+    const [startH, startM] = clauseLockScheduleConfig.startTime.split(':').map(Number);
+    const duration = Number(clauseLockScheduleConfig.durationHours || 5.5);
+    const startMin = startH * 60 + startM;
+    const endMinTotal = startMin + duration * 60;
+    const endH = Math.floor(endMinTotal / 60) % 24;
+    const endM = Math.round(endMinTotal % 60);
+    const startStr = clauseLockScheduleConfig.startTime;
+    const endStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+    const crossesMidnight = endMinTotal >= 1440;
+    const suffix = crossesMidnight ? 'del día siguiente' : '';
+    
+    const daysText = formatDaysList(clauseLockScheduleConfig.days);
+    const timeRangeText = `${startStr} a ${endStr} ${suffix}`.trim();
+
+    const locked = isBuyoutLocked();
+    if (locked) {
+        indicator.style.display = 'flex';
+        indicator.style.background = 'rgba(239, 68, 68, 0.1)';
+        indicator.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+        indicator.style.color = '#fca5a5';
+        indicator.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> <span><strong>Clausulazos Bloqueados:</strong> No se pueden realizar robos de cláusula ahora (${daysText} de ${timeRangeText} hora Madrid).</span>`;
+    } else {
+        indicator.style.display = 'flex';
+        indicator.style.background = 'rgba(0, 245, 155, 0.1)';
+        indicator.style.border = '1px solid rgba(0, 245, 155, 0.3)';
+        indicator.style.color = '#00f59b';
+        indicator.innerHTML = `<i class="fa-solid fa-lock"></i> <span><strong>Bloqueo programado (Clausulazo):</strong> Activo ${daysText} de ${timeRangeText} (hora de Madrid). Actualmente puedes robar jugadores.</span>`;
+    }
+}
+
+function updateMarketLockStatusUI() {
+    const indicator = document.getElementById('market-lock-status-indicator');
+    if (!indicator) return;
+
+    if (!marketLockScheduleConfig || !marketLockScheduleConfig.active) {
+        indicator.style.display = 'flex';
+        indicator.style.background = 'rgba(56, 189, 248, 0.1)';
+        indicator.style.border = '1px solid rgba(56, 189, 248, 0.3)';
+        indicator.style.color = '#38bdf8';
+        indicator.innerHTML = '<i class="fa-solid fa-lock-open"></i> <span><strong>Bloqueo de Mercado:</strong> Desactivado por el administrador. Se permiten pujas y ofertas a cualquier hora.</span>';
+        return;
+    }
+
+    const [startH, startM] = marketLockScheduleConfig.startTime.split(':').map(Number);
+    const duration = Number(marketLockScheduleConfig.durationHours || 8);
+    const startMin = startH * 60 + startM;
+    const endMinTotal = startMin + duration * 60;
+    const endH = Math.floor(endMinTotal / 60) % 24;
+    const endM = Math.round(endMinTotal % 60);
+    const startStr = marketLockScheduleConfig.startTime;
+    const endStr = `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
+    const crossesMidnight = endMinTotal >= 1440;
+    const suffix = crossesMidnight ? 'del día siguiente' : '';
+    
+    const daysText = formatDaysList(marketLockScheduleConfig.days);
+    const timeRangeText = `${startStr} a ${endStr} ${suffix}`.trim();
+
+    const locked = isMarketLocked();
+    if (locked) {
+        indicator.style.display = 'flex';
+        indicator.style.background = 'rgba(239, 68, 68, 0.1)';
+        indicator.style.border = '1px solid rgba(239, 68, 68, 0.3)';
+        indicator.style.color = '#fca5a5';
+        indicator.innerHTML = `<i class="fa-solid fa-circle-exclamation"></i> <span><strong>Mercado Bloqueado:</strong> No se pueden realizar pujas u ofertas ahora (${daysText} de ${timeRangeText} hora Madrid).</span>`;
+    } else {
+        indicator.style.display = 'flex';
+        indicator.style.background = 'rgba(0, 245, 155, 0.1)';
+        indicator.style.border = '1px solid rgba(0, 245, 155, 0.3)';
+        indicator.style.color = '#00f59b';
+        indicator.innerHTML = `<i class="fa-solid fa-lock"></i> <span><strong>Bloqueo programado (Mercado):</strong> Activo ${daysText} de ${timeRangeText} (hora de Madrid). Actualmente puedes realizar pujas y ofertas.</span>`;
+    }
 }
 
 // Utility Helpers
@@ -4482,8 +4733,15 @@ function showToast(msg, type = 'success') {
 // --- MARKET ADVANCED OPERATIONS ---
 
 async function executeClausulazo(player, clauseAmount) {
-    if (isBuyoutLocked()) {
-        showToast('No se permiten clausulazos de lunes a jueves entre las 18:30 y las 23:59 (hora de Madrid).', 'error');
+    const marketLockErr = getMarketLockError();
+    if (marketLockErr) {
+        showToast(marketLockErr, 'error');
+        return;
+    }
+
+    const buyoutErr = getBuyoutLockError();
+    if (buyoutErr) {
+        showToast(buyoutErr, 'error');
         return;
     }
 
@@ -4574,6 +4832,12 @@ function openListMarketModal(player) {
 
 async function handleListMarketSubmit(e) {
     e.preventDefault();
+    const marketLockErr = getMarketLockError();
+    if (marketLockErr) {
+        showToast(marketLockErr, 'error');
+        return;
+    }
+
     const playerName = listMarketForm.getAttribute('data-player-name');
     const price = parseInt(listMarketPrice.value);
 
@@ -4602,6 +4866,12 @@ async function handleListMarketSubmit(e) {
 }
 
 async function handleUnlistMarket(playerName) {
+    const marketLockErr = getMarketLockError();
+    if (marketLockErr) {
+        showToast(marketLockErr, 'error');
+        return;
+    }
+
     if (!confirm(`¿Estás seguro de que deseas retirar a ${playerName} del mercado de transferibles?`)) {
         return;
     }
@@ -4626,6 +4896,11 @@ async function handleUnlistMarket(playerName) {
 
 async function handleBidSubmit(e) {
     e.preventDefault();
+    const marketLockErr = getMarketLockError();
+    if (marketLockErr) {
+        showToast(marketLockErr, 'error');
+        return;
+    }
     const playerName = bidForm.getAttribute('data-player-name');
     const sellerId = bidForm.getAttribute('data-seller-id');
     const amount = parseInt(bidAmountInput.value.replace(/\D/g, '') || 0);
@@ -4858,6 +5133,12 @@ async function loadMarketBids() {
 }
 
 async function respondBid(bidId, responseType) {
+    const marketLockErr = getMarketLockError();
+    if (marketLockErr) {
+        showToast(marketLockErr, 'error');
+        return;
+    }
+
     const actionText = responseType === 'accept' ? 'aceptar' : 'rechazar';
     if (!confirm(`¿Estás seguro de que quieres ${actionText} esta oferta?`)) return;
 
@@ -4881,6 +5162,12 @@ async function respondBid(bidId, responseType) {
 }
 
 async function cancelBid(bidId) {
+    const marketLockErr = getMarketLockError();
+    if (marketLockErr) {
+        showToast(marketLockErr, 'error');
+        return;
+    }
+
     if (!confirm('¿Estás seguro de que deseas retirar esta puja? Se reembolsará el importe a tu balance de inmediato.')) return;
 
     try {
@@ -5587,6 +5874,8 @@ async function loadSchedulesConfig() {
             
             if (data.lock) lockScheduleConfig = data.lock;
             if (data.market) marketScheduleConfig = data.market;
+            if (data.clauseLock) clauseLockScheduleConfig = data.clauseLock;
+            if (data.marketLock) marketLockScheduleConfig = data.marketLock;
             
             const form = document.getElementById('admin-schedules-form');
             if (form) {
@@ -5642,9 +5931,49 @@ async function loadSchedulesConfig() {
                         cb.checked = data.lock.days.includes(parseInt(cb.value));
                     });
                 }
+
+                // 4. Bloqueo de Clausulazo
+                const clauseActive = document.getElementById('sched-clauseLock-active');
+                const clauseStart = document.getElementById('sched-clauseLock-start');
+                const clauseDuration = document.getElementById('sched-clauseLock-duration');
+                if (clauseActive && data.clauseLock) {
+                    clauseActive.checked = !!data.clauseLock.active;
+                }
+                if (clauseStart && data.clauseLock) {
+                    clauseStart.value = data.clauseLock.startTime || "18:30";
+                }
+                if (clauseDuration && data.clauseLock) {
+                    clauseDuration.value = data.clauseLock.durationHours || 5.5;
+                }
+                if (data.clauseLock && Array.isArray(data.clauseLock.days)) {
+                    document.querySelectorAll('#sched-clauseLock-days input[type="checkbox"]').forEach(cb => {
+                        cb.checked = data.clauseLock.days.includes(parseInt(cb.value));
+                    });
+                }
+
+                // 5. Bloqueo de Mercado
+                const marketLockActive = document.getElementById('sched-marketLock-active');
+                const marketLockStart = document.getElementById('sched-marketLock-start');
+                const marketLockDuration = document.getElementById('sched-marketLock-duration');
+                if (marketLockActive && data.marketLock) {
+                    marketLockActive.checked = !!data.marketLock.active;
+                }
+                if (marketLockStart && data.marketLock) {
+                    marketLockStart.value = data.marketLock.startTime || "18:00";
+                }
+                if (marketLockDuration && data.marketLock) {
+                    marketLockDuration.value = data.marketLock.durationHours || 8;
+                }
+                if (data.marketLock && Array.isArray(data.marketLock.days)) {
+                    document.querySelectorAll('#sched-marketLock-days input[type="checkbox"]').forEach(cb => {
+                        cb.checked = data.marketLock.days.includes(parseInt(cb.value));
+                    });
+                }
             }
             
             updateLineupLockStatusUI();
+            if (typeof updateClauseLockStatusUI === 'function') updateClauseLockStatusUI();
+            if (typeof updateMarketLockStatusUI === 'function') updateMarketLockStatusUI();
         }
     } catch (e) {
         console.error('Error fetching schedules config:', e);

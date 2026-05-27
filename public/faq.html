@@ -87,7 +87,8 @@
             <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Cuándo se sincronizan los datos y qué restricciones horarias existen?</span><span class="chv">▼</span></button><div class="faq-a">La sincronización diaria de puntos oficiales se realiza automáticamente <span id="faq-points-time">a las **18:00 (hora de Madrid)**</span>. Para garantizar el correcto funcionamiento competitivo, existen las siguientes restricciones:
             <br>• <strong>Pago por punto:</strong> Por cada punto que sumen los jugadores de tu alineación titular en la jornada oficial, recibirás una recompensa de **80.000 €**.
             <br>• <strong>Bloqueo de alineación:</strong> No podrás modificar tu alineación ("tu 11") <span id="faq-lock-schedule">de lunes a jueves entre las **21:30 y las 01:30 del día siguiente (hora de Madrid)**</span>, así como durante el procesamiento diario de **18:00 a 02:00**.
-            <br>• <strong>Bloqueo de clausulazos (robos):</strong> No se permite ejecutar clausulazos de lunes a jueves entre las **18:30 y las 23:59 (hora de Madrid)**.
+            <br>• <strong>Bloqueo de clausulazos (robos):</strong> <span id="faq-clause-lock-schedule">No se permiten de lunes a jueves entre las **18:30 y las 23:59 (hora de Madrid)**</span>.
+            <br>• <strong>Bloqueo de mercado (pujas y ofertas):</strong> <span id="faq-market-lock-schedule">Desactivado por el administrador</span>.
             <br>• <strong>Puntuación en clausulazos:</strong> Si robas a un jugador mediante clausulazo de lunes a jueves (y el bloqueo de alineaciones está activo), el jugador **no puntuará para tu equipo** en la actualización de las 18:00 de ese mismo día, sumándose al dueño original. Empezará a puntuar para ti al día siguiente. Si el clausulazo se realiza en fin de semana (viernes a domingo) o con el bloqueo desactivado, puntuará para tu equipo directamente en la siguiente sincronización.</div></div>
             <div class="faq-item"><button class="faq-q" onclick="toggleFaq(this)"><span>¿Qué diferencia hay entre "Empezar de cero" y "Puntos acumulados"?</span><span class="chv">▼</span></button><div class="faq-a">Al crear una liga, se puede seleccionar el modo de puntuación inicial:
             <br>• <strong>Empezar de cero:</strong> Todos los jugadores inician con 0 puntos en esa liga. El sistema captura sus puntos acumulados en ese momento (`basePoints`) y los resta dinámicamente de sus puntuaciones futures.
@@ -191,6 +192,52 @@
                         const faqLockSchedule = document.getElementById('faq-lock-schedule');
                         if (faqLockSchedule) {
                             faqLockSchedule.innerHTML = `<strong>Desactivado</strong> por el administrador (puedes editar tu 11 a cualquier hora)`;
+                        }
+                    }
+
+                    // 4. Bloqueo de clausulazos
+                    if (data.clauseLock && data.clauseLock.active) {
+                        const clauseDaysText = formatDaysListSpanish(data.clauseLock.days);
+                        const [startH, startM] = data.clauseLock.startTime.split(':').map(Number);
+                        const duration = Number(data.clauseLock.durationHours || 5.5);
+                        const endMinTotal = startH * 60 + startM + duration * 60;
+                        const endH = Math.floor(endMinTotal / 60) % 24;
+                        const endM = Math.round(endMinTotal % 60);
+                        const endStr = `${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`;
+                        const crossesMidnight = endMinTotal >= 1440;
+                        const suffix = crossesMidnight ? ' del día siguiente' : '';
+                        
+                        const faqClauseLock = document.getElementById('faq-clause-lock-schedule');
+                        if (faqClauseLock) {
+                            faqClauseLock.innerHTML = `los <strong>${clauseDaysText} entre las ${data.clauseLock.startTime} y las ${endStr}${suffix} (hora de Madrid)</strong>`;
+                        }
+                    } else {
+                        const faqClauseLock = document.getElementById('faq-clause-lock-schedule');
+                        if (faqClauseLock) {
+                            faqClauseLock.innerHTML = `<strong>Desactivado</strong> por el administrador (se permiten robos a cualquier hora)`;
+                        }
+                    }
+
+                    // 5. Bloqueo de mercado
+                    if (data.marketLock && data.marketLock.active) {
+                        const marketDaysText = formatDaysListSpanish(data.marketLock.days);
+                        const [startH, startM] = data.marketLock.startTime.split(':').map(Number);
+                        const duration = Number(data.marketLock.durationHours || 8);
+                        const endMinTotal = startH * 60 + startM + duration * 60;
+                        const endH = Math.floor(endMinTotal / 60) % 24;
+                        const endM = Math.round(endMinTotal % 60);
+                        const endStr = `${String(endH).padStart(2,'0')}:${String(endM).padStart(2,'0')}`;
+                        const crossesMidnight = endMinTotal >= 1440;
+                        const suffix = crossesMidnight ? ' del día siguiente' : '';
+                        
+                        const faqMarketLock = document.getElementById('faq-market-lock-schedule');
+                        if (faqMarketLock) {
+                            faqMarketLock.innerHTML = `los <strong>${marketDaysText} entre las ${data.marketLock.startTime} y las ${endStr}${suffix} (hora de Madrid)</strong>`;
+                        }
+                    } else {
+                        const faqMarketLock = document.getElementById('faq-market-lock-schedule');
+                        if (faqMarketLock) {
+                            faqMarketLock.innerHTML = `<strong>Desactivado</strong> por el administrador (se permiten pujas y ofertas a cualquier hora)`;
                         }
                     }
                 }

@@ -5950,13 +5950,21 @@ export async function startVisualizerServer(discordClient) {
             const db = getDb();
             const schedules = await db.collection('fantasy_config').findOne({ key: 'schedules' });
             if (schedules) {
+                if (!schedules.clauseLock) {
+                    schedules.clauseLock = { active: true, days: [1,2,3,4], startTime: "18:30", durationHours: 5.5 };
+                }
+                if (!schedules.marketLock) {
+                    schedules.marketLock = { active: false, days: [1,2,3,4], startTime: "18:00", durationHours: 8 };
+                }
                 res.json(schedules);
             } else {
                 // Fallback structure
                 res.json({
                     market: { active: true, days: [0,1,2,3,4,5,6], windows: ["18:00", "", ""] },
                     points: { active: true, days: [0,1,2,3,4,5,6], time: "18:00" },
-                    lock: { active: true, days: [1,2,3,4], startTime: "21:30", durationHours: 4 }
+                    lock: { active: true, days: [1,2,3,4], startTime: "21:30", durationHours: 4 },
+                    clauseLock: { active: true, days: [1,2,3,4], startTime: "18:30", durationHours: 5.5 },
+                    marketLock: { active: false, days: [1,2,3,4], startTime: "18:00", durationHours: 8 }
                 });
             }
         } catch (e) {
@@ -5971,12 +5979,20 @@ export async function startVisualizerServer(discordClient) {
             const db = getDb();
             const schedules = await db.collection('fantasy_config').findOne({ key: 'schedules' });
             if (schedules) {
+                if (!schedules.clauseLock) {
+                    schedules.clauseLock = { active: true, days: [1,2,3,4], startTime: "18:30", durationHours: 5.5 };
+                }
+                if (!schedules.marketLock) {
+                    schedules.marketLock = { active: false, days: [1,2,3,4], startTime: "18:00", durationHours: 8 };
+                }
                 res.json(schedules);
             } else {
                 res.json({
                     market: { active: true, days: [0,1,2,3,4,5,6], windows: ["18:00", "", ""] },
                     points: { active: true, days: [0,1,2,3,4,5,6], time: "18:00" },
-                    lock: { active: true, days: [1,2,3,4], startTime: "21:30", durationHours: 4 }
+                    lock: { active: true, days: [1,2,3,4], startTime: "21:30", durationHours: 4 },
+                    clauseLock: { active: true, days: [1,2,3,4], startTime: "18:30", durationHours: 5.5 },
+                    marketLock: { active: false, days: [1,2,3,4], startTime: "18:00", durationHours: 8 }
                 });
             }
         } catch (e) {
@@ -5988,7 +6004,7 @@ export async function startVisualizerServer(discordClient) {
     // POST admin config schedules (admin only)
     app.post('/api/fantasy/admin/config/schedules', isAuthenticated, isFantasyAdmin, async (req, res) => {
         try {
-            const { market, points, lock } = req.body;
+            const { market, points, lock, clauseLock, marketLock } = req.body;
             
             if (!market || typeof market.active !== 'boolean' || !Array.isArray(market.days)) {
                 return res.status(400).json({ error: 'Estructura de mercado inválida.' });
@@ -6024,6 +6040,30 @@ export async function startVisualizerServer(discordClient) {
                 return res.status(400).json({ error: 'La duración del bloqueo de alineación debe estar entre 1 y 24 horas.' });
             }
 
+            // Validar clauseLock
+            if (!clauseLock || typeof clauseLock.active !== 'boolean' || !Array.isArray(clauseLock.days) || typeof clauseLock.startTime !== 'string' || isNaN(Number(clauseLock.durationHours))) {
+                return res.status(400).json({ error: 'Estructura de bloqueo de clausulazo inválida.' });
+            }
+            if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(clauseLock.startTime)) {
+                return res.status(400).json({ error: 'Formato de hora de inicio de bloqueo de clausulazo inválido.' });
+            }
+            const clauseDuration = Number(clauseLock.durationHours);
+            if (clauseDuration < 0.1 || clauseDuration > 24) {
+                return res.status(400).json({ error: 'La duración del bloqueo de clausulazo debe estar entre 0.1 y 24 horas.' });
+            }
+
+            // Validar marketLock
+            if (!marketLock || typeof marketLock.active !== 'boolean' || !Array.isArray(marketLock.days) || typeof marketLock.startTime !== 'string' || isNaN(Number(marketLock.durationHours))) {
+                return res.status(400).json({ error: 'Estructura de bloqueo de mercado inválida.' });
+            }
+            if (!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(marketLock.startTime)) {
+                return res.status(400).json({ error: 'Formato de hora de inicio de bloqueo de mercado inválido.' });
+            }
+            const marketDuration = Number(marketLock.durationHours);
+            if (marketDuration < 0.1 || marketDuration > 24) {
+                return res.status(400).json({ error: 'La duración del bloqueo de mercado debe estar entre 0.1 y 24 horas.' });
+            }
+
             const db = getDb();
             const existing = await db.collection('fantasy_config').findOne({ key: 'schedules' }) || {};
             const oldMarket = existing.market || {};
@@ -6052,6 +6092,18 @@ export async function startVisualizerServer(discordClient) {
                     days: lock.days.map(Number).filter(d => d >= 0 && d <= 6),
                     startTime: lock.startTime,
                     durationHours: duration
+                },
+                clauseLock: {
+                    active: clauseLock.active,
+                    days: clauseLock.days.map(Number).filter(d => d >= 0 && d <= 6),
+                    startTime: clauseLock.startTime,
+                    durationHours: clauseDuration
+                },
+                marketLock: {
+                    active: marketLock.active,
+                    days: marketLock.days.map(Number).filter(d => d >= 0 && d <= 6),
+                    startTime: marketLock.startTime,
+                    durationHours: marketDuration
                 }
             };
             
@@ -7436,16 +7488,119 @@ export async function startVisualizerServer(discordClient) {
         return false;
     }
 
-    function isBuyoutLocked() {
+    async function getBuyoutLockError() {
+        const db = getDb();
+        const schedules = await db.collection('fantasy_config').findOne({ key: 'schedules' });
+        const lockConfig = (schedules && schedules.clauseLock) ? schedules.clauseLock : {
+            active: true,
+            days: [1, 2, 3, 4],
+            startTime: "18:30",
+            durationHours: 5.5
+        };
+
+        if (!lockConfig.active) return null;
+
         const { day, hours, minutes } = getMadridTime();
-        if (day >= 1 && day <= 4) { // Monday to Thursday
-            const totalMinutes = hours * 60 + minutes;
-            // 18:30 is 1110 minutes. 23:59 is 1439 minutes.
-            if (totalMinutes >= 1110 && totalMinutes <= 1439) {
-                return true;
-            }
+        const totalMinutes = hours * 60 + minutes;
+
+        const [startH, startM] = lockConfig.startTime.split(':').map(Number);
+        const startMin = startH * 60 + startM;
+        const durationMin = Number(lockConfig.durationHours || 5.5) * 60;
+        const days = lockConfig.days || [1, 2, 3, 4];
+
+        let locked = false;
+        const diffToday = totalMinutes - startMin;
+        if (days.includes(day) && diffToday >= 0 && diffToday < durationMin) {
+            locked = true;
         }
-        return false;
+
+        const yesterday = (day === 0) ? 6 : day - 1;
+        const diffYesterday = (totalMinutes + 1440) - startMin;
+        if (days.includes(yesterday) && diffYesterday >= 0 && diffYesterday < durationMin) {
+            locked = true;
+        }
+
+        if (locked) {
+            const endTotalMin = Math.round(startMin + durationMin) % 1440;
+            const endH = String(Math.floor(endTotalMin / 60)).padStart(2, '0');
+            const endM = String(endTotalMin % 60).padStart(2, '0');
+            const daysNames = ["domingos", "lunes", "martes", "miércoles", "jueves", "viernes", "sábados"];
+            
+            let daysText = "";
+            if (days.length === 4 && days.includes(1) && days.includes(2) && days.includes(3) && days.includes(4)) {
+                daysText = "de lunes a jueves";
+            } else if (days.length === 7) {
+                daysText = "todos los días";
+            } else {
+                daysText = "los " + days.map(d => daysNames[d]).join(', ');
+            }
+            
+            const crossesMidnight = (startMin + durationMin) >= 1440;
+            const suffix = crossesMidnight ? ' del día siguiente' : '';
+            return `No se permiten clausulazos. Están bloqueados ${daysText} desde las ${lockConfig.startTime} hasta las ${endH}:${endM}${suffix} (hora de Madrid).`;
+        }
+
+        return null;
+    }
+
+    async function getMarketLockError() {
+        const db = getDb();
+        const schedules = await db.collection('fantasy_config').findOne({ key: 'schedules' });
+        const lockConfig = (schedules && schedules.marketLock) ? schedules.marketLock : {
+            active: false,
+            days: [1, 2, 3, 4],
+            startTime: "18:00",
+            durationHours: 8
+        };
+
+        if (!lockConfig.active) return null;
+
+        const { day, hours, minutes } = getMadridTime();
+        const totalMinutes = hours * 60 + minutes;
+
+        const [startH, startM] = lockConfig.startTime.split(':').map(Number);
+        const startMin = startH * 60 + startM;
+        const durationMin = Number(lockConfig.durationHours || 8) * 60;
+        const days = lockConfig.days || [1, 2, 3, 4];
+
+        let locked = false;
+        const diffToday = totalMinutes - startMin;
+        if (days.includes(day) && diffToday >= 0 && diffToday < durationMin) {
+            locked = true;
+        }
+
+        const yesterday = (day === 0) ? 6 : day - 1;
+        const diffYesterday = (totalMinutes + 1440) - startMin;
+        if (days.includes(yesterday) && diffYesterday >= 0 && diffYesterday < durationMin) {
+            locked = true;
+        }
+
+        if (locked) {
+            const endTotalMin = Math.round(startMin + durationMin) % 1440;
+            const endH = String(Math.floor(endTotalMin / 60)).padStart(2, '0');
+            const endM = String(endTotalMin % 60).padStart(2, '0');
+            const daysNames = ["domingos", "lunes", "martes", "miércoles", "jueves", "viernes", "sábados"];
+            
+            let daysText = "";
+            if (days.length === 4 && days.includes(1) && days.includes(2) && days.includes(3) && days.includes(4)) {
+                daysText = "de lunes a jueves";
+            } else if (days.length === 7) {
+                daysText = "todos los días";
+            } else {
+                daysText = "los " + days.map(d => daysNames[d]).join(', ');
+            }
+            
+            const crossesMidnight = (startMin + durationMin) >= 1440;
+            const suffix = crossesMidnight ? ' del día siguiente' : '';
+            return `El mercado está bloqueado temporalmente. Bloqueo activo ${daysText} desde las ${lockConfig.startTime} hasta las ${endH}:${endM}${suffix} (hora de Madrid). No se permiten operaciones en este periodo.`;
+        }
+
+        return null;
+    }
+
+    async function isBuyoutLocked() {
+        const err = await getBuyoutLockError();
+        return err !== null;
     }
 
     // Buy a player (within a league)
@@ -7454,8 +7609,14 @@ export async function startVisualizerServer(discordClient) {
             const { eaPlayerName } = req.body;
             if (!eaPlayerName) return res.status(400).json({ error: 'Falta eaPlayerName' });
 
-            if (isBuyoutLocked()) {
-                return res.status(400).json({ error: 'No se permiten clausulazos de lunes a jueves entre las 18:30 y las 23:59 (hora de Madrid).' });
+            const marketLockErr = await getMarketLockError();
+            if (marketLockErr) {
+                return res.status(400).json({ error: marketLockErr });
+            }
+
+            const buyoutLockErr = await getBuyoutLockError();
+            if (buyoutLockErr) {
+                return res.status(400).json({ error: buyoutLockErr });
             }
 
             const db = getDb();
@@ -7874,6 +8035,11 @@ export async function startVisualizerServer(discordClient) {
     // Sell a player (within a league)
     app.post('/api/fantasy/leagues/:id/sell', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
+            const marketLockErr = await getMarketLockError();
+            if (marketLockErr) {
+                return res.status(400).json({ error: marketLockErr });
+            }
+
             const { eaPlayerName } = req.body;
             if (!eaPlayerName) return res.status(400).json({ error: 'Falta eaPlayerName' });
             const db = getDb();
@@ -7996,6 +8162,11 @@ export async function startVisualizerServer(discordClient) {
     // List player on transfer market
     app.post('/api/fantasy/leagues/:id/market/list', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
+            const marketLockErr = await getMarketLockError();
+            if (marketLockErr) {
+                return res.status(400).json({ error: marketLockErr });
+            }
+
             const leagueId = req.params.id;
             const { eaPlayerName, askingPrice } = req.body;
             if (!eaPlayerName) return res.status(400).json({ error: 'Falta eaPlayerName' });
@@ -8050,6 +8221,11 @@ export async function startVisualizerServer(discordClient) {
     // Unlist player from transfer market
     app.post('/api/fantasy/leagues/:id/market/unlist', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
+            const marketLockErr = await getMarketLockError();
+            if (marketLockErr) {
+                return res.status(400).json({ error: marketLockErr });
+            }
+
             const leagueId = req.params.id;
             const { eaPlayerName } = req.body;
             if (!eaPlayerName) return res.status(400).json({ error: 'Falta eaPlayerName' });
@@ -8173,6 +8349,11 @@ export async function startVisualizerServer(discordClient) {
     // Place a bid on a player on transfer list
     app.post('/api/fantasy/leagues/:id/market/bid', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
+            const marketLockErr = await getMarketLockError();
+            if (marketLockErr) {
+                return res.status(400).json({ error: marketLockErr });
+            }
+
             const leagueId = req.params.id;
             const { eaPlayerName, bidAmount, sellerDiscordId } = req.body;
             if (!eaPlayerName || !sellerDiscordId) return res.status(400).json({ error: 'Datos de puja incompletos.' });
@@ -8257,6 +8438,11 @@ export async function startVisualizerServer(discordClient) {
     // Cancel/retract bid
     app.post('/api/fantasy/leagues/:id/market/bids/:bidId/cancel', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
+            const marketLockErr = await getMarketLockError();
+            if (marketLockErr) {
+                return res.status(400).json({ error: marketLockErr });
+            }
+
             const leagueId = req.params.id;
             const bidId = req.params.bidId;
             const db = getDb();
@@ -8344,6 +8530,11 @@ export async function startVisualizerServer(discordClient) {
     // Respond to bid (accept/reject)
     app.post('/api/fantasy/leagues/:id/market/bids/:bidId/respond', isAuthenticated, isFantasyEnabled, async (req, res) => {
         try {
+            const marketLockErr = await getMarketLockError();
+            if (marketLockErr) {
+                return res.status(400).json({ error: marketLockErr });
+            }
+
             const leagueId = req.params.id;
             const bidId = req.params.bidId;
             const action = req.body.action || req.body.response; // 'accept' or 'reject'
