@@ -7725,7 +7725,7 @@ export async function startVisualizerServer(discordClient) {
                 const config = await db.collection('fantasy_config').findOne({ key: 'lock_lineups_active' });
                 const isLockEnabled = config ? !!config.value : true;
                 const { day } = getMadridTime();
-                const shouldDelayPoints = isLockEnabled && (day >= 1 && day <= 4);
+                const shouldDelayPoints = false; // Desactivado: los puntos del clausulazo se atribuyen de inmediato al comprador
 
                 // Record the buyout (clausulazo) so point attribution is overridden in the next daily sync if needed
                 await db.collection('fantasy_buyouts').insertOne({
