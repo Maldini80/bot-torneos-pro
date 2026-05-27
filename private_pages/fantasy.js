@@ -1823,6 +1823,9 @@ async function enterLeague(leagueId, keepCurrentTab = false, password = null, op
             marketClosedBanner.style.display = 'flex';
         }
         
+        if (typeof updateClauseLockStatusUI === 'function') updateClauseLockStatusUI();
+        if (typeof updateMarketLockStatusUI === 'function') updateMarketLockStatusUI();
+        
         // Switch Views
         leagueSelectorView.style.display = 'none';
         leagueDashboardView.style.display = 'block';
@@ -3724,6 +3727,7 @@ async function handleUpdateLeagueSubmit(e) {
 
         const lockIcon = activeLeague.privacy === 'private' ? ' <i class="fa-solid fa-lock text-yellow" title="Liga Privada" style="font-size: 0.95rem; margin-left: 5px;"></i>' : '';
         activeLeagueName.innerHTML = name + lockIcon;
+        if (typeof updateClauseLockStatusUI === 'function') updateClauseLockStatusUI();
     } catch (e) {
         console.error(e);
         showToast(e.message, 'error');
@@ -3747,6 +3751,9 @@ async function handleAdminToggleMarket() {
         } else {
             marketClosedBanner.style.display = 'flex';
         }
+        
+        if (typeof updateClauseLockStatusUI === 'function') updateClauseLockStatusUI();
+        if (typeof updateMarketLockStatusUI === 'function') updateMarketLockStatusUI();
         
         // Refresh market and squad buttons disabled state
         filterAndRenderMarket();
@@ -4446,6 +4453,12 @@ function updateClauseLockStatusUI() {
     const indicator = document.getElementById('clause-lock-status-indicator');
     if (!indicator) return;
 
+    // Solo mostrar el banner si la liga activa permite cláusulas
+    if (!activeLeague || activeLeague.allowClauses === false) {
+        indicator.style.display = 'none';
+        return;
+    }
+
     if (!clauseLockScheduleConfig || !clauseLockScheduleConfig.active) {
         indicator.style.display = 'flex';
         indicator.style.background = 'rgba(56, 189, 248, 0.1)';
@@ -4488,6 +4501,12 @@ function updateClauseLockStatusUI() {
 function updateMarketLockStatusUI() {
     const indicator = document.getElementById('market-lock-status-indicator');
     if (!indicator) return;
+
+    // Solo mostrar el banner si el mercado de esta liga está abierto
+    if (!activeLeague || activeLeague.marketOpen === false) {
+        indicator.style.display = 'none';
+        return;
+    }
 
     if (!marketLockScheduleConfig || !marketLockScheduleConfig.active) {
         indicator.style.display = 'flex';
