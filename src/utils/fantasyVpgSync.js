@@ -151,6 +151,68 @@ export function calculatePlayerPointsAndPrice(p) {
     return { price, points, avgRating };
 }
 
+export function computeUpdatedStats(existingPlayer, crawledStats, crawledTeamSlug) {
+    const pSlugNormalized = String(crawledTeamSlug || '').toLowerCase().trim();
+    const dbSlugNormalized = String(existingPlayer.vpgTeamSlug || '').toLowerCase().trim();
+    const hasTransferred = dbSlugNormalized && pSlugNormalized && dbSlugNormalized !== pSlugNormalized;
+
+    // Si ha transferido, no usamos lastRaw (baseline = 0)
+    const lastRaw = hasTransferred ? {} : (existingPlayer.stats?.vpgLastRaw || existingPlayer.stats || {});
+
+    const deltaPoints = Math.max(0, Math.round(((parseFloat(crawledStats.vpgPoints) || 0) - (parseFloat(lastRaw.vpgPoints) || 0)) * 10) / 10);
+    const deltaMatches = Math.max(0, (parseInt(crawledStats.matchesPlayed) || 0) - (parseInt(lastRaw.matchesPlayed) || 0));
+    const deltaGoals = Math.max(0, (parseInt(crawledStats.goals) || 0) - (parseInt(lastRaw.goals) || 0));
+    const deltaAssists = Math.max(0, (parseInt(crawledStats.assists) || 0) - (parseInt(lastRaw.assists) || 0));
+    const deltaShots = Math.max(0, (parseInt(crawledStats.shots) || 0) - (parseInt(lastRaw.shots) || 0));
+    const deltaSaves = Math.max(0, (parseInt(crawledStats.saves) || 0) - (parseInt(lastRaw.saves) || 0));
+    const deltaRedCards = Math.max(0, (parseInt(crawledStats.redCards) || 0) - (parseInt(lastRaw.redCards) || 0));
+    const deltaYellowCards = Math.max(0, (parseInt(crawledStats.yellowCards) || 0) - (parseInt(lastRaw.yellowCards) || 0));
+    const deltaCleanSheets = Math.max(0, (parseInt(crawledStats.cleanSheets) || 0) - (parseInt(lastRaw.cleanSheets) || 0));
+    const deltaWins = Math.max(0, (parseInt(crawledStats.wins) || 0) - (parseInt(lastRaw.wins) || 0));
+    const deltaLosses = Math.max(0, (parseInt(crawledStats.losses) || 0) - (parseInt(lastRaw.losses) || 0));
+    const deltaTies = Math.max(0, (parseInt(crawledStats.ties) || 0) - (parseInt(lastRaw.ties) || 0));
+
+    const avgRating = (crawledStats.ratings && crawledStats.ratings.length > 0) ? crawledStats.ratings[0] : 6.0;
+
+    return {
+        matchesPlayed: (existingPlayer.stats?.matchesPlayed || 0) + deltaMatches,
+        goals: (existingPlayer.stats?.goals || 0) + deltaGoals,
+        assists: (existingPlayer.stats?.assists || 0) + deltaAssists,
+        passesMade: existingPlayer.stats?.passesMade || 0,
+        passesAttempted: existingPlayer.stats?.passesAttempted || 0,
+        tacklesMade: existingPlayer.stats?.tacklesMade || 0,
+        tacklesAttempted: existingPlayer.stats?.tacklesAttempted || 0,
+        shots: (existingPlayer.stats?.shots || 0) + deltaShots,
+        shotsOnTarget: existingPlayer.stats?.shotsOnTarget || 0,
+        interceptions: existingPlayer.stats?.interceptions || 0,
+        saves: (existingPlayer.stats?.saves || 0) + deltaSaves,
+        redCards: (existingPlayer.stats?.redCards || 0) + deltaRedCards,
+        yellowCards: (existingPlayer.stats?.yellowCards || 0) + deltaYellowCards,
+        mom: existingPlayer.stats?.mom || 0,
+        cleanSheets: (existingPlayer.stats?.cleanSheets || 0) + deltaCleanSheets,
+        goalsConceded: existingPlayer.stats?.goalsConceded || 0,
+        ratings: (existingPlayer.stats?.ratings || []).concat(Array(deltaMatches).fill(avgRating)),
+        wins: (existingPlayer.stats?.wins || 0) + deltaWins,
+        losses: (existingPlayer.stats?.losses || 0) + deltaLosses,
+        ties: (existingPlayer.stats?.ties || 0) + deltaTies,
+        vpgPoints: Math.round(((existingPlayer.stats?.vpgPoints || 0) + deltaPoints) * 10) / 10,
+        vpgLastRaw: {
+            matchesPlayed: parseInt(crawledStats.matchesPlayed) || 0,
+            goals: parseInt(crawledStats.goals) || 0,
+            assists: parseInt(crawledStats.assists) || 0,
+            shots: parseInt(crawledStats.shots) || 0,
+            saves: parseInt(crawledStats.saves) || 0,
+            redCards: parseInt(crawledStats.redCards) || 0,
+            yellowCards: parseInt(crawledStats.yellowCards) || 0,
+            cleanSheets: parseInt(crawledStats.cleanSheets) || 0,
+            wins: parseInt(crawledStats.wins) || 0,
+            losses: parseInt(crawledStats.losses) || 0,
+            ties: parseInt(crawledStats.ties) || 0,
+            vpgPoints: parseFloat(crawledStats.vpgPoints) || 0
+        }
+    };
+}
+
 export async function syncFantasyWithVpg() {
     if (rebuildStatus.running) {
         throw new Error('Ya hay una sincronización/reconstrucción en curso.');
@@ -202,9 +264,6 @@ export async function syncFantasyWithVpg() {
 
         let totalPlayersUpdated = 0;
         let totalClubsUpdated = 0;
-
-        // Tracking player stats across multiple leaderboards in this sync cycle
-        const syncProcessedStats = new Map();
 
         // B. Cargar clausulazos activos para reatribución de puntos
         let unprocessedBuyouts = [];
@@ -528,44 +587,6 @@ export async function syncFantasyWithVpg() {
             for (const [usernameLower, pData] of leaguePlayersMap.entries()) {
                 const { username, ...updateData } = pData;
 
-                // Track and sum stats across multiple divisions in this sync cycle
-                const key = usernameLower;
-                const crawledStats = updateData.stats || {};
-                const isRayden = key === 'zzraydenzz';
-
-                if (isRayden) {
-                    if (syncProcessedStats.has(key)) {
-                        const prevStats = syncProcessedStats.get(key);
-                        const summedStats = {
-                            matchesPlayed: (prevStats.matchesPlayed || 0) + (crawledStats.matchesPlayed || 0),
-                            goals: (prevStats.goals || 0) + (crawledStats.goals || 0),
-                            assists: (prevStats.assists || 0) + (crawledStats.assists || 0),
-                            passesMade: (prevStats.passesMade || 0) + (crawledStats.passesMade || 0),
-                            passesAttempted: (prevStats.passesAttempted || 0) + (crawledStats.passesAttempted || 0),
-                            tacklesMade: (prevStats.tacklesMade || 0) + (crawledStats.tacklesMade || 0),
-                            tacklesAttempted: (prevStats.tacklesAttempted || 0) + (crawledStats.tacklesAttempted || 0),
-                            shots: (prevStats.shots || 0) + (crawledStats.shots || 0),
-                            shotsOnTarget: (prevStats.shotsOnTarget || 0) + (crawledStats.shotsOnTarget || 0),
-                            interceptions: (prevStats.interceptions || 0) + (crawledStats.interceptions || 0),
-                            saves: (prevStats.saves || 0) + (crawledStats.saves || 0),
-                            redCards: (prevStats.redCards || 0) + (crawledStats.redCards || 0),
-                            yellowCards: (prevStats.yellowCards || 0) + (crawledStats.yellowCards || 0),
-                            mom: (prevStats.mom || 0) + (crawledStats.mom || 0),
-                            cleanSheets: (prevStats.cleanSheets || 0) + (crawledStats.cleanSheets || 0),
-                            goalsConceded: (prevStats.goalsConceded || 0) + (crawledStats.goalsConceded || 0),
-                            ratings: (prevStats.ratings || []).concat(crawledStats.ratings || []),
-                            wins: (prevStats.wins || 0) + (crawledStats.wins || 0),
-                            losses: (prevStats.losses || 0) + (crawledStats.losses || 0),
-                            ties: (prevStats.ties || 0) + (crawledStats.ties || 0),
-                            vpgPoints: Math.round(((prevStats.vpgPoints || 0) + (crawledStats.vpgPoints || 0)) * 10) / 10
-                        };
-                        updateData.stats = summedStats;
-                        syncProcessedStats.set(key, summedStats);
-                    } else {
-                        syncProcessedStats.set(key, JSON.parse(JSON.stringify(crawledStats)));
-                    }
-                }
-
                 // Buscar jugador por eaPlayerName case-insensitively o por vpgProfile.username
                 const usernameEscaped = username.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
                 const existingPlayer = await playerColl.findOne({
@@ -582,22 +603,21 @@ export async function syncFantasyWithVpg() {
 
                     // Conflict resolution: check if player is being crawled for a different division
                     if (existingPlayer.vpgLeagueSlug && existingPlayer.vpgLeagueSlug !== leagueSlug) {
-                        if (isRayden) {
-                            try {
-                                console.log(`[VPG SYNC] Conflicto de división para ${username}: existente en "${existingPlayer.vpgLeagueSlug}", barriendo "${leagueSlug}". Verificando contrato activo...`);
-                                const contractsUrl = `https://api.virtualprogaming.com/public/users/${encodeURIComponent(username)}/contracts/`;
-                                const contractRes = await fetch(contractsUrl, { headers: HEADERS });
-                                let targetClub = existingPlayer.lastClub;
-                                let targetLeagueSlug = existingPlayer.vpgLeagueSlug;
-                                let targetTeamSlug = existingPlayer.vpgTeamSlug;
-                                let resolved = false;
+                        try {
+                            console.log(`[VPG SYNC] Conflicto de división para ${username}: existente en "${existingPlayer.vpgLeagueSlug}", barriendo "${leagueSlug}". Verificando contrato activo...`);
+                            const contractsUrl = `https://api.virtualprogaming.com/public/users/${encodeURIComponent(username)}/contracts/`;
+                            const contractRes = await fetch(contractsUrl, { headers: HEADERS });
+                            let shouldSkip = false;
 
-                                if (contractRes.ok) {
-                                    const contracts = await contractRes.json();
-                                    if (Array.isArray(contracts)) {
-                                        const activeContracts = contracts.filter(c => c.status === 'active');
-                                        if (activeContracts.length > 0) {
-                                            // Find active contract team in mapped DB teams
+                            if (contractRes.ok) {
+                                const contracts = await contractRes.json();
+                                if (Array.isArray(contracts)) {
+                                    const activeContracts = contracts.filter(c => c.status === 'active');
+                                    if (activeContracts.length > 0) {
+                                        const matchesActiveContract = activeContracts.some(c => 
+                                            String(c.team_slug || '').toLowerCase().trim() === String(pData.vpgTeamSlug || '').toLowerCase().trim()
+                                        );
+                                        if (!matchesActiveContract) {
                                             let contractTeam = null;
                                             for (const contract of activeContracts) {
                                                 const cSlug = String(contract.team_slug || '').toLowerCase().trim();
@@ -613,88 +633,13 @@ export async function syncFantasyWithVpg() {
                                             }
 
                                             if (contractTeam) {
-                                                console.log(`[VPG SYNC] Contrato activo de ${username} mapeado a: "${contractTeam.name}" (Liga: ${contractTeam.vpgLeagueSlug})`);
-                                                targetClub = contractTeam.name;
-                                                targetLeagueSlug = contractTeam.vpgLeagueSlug;
-                                                targetTeamSlug = contractTeam.vpgTeamSlug;
-                                                resolved = true;
-                                            }
-                                        }
-                                    }
-                                }
-
-                                if (!resolved) {
-                                    const existingMult = getLeagueDivisionMultiplier(existingPlayer.vpgLeagueSlug);
-                                    const currentMult = getLeagueDivisionMultiplier(leagueSlug);
-                                    if (existingMult > currentMult) {
-                                        targetClub = existingPlayer.lastClub;
-                                        targetLeagueSlug = existingPlayer.vpgLeagueSlug;
-                                        targetTeamSlug = existingPlayer.vpgTeamSlug;
-                                    } else {
-                                        targetClub = pData.lastClub;
-                                        targetLeagueSlug = leagueSlug;
-                                        targetTeamSlug = pData.vpgTeamSlug;
-                                    }
-                                }
-
-                                updateData.lastClub = targetClub;
-                                updateData.vpgLeagueSlug = targetLeagueSlug;
-                                updateData.vpgTeamSlug = targetTeamSlug;
-
-                            } catch (err) {
-                                console.error(`[VPG SYNC] Excepción al comprobar contratos de ${username}:`, err);
-                                const existingMult = getLeagueDivisionMultiplier(existingPlayer.vpgLeagueSlug);
-                                const currentMult = getLeagueDivisionMultiplier(leagueSlug);
-                                if (existingMult > currentMult) {
-                                    updateData.lastClub = existingPlayer.lastClub;
-                                    updateData.vpgLeagueSlug = existingPlayer.vpgLeagueSlug;
-                                    updateData.vpgTeamSlug = existingPlayer.vpgTeamSlug;
-                                }
-                            }
-                        } else {
-                            // Para todos los demás jugadores, restauramos la lógica original de saltar
-                            try {
-                                console.log(`[VPG SYNC] Conflicto de división para ${username}: existente en "${existingPlayer.vpgLeagueSlug}", barriendo "${leagueSlug}". Verificando contrato activo...`);
-                                const contractsUrl = `https://api.virtualprogaming.com/public/users/${encodeURIComponent(username)}/contracts/`;
-                                const contractRes = await fetch(contractsUrl, { headers: HEADERS });
-                                let shouldSkip = false;
-
-                                if (contractRes.ok) {
-                                    const contracts = await contractRes.json();
-                                    if (Array.isArray(contracts)) {
-                                        const activeContracts = contracts.filter(c => c.status === 'active');
-                                        if (activeContracts.length > 0) {
-                                            const matchesActiveContract = activeContracts.some(c => 
-                                                String(c.team_slug || '').toLowerCase().trim() === String(pData.vpgTeamSlug || '').toLowerCase().trim()
-                                            );
-                                            if (!matchesActiveContract) {
-                                                let contractTeam = null;
-                                                for (const contract of activeContracts) {
-                                                    const cSlug = String(contract.team_slug || '').toLowerCase().trim();
-                                                    const cName = String(contract.team_name || '').toLowerCase().trim();
-                                                    const found = dbTeams.find(t => 
-                                                        String(t.vpgTeamSlug || '').toLowerCase().trim() === cSlug ||
-                                                        String(t.name || '').toLowerCase().trim() === cName
-                                                    );
-                                                    if (found) {
-                                                        contractTeam = found;
-                                                        break;
-                                                    }
-                                                }
-
-                                                if (contractTeam) {
-                                                    console.log(`[VPG SYNC] Re-mapeando club de ${username} a su nuevo contrato activo en VPG España: "${contractTeam.name}" (Liga: ${contractTeam.vpgLeagueSlug})`);
-                                                    updateData.lastClub = contractTeam.name;
-                                                    updateData.vpgLeagueSlug = contractTeam.vpgLeagueSlug;
-                                                    updateData.vpgTeamSlug = contractTeam.vpgTeamSlug;
-                                                    shouldSkip = false;
-                                                } else {
-                                                    console.log(`[VPG SYNC] Saltando actualización de ${username} para ${leagueSlug} / ${pData.vpgTeamSlug} porque su contrato activo está en otro club no mapeado.`);
-                                                    shouldSkip = true;
-                                                }
-                                            }
-                                        } else {
-                                            if (getLeagueDivisionMultiplier(existingPlayer.vpgLeagueSlug) > getLeagueDivisionMultiplier(leagueSlug)) {
+                                                console.log(`[VPG SYNC] Re-mapeando club de ${username} a su nuevo contrato activo en VPG España: "${contractTeam.name}" (Liga: ${contractTeam.vpgLeagueSlug})`);
+                                                updateData.lastClub = contractTeam.name;
+                                                updateData.vpgLeagueSlug = contractTeam.vpgLeagueSlug;
+                                                updateData.vpgTeamSlug = contractTeam.vpgTeamSlug;
+                                                shouldSkip = false;
+                                            } else {
+                                                console.log(`[VPG SYNC] Saltando actualización de ${username} para ${leagueSlug} / ${pData.vpgTeamSlug} porque su contrato activo está en otro club no mapeado.`);
                                                 shouldSkip = true;
                                             }
                                         }
@@ -708,19 +653,25 @@ export async function syncFantasyWithVpg() {
                                         shouldSkip = true;
                                     }
                                 }
-
-                                if (shouldSkip) {
-                                    continue;
-                                }
-                            } catch (err) {
-                                console.error(`[VPG SYNC] Excepción al comprobar contratos de ${username}:`, err);
+                            } else {
                                 if (getLeagueDivisionMultiplier(existingPlayer.vpgLeagueSlug) > getLeagueDivisionMultiplier(leagueSlug)) {
-                                    continue;
+                                    shouldSkip = true;
                                 }
+                            }
+
+                            if (shouldSkip) {
+                                continue;
+                            }
+                        } catch (err) {
+                            console.error(`[VPG SYNC] Excepción al comprobar contratos de ${username}:`, err);
+                            if (getLeagueDivisionMultiplier(existingPlayer.vpgLeagueSlug) > getLeagueDivisionMultiplier(leagueSlug)) {
+                                continue;
                             }
                         }
                     }
 
+                    const crawledStats = JSON.parse(JSON.stringify(updateData.stats || {}));
+                    updateData.stats = computeUpdatedStats(existingPlayer, crawledStats, updateData.vpgTeamSlug);
                     await playerColl.updateOne(
                         { _id: existingPlayer._id },
                         { $set: updateData }
@@ -753,6 +704,8 @@ export async function syncFantasyWithVpg() {
                             console.log(`[VPG SYNC] [AUTO MERGE] Detectado cambio de nombre: ${oldPlayerNameExact} -> ${newPlayerNameExact} (Club: ${updateData.lastClub}, Puntos: ${newPoints})`);
 
                             // 1. Actualizar perfil antiguo con el nuevo nombre y datos
+                            const crawledStats = JSON.parse(JSON.stringify(updateData.stats || {}));
+                            updateData.stats = computeUpdatedStats(oldPlayer, crawledStats, updateData.vpgTeamSlug);
                             await playerColl.updateOne(
                                 { _id: oldPlayer._id },
                                 { 
@@ -854,6 +807,9 @@ export async function syncFantasyWithVpg() {
 
                     if (!autoMerged) {
                         // Insertar nuevo jugador
+                        if (updateData.stats) {
+                            updateData.stats.vpgLastRaw = JSON.parse(JSON.stringify(updateData.stats));
+                        }
                         const newPlayerDoc = {
                             eaPlayerName: username,
                             ...updateData,
