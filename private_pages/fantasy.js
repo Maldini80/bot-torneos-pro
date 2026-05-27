@@ -140,6 +140,7 @@ let currentUser = null;
 let globalActiveLeagues = [];
 let globalAllLeagues = [];
 let activeFantasyLeagues = [];
+let currentLeaguesFilter = 'joined';
 let currentLeagueId = sessionStorage.getItem('selected_league_id') || null;
 let activeLeague = null;
 let autoRefreshInterval = null;
@@ -769,6 +770,34 @@ function setupEventHandlers() {
         });
     }
 
+    // Leagues filter tabs listeners
+    const btnLeaguesJoined = document.getElementById('btn-leagues-joined');
+    const btnLeaguesAll = document.getElementById('btn-leagues-all');
+    if (btnLeaguesJoined && btnLeaguesAll) {
+        btnLeaguesJoined.addEventListener('click', () => {
+            currentLeaguesFilter = 'joined';
+            btnLeaguesJoined.classList.add('active');
+            btnLeaguesAll.classList.remove('active');
+            const searchInput = document.getElementById('league-search-input');
+            renderLeaguesList(searchInput ? searchInput.value : '');
+        });
+        btnLeaguesAll.addEventListener('click', () => {
+            currentLeaguesFilter = 'all';
+            btnLeaguesAll.classList.add('active');
+            btnLeaguesJoined.classList.remove('active');
+            const searchInput = document.getElementById('league-search-input');
+            renderLeaguesList(searchInput ? searchInput.value : '');
+        });
+    }
+
+    // Global listener to close context menu when clicking outside
+    document.addEventListener('click', (e) => {
+        const menu = document.getElementById('player-context-menu');
+        if (menu && !menu.contains(e.target) && !e.target.closest('.rival-player-node')) {
+            menu.classList.remove('open');
+        }
+    });
+
     // Market Subtabs
     const marketSubBtns = document.querySelectorAll('.market-sub-btn');
     marketSubBtns.forEach(btn => {
@@ -1296,6 +1325,22 @@ async function showLeagueSelector() {
         const data = await leaguesRes.json();
         activeFantasyLeagues = data.leagues || [];
         
+        // Auto-select tab: default to "joined" if user has joined any leagues, else "all"
+        const hasJoined = activeFantasyLeagues.some(l => l.isJoined);
+        currentLeaguesFilter = hasJoined ? 'joined' : 'all';
+
+        const btnJoined = document.getElementById('btn-leagues-joined');
+        const btnAll = document.getElementById('btn-leagues-all');
+        if (btnJoined && btnAll) {
+            if (currentLeaguesFilter === 'joined') {
+                btnJoined.classList.add('active');
+                btnAll.classList.remove('active');
+            } else {
+                btnAll.classList.add('active');
+                btnJoined.classList.remove('active');
+            }
+        }
+        
         renderLeaguesList('');
         
         // Load pending league requests for admins (non-blocking)
@@ -1340,13 +1385,19 @@ function renderLeaguesList(filterText = '') {
     leaguesGrid.innerHTML = '';
     
     const query = filterText.toLowerCase().trim();
-    const filteredLeagues = activeFantasyLeagues.filter(league => 
+    let filteredLeagues = activeFantasyLeagues.filter(league => 
         (league.name || '').toLowerCase().includes(query)
     );
+    
+    if (currentLeaguesFilter === 'joined') {
+        filteredLeagues = filteredLeagues.filter(league => league.isJoined);
+    }
     
     if (filteredLeagues.length === 0) {
         if (activeFantasyLeagues.length === 0) {
             leaguesGrid.innerHTML = `<div class="text-center py-4 text-muted w-100"><i class="fa-solid fa-folder-open"></i> No hay ligas creadas todavía.</div>`;
+        } else if (currentLeaguesFilter === 'joined') {
+            leaguesGrid.innerHTML = `<div class="text-center py-4 text-muted w-100"><i class="fa-solid fa-user-slash"></i> No estás inscrito en ninguna liga todavía. Haz clic en "Todas las Ligas" para explorar y unirte.</div>`;
         } else {
             leaguesGrid.innerHTML = `<div class="text-center py-4 text-muted w-100"><i class="fa-solid fa-magnifying-glass"></i> No se encontraron ligas que coincidan con "${filterText}".</div>`;
         }
@@ -3224,6 +3275,22 @@ async function showRivalTeam(discordId, teamName) {
                                 </div>
                             </div>
                         `;
+
+                        if (p) {
+                            const clauseVal = Math.max((rivalTeam.clauses && rivalTeam.clauses[p.eaPlayerName]) || 0, Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5)));
+                            let isProtected = false;
+                            if (rivalTeam.clausesProtectedUntil && rivalTeam.clausesProtectedUntil[p.eaPlayerName]) {
+                                const protDate = new Date(rivalTeam.clausesProtectedUntil[p.eaPlayerName]);
+                                if (protDate > new Date()) {
+                                    isProtected = true;
+                                }
+                            }
+
+                            node.addEventListener('click', (event) => {
+                                event.stopPropagation();
+                                showPlayerContextMenu(event, p, teamName, discordId, clauseVal, isProtected);
+                            });
+                        }
                     } else {
                         node.innerHTML = `
                             <div class="player-card-ut vacant" style="opacity: 0.4; pointer-events: none;">
@@ -5709,5 +5776,67 @@ async function handleAdminAddPlayer(playerName) {
         console.error(err);
         showToast('Error de red al añadir jugador', 'error');
     }
+}
+
+// Show floating context menu when clicking on a rival player card on the tactical field
+function showPlayerContextMenu(event, player, ownerTeamName, ownerDiscordId, clauseVal, isProtected) {
+    let menu = document.getElementById('player-context-menu');
+    if (!menu) {
+        menu = document.createElement('div');
+        menu.id = 'player-context-menu';
+        menu.className = 'player-context-menu';
+        document.body.appendChild(menu);
+    }
+    
+    const isLocked = isBuyoutLocked();
+    const isMyOwn = currentUser && (ownerDiscordId === currentUser.discordId);
+    
+    // Add custom buttons
+    menu.innerHTML = `
+        <button class="player-context-item btn-bid" ${isMyOwn ? 'disabled' : ''}>
+            <i class="fa-solid fa-gavel"></i> Pujar
+        </button>
+        <button class="player-context-item btn-clause" ${isMyOwn || isProtected || isLocked ? 'disabled' : ''} title="${isProtected ? 'Protegido por cláusula reciente' : (isLocked ? 'Clausulazos bloqueados temporalmente' : '')}">
+            <i class="fa-solid fa-bolt"></i> Clausulazo (${formatCurrency(clauseVal)})
+        </button>
+    `;
+    
+    // Position menu near the clicked card
+    const rect = event.currentTarget.getBoundingClientRect();
+    menu.style.top = `${window.scrollY + rect.bottom + 5}px`;
+    menu.style.left = `${window.scrollX + rect.left}px`;
+    
+    // Bind action listeners
+    const bidBtn = menu.querySelector('.btn-bid');
+    if (bidBtn) {
+        bidBtn.addEventListener('click', () => {
+            menu.classList.remove('open');
+            // Open bidding modal
+            bidPlayerName.textContent = player.eaPlayerName;
+            bidSellerTeamVal.textContent = ownerTeamName;
+            bidAskingPriceVal.textContent = formatCurrency(player.price);
+            bidBalanceVal.textContent = formatCurrency(myTeam.balance);
+            bidAmountInput.value = new Intl.NumberFormat('es-ES').format(player.price);
+            bidForm.setAttribute('data-player-name', player.eaPlayerName);
+            bidForm.setAttribute('data-seller-id', ownerDiscordId);
+            bidModal.classList.add('open');
+        });
+    }
+    
+    const clauseBtn = menu.querySelector('.btn-clause');
+    if (clauseBtn && !clauseBtn.disabled) {
+        clauseBtn.addEventListener('click', () => {
+            menu.classList.remove('open');
+            // Execute clause buyout
+            const pToBuy = {
+                eaPlayerName: player.eaPlayerName,
+                owner: ownerTeamName
+            };
+            executeClausulazo(pToBuy, clauseVal);
+        });
+    }
+    
+    // Show menu
+    menu.classList.add('open');
 }
 
