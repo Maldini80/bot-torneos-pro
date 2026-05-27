@@ -71,6 +71,7 @@ export async function ensureIndexes() {
         await db.collection('scanned_matches').createIndex({ "clubA.clubId": 1 });
         await db.collection('scanned_matches').createIndex({ "clubB.clubId": 1 });
         await db.collection('player_profiles').createIndex({ eaPlayerName: 1 }, { unique: true });
+        await db.collection('player_profiles').createIndex({ vpgLeagueSlug: 1 });
         await db.collection('club_profiles').createIndex({ eaClubId: 1 }, { unique: true });
 
         console.log('[DATABASE] Índices creados/verificados correctamente');

@@ -886,14 +886,18 @@ export async function syncFantasyWithVpg() {
 
         // 4. Recalcular puntos de los equipos Fantasy de cada liga (incremental por alineación)
         updateRebuildStatus({ progress: 'Recalculando puntos de ligas y equipos de Fantasy...' });
-        const leagues = await db.collection('fantasy_leagues').find().toArray();
+        const leagues = await db.collection('fantasy_leagues').find({}, {
+            projection: { pointsMode: 1, basePoints: 1, name: 1 }
+        }).toArray();
         const leaguesMap = {};
         leagues.forEach(l => {
             leaguesMap[l._id.toString()] = l;
         });
 
-        const fantasyTeams = await db.collection('fantasy_teams').find().toArray();
-        for (const fTeam of fantasyTeams) {
+        const teamsCursor = db.collection('fantasy_teams').find({}, {
+            projection: { leagueId: 1, lineup: 1, players: 1, discordId: 1, teamName: 1 }
+        });
+        for await (const fTeam of teamsCursor) {
             const league = leaguesMap[fTeam.leagueId];
             if (!league) continue;
 
@@ -1343,6 +1347,22 @@ export async function generateRandomSquadForTeam(db, leagueId, teamId) {
     const vpgLeagues = leagueDoc.vpgLeagues || [];
     const rawPlayers = await db.collection('player_profiles').find({
         vpgLeagueSlug: { $in: vpgLeagues }
+    }, {
+        projection: {
+            eaPlayerName: 1,
+            manualPosition: 1,
+            lastPosition: 1,
+            manualPrice: 1,
+            vpgLeagueSlug: 1,
+            "stats.vpgPoints": 1,
+            "stats.matchesPlayed": 1,
+            "stats.ratings": 1,
+            "stats.goals": 1,
+            "stats.assists": 1,
+            "stats.cleanSheets": 1,
+            "stats.wins": 1,
+            "stats.losses": 1
+        }
     }).toArray();
 
     // Calculate price for all eligible players
@@ -1527,6 +1547,22 @@ export async function generateMarketFreeAgentsPool(db, leagueDoc, playersCache =
     } else {
         rawPlayers = await db.collection('player_profiles').find({
             vpgLeagueSlug: { $in: vpgLeagues }
+        }, {
+            projection: {
+                eaPlayerName: 1,
+                manualPosition: 1,
+                lastPosition: 1,
+                manualPrice: 1,
+                vpgLeagueSlug: 1,
+                "stats.vpgPoints": 1,
+                "stats.matchesPlayed": 1,
+                "stats.ratings": 1,
+                "stats.goals": 1,
+                "stats.assists": 1,
+                "stats.cleanSheets": 1,
+                "stats.wins": 1,
+                "stats.losses": 1
+            }
         }).toArray();
     }
 
@@ -2101,8 +2137,10 @@ export async function autoResolveVpgPlayerMerges(db, ignoreLimit = false) {
     console.log('[VPG SYNC] [MERGE] Iniciando detección automática de duplicados...');
     const playerColl = db.collection('player_profiles');
     
-    // 1. Obtener todos los perfiles de jugadores activos
-    const players = await playerColl.find({ excluded: { $ne: true } }).toArray();
+    // 1. Obtener perfiles de jugadores activos (solo campos necesarios para detección de duplicados)
+    const players = await playerColl.find({ excluded: { $ne: true } }, {
+        projection: { eaPlayerName: 1, vpgLeagueSlug: 1, vpgProfile: 1 }
+    }).toArray();
     
     // 2. Normalizar e indexar por substrings de 4 caracteres
     const playersList = [];

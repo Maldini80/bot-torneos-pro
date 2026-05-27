@@ -413,17 +413,40 @@ function sendToUser(userId, payload) {
 
 export const visualizerStateHandler = {
     updateDraft: (draft) => {
-        draftStates.set(draft.shortId, draft);
+        // OPTIMIZACIÓN DE MEMORIA: No almacenar drafts finalizados en la caché del WebSocket
+        if (draft.status === 'finalizado' || draft.status === 'cancelado' || draft.status === 'archivado') {
+            draftStates.delete(draft.shortId);
+        } else {
+            draftStates.set(draft.shortId, draft);
+        }
         broadcastUpdate('draft', draft.shortId, draft);
         console.log(`[Visualizer State] Estado de DRAFT actualizado para: ${draft.shortId}`);
     },
     updateTournament: (tournament) => {
-        tournamentStates.set(tournament.shortId, tournament);
+        // OPTIMIZACIÓN DE MEMORIA: No almacenar torneos finalizados en la caché del WebSocket
+        if (tournament.status === 'finalizado' || tournament.status === 'cancelado' || tournament.status === 'archivado') {
+            tournamentStates.delete(tournament.shortId);
+        } else {
+            tournamentStates.set(tournament.shortId, tournament);
+        }
         broadcastUpdate('tournament', tournament.shortId, tournament);
         console.log(`[Visualizer State] Estado de TORNEO actualizado para: ${tournament.shortId}`);
     },
     sendToUser: sendToUser
 };
+
+// OPTIMIZACIÓN DE MEMORIA: Limpieza periódica de estados WS huérfanos (cada 30 minutos)
+setInterval(() => {
+    const FINAL_STATUSES = ['finalizado', 'cancelado', 'archivado'];
+    let cleaned = 0;
+    for (const [id, draft] of draftStates) {
+        if (FINAL_STATUSES.includes(draft.status)) { draftStates.delete(id); cleaned++; }
+    }
+    for (const [id, tournament] of tournamentStates) {
+        if (FINAL_STATUSES.includes(tournament.status)) { tournamentStates.delete(id); cleaned++; }
+    }
+    if (cleaned > 0) console.log(`[MEM] Limpiados ${cleaned} estados WS finalizados. Drafts: ${draftStates.size}, Torneos: ${tournamentStates.size}`);
+}, 30 * 60 * 1000);
 
 // Export was previously setVisualizerClient, now removed.
 
@@ -4753,6 +4776,22 @@ export async function startVisualizerServer(discordClient) {
     const userCache = new Map();
     const USER_CACHE_TTL = 1000 * 60 * 60; // 1 hour
 
+    // OPTIMIZACIÓN DE MEMORIA: Limpiar entradas expiradas de cachés VPG cada 30 minutos
+    setInterval(() => {
+        const now = Date.now();
+        let evicted = 0;
+        for (const [key, val] of userCache) {
+            if (now > val.expiry) { userCache.delete(key); evicted++; }
+        }
+        for (const [key, val] of userContractsCache) {
+            if (now > val.expiry) { userContractsCache.delete(key); evicted++; }
+        }
+        for (const [key, val] of tableCache) {
+            if (now > val.expiry) { tableCache.delete(key); evicted++; }
+        }
+        if (evicted > 0) console.log(`[MEM] Limpiadas ${evicted} entradas VPG expiradas. User: ${userCache.size}, Contracts: ${userContractsCache.size}, Tables: ${tableCache.size}`);
+    }, 30 * 60 * 1000);
+
     async function fetchUserDetail(username) {
         const cached = userCache.get(username.toLowerCase());
         if (cached && Date.now() < cached.expiry) {
@@ -6768,7 +6807,10 @@ export async function startVisualizerServer(discordClient) {
                 return res.status(400).json({ error: 'El reseteo de puntos iniciales solo está disponible en ligas de modo ZERO.' });
             }
 
-            const players = await db.collection('player_profiles').find({ "stats.vpgPoints": { $exists: true } }).toArray();
+            const players = await db.collection('player_profiles').find(
+                { "stats.vpgPoints": { $exists: true } },
+                { projection: { eaPlayerName: 1, "stats.vpgPoints": 1 } }
+            ).toArray();
             const newBasePoints = {};
             for (const p of players) {
                 if (p.eaPlayerName) {
@@ -7171,7 +7213,28 @@ export async function startVisualizerServer(discordClient) {
                 };
             }
 
-            const rawPlayers = await db.collection('player_profiles').find(playerQuery).toArray();
+            const rawPlayers = await db.collection('player_profiles').find(playerQuery, {
+                projection: {
+                    eaPlayerName: 1,
+                    lastClub: 1,
+                    manualPosition: 1,
+                    lastPosition: 1,
+                    manualPrice: 1,
+                    vpgLeagueSlug: 1,
+                    avatar: 1,
+                    nationality: 1,
+                    user_nationality: 1,
+                    vpgTeamSlug: 1,
+                    "stats.vpgPoints": 1,
+                    "stats.matchesPlayed": 1,
+                    "stats.ratings": 1,
+                    "stats.goals": 1,
+                    "stats.assists": 1,
+                    "stats.cleanSheets": 1,
+                    "stats.wins": 1,
+                    "stats.losses": 1
+                }
+            }).toArray();
 
             // Fetch team logos from test db
             const testDb = getDb('test');
@@ -9081,7 +9144,10 @@ export async function startVisualizerServer(discordClient) {
             }
 
             // Fetch current VPG points for all players
-            const players = await db.collection('player_profiles').find({ "stats.vpgPoints": { $exists: true } }).toArray();
+            const players = await db.collection('player_profiles').find(
+                { "stats.vpgPoints": { $exists: true } },
+                { projection: { eaPlayerName: 1, "stats.vpgPoints": 1 } }
+            ).toArray();
             const newBasePoints = {};
             for (const p of players) {
                 if (p.eaPlayerName) {

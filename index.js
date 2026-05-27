@@ -52,9 +52,9 @@ client.once(Events.ClientReady, async readyClient => {
 
         const guild = readyClient.guilds.cache.get(process.env.GUILD_ID);
         if (guild) {
-            console.log('[CACHE] Forzando la carga de la lista de miembros del servidor...');
-            const members = await guild.members.fetch({});
-            console.log(`[CACHE] Carga completa. ${members.size} miembros están ahora en la caché.`);
+            // OPTIMIZACIÓN DE MEMORIA: Eliminada la carga masiva de miembros (guild.members.fetch({}))
+            // que consumía ~200-400 MB de RAM. Los miembros se obtienen individualmente bajo demanda.
+            console.log('[CACHE] Guild encontrado. Los miembros se cargarán bajo demanda.');
 
             // AUTO-ROLE SYNC: Sync roles for verified users in database
             try {
