@@ -1358,12 +1358,13 @@ function renderLeaguesList(filterText = '') {
         card.className = 'league-card';
         
         const gradientInfo = getLeagueGradientInfo(league.vpgLeagues);
+        let divisionBadgeHtml = '';
         if (gradientInfo) {
             card.style.setProperty('--card-gradient', gradientInfo.bg);
             card.style.setProperty('--card-accent', gradientInfo.accent);
             card.setAttribute('data-division-icon', gradientInfo.icon);
-            card.setAttribute('data-division-label', gradientInfo.label);
             card.classList.add('has-cover');
+            divisionBadgeHtml = `<span class="division-badge">${gradientInfo.label}</span>`;
         }
         
         let statusBadge = '';
@@ -1407,9 +1408,12 @@ function renderLeaguesList(filterText = '') {
         }
 
         card.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div class="league-card-header">
                 <h3>${league.name}${lockIcon}</h3>
-                ${statusBadge}
+                <div class="league-card-badges">
+                    ${divisionBadgeHtml}
+                    ${statusBadge}
+                </div>
             </div>
             <div class="league-meta">
                 <div><i class="fa-solid fa-users"></i> <span>Mánagers: ${league.participantCount} / ${league.maxParticipants}</span></div>
