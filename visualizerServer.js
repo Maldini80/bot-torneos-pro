@@ -7715,6 +7715,15 @@ export async function startVisualizerServer(discordClient) {
                     }
                 );
 
+                // Si la nueva lógica de puntos está activa, actualizamos sus basePoints en la liga con sus puntos actuales de VPG
+                if (process.env.USE_NEW_POINTS_LOGIC === 'true') {
+                    const currentVpgPoints = player ? calculatePlayerPointsAndPrice(player).points : 0;
+                    await db.collection('fantasy_leagues').updateOne(
+                        { _id: new ObjectId(leagueId) },
+                        { $set: { [`basePoints.${eaPlayerName}`]: currentVpgPoints } }
+                    );
+                }
+
                 // 3. Clean up listings and bids
                 await db.collection('fantasy_market_listings').deleteMany({ leagueId, eaPlayerName });
                 

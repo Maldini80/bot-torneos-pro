@@ -151,13 +151,28 @@ export function calculatePlayerPointsAndPrice(p) {
     return { price, points, avgRating };
 }
 
-export function computeUpdatedStats(existingPlayer, crawledStats, crawledTeamSlug) {
+export function computeUpdatedStats(existingPlayer, crawledStats, crawledTeamSlug, crawledLeagueSlug) {
     const pSlugNormalized = String(crawledTeamSlug || '').toLowerCase().trim();
     const dbSlugNormalized = String(existingPlayer.vpgTeamSlug || '').toLowerCase().trim();
-    const hasTransferred = dbSlugNormalized && pSlugNormalized && dbSlugNormalized !== pSlugNormalized;
 
-    // Si ha transferido, no usamos lastRaw (baseline = 0)
-    const lastRaw = hasTransferred ? {} : (existingPlayer.stats?.vpgLastRaw || existingPlayer.stats || {});
+    // Usar vpgLastRawPerLeague para obtener la baseline POR LIGA.
+    // Esto evita el bug de duplicación cuando un jugador juega en dos ligas VPG simultáneamente
+    // (ej: superliga-spain-a y superliga-spain-b con equipos distintos).
+    const perLeagueRaw = existingPlayer.stats?.vpgLastRawPerLeague || {};
+    let lastRaw;
+
+    if (crawledLeagueSlug && perLeagueRaw[crawledLeagueSlug]) {
+        // Tenemos baseline específica para esta liga → usarla (caso normal, multi-liga incluido)
+        lastRaw = perLeagueRaw[crawledLeagueSlug];
+    } else if (crawledLeagueSlug && Object.keys(perLeagueRaw).length > 0) {
+        // Primera vez que vemos esta liga pero ya teníamos otras → baseline = 0 (nuevo fichaje/traspaso)
+        lastRaw = {};
+    } else {
+        // Migración: no hay perLeagueRaw → usar el vpgLastRaw plano antiguo
+        // Pero detectar traspasos reales (mismo equipo diferente slug sin multi-liga)
+        const hasTransferred = dbSlugNormalized && pSlugNormalized && dbSlugNormalized !== pSlugNormalized;
+        lastRaw = hasTransferred ? {} : (existingPlayer.stats?.vpgLastRaw || existingPlayer.stats || {});
+    }
 
     const deltaPoints = Math.max(0, Math.round(((parseFloat(crawledStats.vpgPoints) || 0) - (parseFloat(lastRaw.vpgPoints) || 0)) * 10) / 10);
     const deltaMatches = Math.max(0, (parseInt(crawledStats.matchesPlayed) || 0) - (parseInt(lastRaw.matchesPlayed) || 0));
@@ -173,6 +188,27 @@ export function computeUpdatedStats(existingPlayer, crawledStats, crawledTeamSlu
     const deltaTies = Math.max(0, (parseInt(crawledStats.ties) || 0) - (parseInt(lastRaw.ties) || 0));
 
     const avgRating = (crawledStats.ratings && crawledStats.ratings.length > 0) ? crawledStats.ratings[0] : 6.0;
+
+    const newRawEntry = {
+        matchesPlayed: parseInt(crawledStats.matchesPlayed) || 0,
+        goals: parseInt(crawledStats.goals) || 0,
+        assists: parseInt(crawledStats.assists) || 0,
+        shots: parseInt(crawledStats.shots) || 0,
+        saves: parseInt(crawledStats.saves) || 0,
+        redCards: parseInt(crawledStats.redCards) || 0,
+        yellowCards: parseInt(crawledStats.yellowCards) || 0,
+        cleanSheets: parseInt(crawledStats.cleanSheets) || 0,
+        wins: parseInt(crawledStats.wins) || 0,
+        losses: parseInt(crawledStats.losses) || 0,
+        ties: parseInt(crawledStats.ties) || 0,
+        vpgPoints: parseFloat(crawledStats.vpgPoints) || 0
+    };
+
+    // Actualizar el mapa per-league con la nueva raw entry
+    const updatedPerLeagueRaw = { ...perLeagueRaw };
+    if (crawledLeagueSlug) {
+        updatedPerLeagueRaw[crawledLeagueSlug] = newRawEntry;
+    }
 
     return {
         matchesPlayed: (existingPlayer.stats?.matchesPlayed || 0) + deltaMatches,
@@ -196,20 +232,8 @@ export function computeUpdatedStats(existingPlayer, crawledStats, crawledTeamSlu
         losses: (existingPlayer.stats?.losses || 0) + deltaLosses,
         ties: (existingPlayer.stats?.ties || 0) + deltaTies,
         vpgPoints: Math.round(((existingPlayer.stats?.vpgPoints || 0) + deltaPoints) * 10) / 10,
-        vpgLastRaw: {
-            matchesPlayed: parseInt(crawledStats.matchesPlayed) || 0,
-            goals: parseInt(crawledStats.goals) || 0,
-            assists: parseInt(crawledStats.assists) || 0,
-            shots: parseInt(crawledStats.shots) || 0,
-            saves: parseInt(crawledStats.saves) || 0,
-            redCards: parseInt(crawledStats.redCards) || 0,
-            yellowCards: parseInt(crawledStats.yellowCards) || 0,
-            cleanSheets: parseInt(crawledStats.cleanSheets) || 0,
-            wins: parseInt(crawledStats.wins) || 0,
-            losses: parseInt(crawledStats.losses) || 0,
-            ties: parseInt(crawledStats.ties) || 0,
-            vpgPoints: parseFloat(crawledStats.vpgPoints) || 0
-        }
+        vpgLastRaw: newRawEntry,
+        vpgLastRawPerLeague: updatedPerLeagueRaw
     };
 }
 
@@ -671,7 +695,7 @@ export async function syncFantasyWithVpg() {
                     }
 
                     const crawledStats = JSON.parse(JSON.stringify(updateData.stats || {}));
-                    updateData.stats = computeUpdatedStats(existingPlayer, crawledStats, updateData.vpgTeamSlug);
+                    updateData.stats = computeUpdatedStats(existingPlayer, crawledStats, updateData.vpgTeamSlug, leagueSlug);
                     await playerColl.updateOne(
                         { _id: existingPlayer._id },
                         { $set: updateData }
@@ -705,7 +729,7 @@ export async function syncFantasyWithVpg() {
 
                             // 1. Actualizar perfil antiguo con el nuevo nombre y datos
                             const crawledStats = JSON.parse(JSON.stringify(updateData.stats || {}));
-                            updateData.stats = computeUpdatedStats(oldPlayer, crawledStats, updateData.vpgTeamSlug);
+                            updateData.stats = computeUpdatedStats(oldPlayer, crawledStats, updateData.vpgTeamSlug, leagueSlug);
                             await playerColl.updateOne(
                                 { _id: oldPlayer._id },
                                 { 
@@ -907,7 +931,13 @@ export async function syncFantasyWithVpg() {
 
             for (const playerName of effectivePlayers) {
                 const isStarter = playerStartersStatus[playerName.toLowerCase()] || false;
-                if (!isStarter) continue; // Solo puntúan los titulares
+                
+                // Con la lógica antigua, nos saltábamos los suplentes de inmediato.
+                // Con la nueva, procesamos a todos los jugadores del equipo para actualizar sus bases,
+                // pero solo sumamos el delta del jugador si es titular.
+                if (process.env.USE_NEW_POINTS_LOGIC !== 'true' && !isStarter) {
+                    continue;
+                }
 
                 const player = await playerColl.findOne({ 
                     eaPlayerName: { $regex: new RegExp('^' + playerName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i') } 
@@ -950,7 +980,33 @@ export async function syncFantasyWithVpg() {
                     }
 
                     const playerDelta = Math.max(0, Math.round((newLeaguePoints - oldLeaguePoints) * 10) / 10);
-                    teamDeltaPoints += playerDelta;
+                    
+                    if (process.env.USE_NEW_POINTS_LOGIC === 'true') {
+                        // 1. Registrar en el historial de jornadas de fantasía
+                        await db.collection('fantasy_player_history').insertOne({
+                            playerName: player.eaPlayerName,
+                            leagueId: fTeam.leagueId,
+                            teamId: fTeam._id.toString(),
+                            points: playerDelta,
+                            wasStarter: isStarter,
+                            createdAt: new Date()
+                        });
+
+                        // 2. Sincronizar la base de puntos de la liga al total VPG de hoy para evitar arrastre de puntos
+                        await db.collection('fantasy_leagues').updateOne(
+                            { _id: league._id },
+                            { $set: { [`basePoints.${player.eaPlayerName}`]: newVpgPoints } }
+                        );
+                        league.basePoints[player.eaPlayerName] = newVpgPoints;
+
+                        // 3. Solo sumamos los puntos al equipo si el jugador es Titular
+                        if (isStarter) {
+                            teamDeltaPoints += playerDelta;
+                        }
+                    } else {
+                        // Lógica tradicional: sumábamos siempre porque solo procesábamos titulares arriba
+                        teamDeltaPoints += playerDelta;
+                    }
                 }
             }
 
@@ -1714,6 +1770,15 @@ export async function resolveFreeAgentBids(db, leagueDoc, playerLookupMap = null
                     }
                 }
             );
+
+            // Si la nueva lógica de puntos está activa, inicializamos sus basePoints en la liga con sus puntos actuales de VPG
+            if (process.env.USE_NEW_POINTS_LOGIC === 'true') {
+                const currentVpgPoints = playerDoc ? calculatePlayerPointsAndPrice(playerDoc).points : 0;
+                await db.collection('fantasy_leagues').updateOne(
+                    { _id: new ObjectId(leagueId) },
+                    { $set: { [`basePoints.${winnerBid.eaPlayerName}`]: currentVpgPoints } }
+                );
+            }
 
             // Marcar puja ganadora como aceptada
             await db.collection('fantasy_market_bids').updateOne(
