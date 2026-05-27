@@ -5790,13 +5790,23 @@ function showPlayerContextMenu(event, player, ownerTeamName, ownerDiscordId, cla
     
     const isLocked = isBuyoutLocked();
     const isMyOwn = currentUser && (ownerDiscordId === currentUser.discordId);
+    const isSpectator = !!myTeam.isSpectator;
+    
+    let clauseTitle = '';
+    if (isSpectator) {
+        clauseTitle = 'No puedes realizar operaciones en modo lectura';
+    } else if (isProtected) {
+        clauseTitle = 'Protegido por cláusula reciente';
+    } else if (isLocked) {
+        clauseTitle = 'Clausulazos bloqueados temporalmente';
+    }
     
     // Add custom buttons
     menu.innerHTML = `
-        <button class="player-context-item btn-bid" ${isMyOwn ? 'disabled' : ''}>
+        <button class="player-context-item btn-bid" ${isMyOwn || isSpectator ? 'disabled' : ''} title="${isSpectator ? 'No puedes pujar en modo lectura' : ''}">
             <i class="fa-solid fa-gavel"></i> Pujar
         </button>
-        <button class="player-context-item btn-clause" ${isMyOwn || isProtected || isLocked ? 'disabled' : ''} title="${isProtected ? 'Protegido por cláusula reciente' : (isLocked ? 'Clausulazos bloqueados temporalmente' : '')}">
+        <button class="player-context-item btn-clause" ${isMyOwn || isProtected || isLocked || isSpectator ? 'disabled' : ''} title="${clauseTitle}">
             <i class="fa-solid fa-bolt"></i> Clausulazo (${formatCurrency(clauseVal)})
         </button>
     `;
@@ -5808,7 +5818,7 @@ function showPlayerContextMenu(event, player, ownerTeamName, ownerDiscordId, cla
     
     // Bind action listeners
     const bidBtn = menu.querySelector('.btn-bid');
-    if (bidBtn) {
+    if (bidBtn && !bidBtn.disabled) {
         bidBtn.addEventListener('click', () => {
             menu.classList.remove('open');
             // Open bidding modal
