@@ -165,8 +165,8 @@ export function computeUpdatedStats(existingPlayer, crawledStats, crawledTeamSlu
         // Tenemos baseline específica para esta liga → usarla (caso normal, multi-liga incluido)
         lastRaw = perLeagueRaw[crawledLeagueSlug];
     } else if (crawledLeagueSlug && Object.keys(perLeagueRaw).length > 0) {
-        // Primera vez que vemos esta liga pero ya teníamos otras → baseline = 0 (nuevo fichaje/traspaso)
-        lastRaw = {};
+        // Primera vez que vemos esta liga pero ya teníamos otras → inicializar baseline a los puntos de hoy para que el delta sea 0
+        lastRaw = crawledStats;
     } else {
         // Migración: no hay perLeagueRaw → usar el vpgLastRaw plano antiguo
         // Pero detectar traspasos reales (mismo equipo diferente slug sin multi-liga)
