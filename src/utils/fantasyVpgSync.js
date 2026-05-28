@@ -1751,37 +1751,28 @@ export async function generateMarketFreeAgentsPool(db, leagueDoc, playersCache =
         return selected;
     };
 
-    // Select at least 5 from each position (POR, DFC, MC, DC) -> 20 players total
+    // Dynamic market size from league doc (defaults to 30)
+    const N = leagueDoc.marketSize || 30;
+
+    // Calculate minimum counts proportionally
+    const minCounts = {
+        POR: Math.max(1, Math.floor(N * 0.15)),
+        DFC: Math.max(1, Math.floor(N * 0.30)),
+        MC: Math.max(1, Math.floor(N * 0.35)),
+        DC: Math.max(1, Math.floor(N * 0.20))
+    };
+
     const finalSelection = [];
-    const minCounts = { POR: 5, DFC: 5, MC: 5, DC: 5 };
-    
     for (const pos of ['POR', 'DFC', 'MC', 'DC']) {
         const picked = selectForPosition(pos, minCounts[pos]);
         finalSelection.push(...picked);
     }
 
-    // Pick 10 more to reach exactly 30 players
-    const selectedNames = new Set(finalSelection.map(p => p.eaPlayerName.toLowerCase()));
-    const remainingPool = freeAgents.filter(p => !selectedNames.has(p.eaPlayerName.toLowerCase()));
-
-    const remainingByPos = { POR: [], DFC: [], MC: [], DC: [] };
-    remainingPool.forEach(p => {
-        const mainPos = mapPositionToMain(p.lastPosition);
-        remainingByPos[mainPos].push(p);
-    });
-
-    const extraDistribution = { POR: 2, DFC: 3, MC: 3, DC: 2 };
-    for (const pos of ['POR', 'DFC', 'MC', 'DC']) {
-        const needed = extraDistribution[pos];
-        const posPool = remainingByPos[pos] || [];
-        const picked = posPool.sort(() => 0.5 - Math.random()).slice(0, needed);
-        finalSelection.push(...picked);
-    }
-
-    if (finalSelection.length < 30) {
+    // Fill remaining up to exactly N players from remaining free agents
+    if (finalSelection.length < N) {
         const currentSelectedNames = new Set(finalSelection.map(p => p.eaPlayerName.toLowerCase()));
         const absoluteRemaining = freeAgents.filter(p => !currentSelectedNames.has(p.eaPlayerName.toLowerCase()));
-        const extraPicks = absoluteRemaining.sort(() => 0.5 - Math.random()).slice(0, 30 - finalSelection.length);
+        const extraPicks = absoluteRemaining.sort(() => 0.5 - Math.random()).slice(0, N - finalSelection.length);
         finalSelection.push(...extraPicks);
     }
 
@@ -1791,7 +1782,7 @@ export async function generateMarketFreeAgentsPool(db, leagueDoc, playersCache =
         { $set: { marketFreeAgents: finalNames } }
     );
 
-    console.log(`[MARKET] Generados 30 agentes libres para la liga ${leagueDoc.name}:`, finalNames);
+    console.log(`[MARKET] Generados ${N} agentes libres para la liga ${leagueDoc.name}:`, finalNames);
     return finalNames;
 }
 

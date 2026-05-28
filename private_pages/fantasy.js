@@ -889,6 +889,87 @@ function setupEventHandlers() {
     joinLeagueForm.addEventListener('submit', handleJoinLeagueSubmit);
     adminUpdateLeagueForm.addEventListener('submit', handleUpdateLeagueSubmit);
 
+    // Formulario de Ajuste Manual de Puntos
+    const adminAdjustPointsForm = document.getElementById('admin-adjust-points-form');
+    if (adminAdjustPointsForm) {
+        adminAdjustPointsForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const teamId = document.getElementById('adjust-points-team-select').value;
+            const action = document.getElementById('adjust-points-action').value;
+            const pointsVal = parseFloat(document.getElementById('adjust-points-value').value);
+            const reason = document.getElementById('adjust-points-reason').value.trim();
+
+            if (!teamId) {
+                showToast('Por favor, selecciona un equipo.', 'error');
+                return;
+            }
+            if (isNaN(pointsVal)) {
+                showToast('Por favor, ingresa un valor de puntos válido.', 'error');
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/teams/${teamId}/points`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ points: pointsVal, action, reason })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(data.message || 'Puntos ajustados correctamente.', 'success');
+                    document.getElementById('adjust-points-value').value = '';
+                    document.getElementById('adjust-points-reason').value = '';
+                    // Recargar datos para ver la clasificación y puntos actualizados
+                    loadAdminPanelData();
+                    if (typeof loadLeaderboard === 'function') loadLeaderboard();
+                } else {
+                    showToast(data.error || 'Error al ajustar puntos.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Error de red al conectar con el servidor.', 'error');
+            }
+        });
+    }
+
+    // Formulario de Tamaño del Mercado
+    const adminMarketSizeForm = document.getElementById('admin-market-size-form');
+    if (adminMarketSizeForm) {
+        adminMarketSizeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const marketSize = parseInt(document.getElementById('admin-market-size-value').value, 10);
+            if (isNaN(marketSize) || marketSize < 5 || marketSize > 150) {
+                showToast('El tamaño del mercado debe estar entre 5 y 150.', 'error');
+                return;
+            }
+
+            const confirmRegen = confirm('¿Estás seguro de cambiar el tamaño del mercado? Esto cancelará y reembolsará todas las pujas pendientes e iniciará una nueva tanda de jugadores libres de forma inmediata.');
+            if (!confirmRegen) return;
+
+            try {
+                const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/market-size`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ marketSize })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    showToast(data.message || 'Tamaño del mercado actualizado y mercado regenerado.', 'success');
+                    loadAdminPanelData();
+                    // Refrescar el mercado en la UI
+                    if (typeof loadMarketPlayers === 'function') loadMarketPlayers();
+                } else {
+                    showToast(data.error || 'Error al actualizar el mercado.', 'error');
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Error de red al conectar con el servidor.', 'error');
+            }
+        });
+    }
+
     // NUEVO: Guardar configuración de horarios (Schedules)
     const adminSchedulesForm = document.getElementById('admin-schedules-form');
     if (adminSchedulesForm) {
@@ -3499,6 +3580,33 @@ async function loadAdminPanelData() {
         if (!res.ok) throw new Error('No se pudieron obtener los participantes.');
         const data = await res.json();
         const teams = data.teams || [];
+
+        // Populate adjust points team select dropdown
+        const teamSelect = document.getElementById('adjust-points-team-select');
+        if (teamSelect) {
+            teamSelect.innerHTML = '<option value="">-- Seleccionar Equipo --</option>';
+            teams.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t._id;
+                opt.textContent = `${t.teamName} (${t.discordUsername})`;
+                teamSelect.appendChild(opt);
+            });
+        }
+
+        // Show/hide market size settings for global admin/referee only
+        const isGlobalAdminOrReferee = currentUser && (currentUser.isAdmin || (Array.isArray(currentUser.roles) && currentUser.roles.includes('1393505777443930183')));
+        const marketSizeSection = document.getElementById('admin-market-size-section');
+        if (marketSizeSection) {
+            if (isGlobalAdminOrReferee) {
+                marketSizeSection.style.display = 'block';
+                const marketSizeValueInput = document.getElementById('admin-market-size-value');
+                if (marketSizeValueInput) {
+                    marketSizeValueInput.value = activeLeague.marketSize || 30;
+                }
+            } else {
+                marketSizeSection.style.display = 'none';
+            }
+        }
         
         adminParticipantsList.innerHTML = '';
         
@@ -5767,6 +5875,73 @@ async function openPlayerStatsModalByName(playerName) {
     `;
 
     playerStatsModal.classList.add('open');
+
+    // Fetch and display player points history
+    const historySection = document.getElementById('player-history-section');
+    const historyList = document.getElementById('player-history-list');
+    if (historySection && historyList) {
+        historySection.style.display = 'none'; // hide by default
+        historyList.innerHTML = '<div style="text-align: center; color: #64748b; font-size: 0.8rem; padding: 10px;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando historial...</div>';
+
+        if (currentLeagueId) {
+            try {
+                const res = await fetch(`/api/fantasy/players/${encodeURIComponent(p.eaPlayerName)}/history?leagueId=${currentLeagueId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const history = data.history || [];
+                    if (history.length > 0) {
+                        historyList.innerHTML = '';
+                        historySection.style.display = 'block';
+                        history.forEach(item => {
+                            const dateStr = new Date(item.date).toLocaleDateString('es-ES', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
+                            });
+                            
+                            const alignBadge = item.wasStarter
+                                ? '<span style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); font-weight: 600;">Titular</span>'
+                                : '<span style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.2); font-weight: 600;">Suplente</span>';
+
+                            const itemEl = document.createElement('div');
+                            itemEl.style.cssText = `
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                padding: 8px 10px;
+                                background: rgba(30, 41, 59, 0.5);
+                                border: 1px solid rgba(255,255,255,0.03);
+                                border-radius: 8px;
+                                font-size: 0.8rem;
+                                width: 100%;
+                                box-sizing: border-box;
+                            `;
+                            
+                            itemEl.innerHTML = `
+                                <div style="display: flex; flex-direction: column; gap: 3px;">
+                                    <div style="font-weight: 600; color: #f8fafc; text-align: left;">${item.teamName}</div>
+                                    <div style="font-size: 0.7rem; color: #64748b; text-align: left;">${dateStr}</div>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    ${alignBadge}
+                                    <span style="font-weight: 700; color: #facc15; font-size: 0.85rem;">+${Math.round(item.points * 10) / 10} pts</span>
+                                </div>
+                            `;
+                            historyList.appendChild(itemEl);
+                        });
+                    } else {
+                        historyList.innerHTML = '<div style="text-align: center; color: #64748b; font-size: 0.8rem; padding: 10px;">Sin historial de jornadas en esta liga.</div>';
+                        historySection.style.display = 'block';
+                    }
+                } else {
+                    historySection.style.display = 'none';
+                }
+            } catch (err) {
+                console.error('Error fetching player history:', err);
+                historySection.style.display = 'none';
+            }
+        }
+    }
 }
 
 window.openPlayerStatsModalByName = openPlayerStatsModalByName;

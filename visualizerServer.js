@@ -6685,6 +6685,64 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
+    // Adjust team points manually (admin/referee only)
+    app.post('/api/fantasy/leagues/:id/teams/:teamId/points', isAuthenticated, canAdminLeague, async (req, res) => {
+        try {
+            const { points, action, reason } = req.body;
+            const numPoints = parseFloat(points);
+            if (isNaN(numPoints)) {
+                return res.status(400).json({ error: 'Puntos no válidos.' });
+            }
+            const db = getDb();
+            const teamId = req.params.teamId;
+            const leagueId = req.params.id;
+
+            const team = await db.collection('fantasy_teams').findOne({ _id: new ObjectId(teamId), leagueId });
+            if (!team) return res.status(404).json({ error: 'Equipo no encontrado.' });
+
+            let newPoints;
+            if (action === 'set') {
+                newPoints = Math.round(numPoints * 10) / 10;
+            } else {
+                newPoints = Math.round((team.points + numPoints) * 10) / 10;
+            }
+
+            await db.collection('fantasy_teams').updateOne(
+                { _id: new ObjectId(teamId) },
+                { $set: { points: newPoints } }
+            );
+
+            // Registrar noticia de ajuste de puntos en el feed de la liga
+            try {
+                const { logFantasyNews } = await import('./src/utils/fantasyNewsLogger.js');
+                const adminName = req.user.username || 'Admin';
+                const reasonText = reason ? ` (Razón: ${reason})` : '';
+                let newsMsg = `📢 **Ajuste de Puntos**: El administrador **${adminName}** ha establecido los puntos de **${team.teamName}** en **${newPoints} pts**${reasonText}.`;
+                if (action !== 'set') {
+                    const diffSign = numPoints >= 0 ? '+' : '';
+                    newsMsg = `📢 **Ajuste de Puntos**: El administrador **${adminName}** ha modificado en **${diffSign}${numPoints} pts** a **${team.teamName}** (Nuevo total: **${newPoints} pts**)${reasonText}.`;
+                }
+                await logFantasyNews(leagueId, 'admin_action', newsMsg, {
+                    teamName: team.teamName,
+                    points: newPoints,
+                    adjustment: numPoints,
+                    action,
+                    reason
+                });
+            } catch (newsErr) {
+                console.error('[API Adjust Points] Error registering news:', newsErr.message);
+            }
+
+            res.json({
+                success: true,
+                message: `Puntos de ${team.teamName} actualizados a ${newPoints} pts.`
+            });
+        } catch (e) {
+            console.error('[API Adjust Points] Error:', e);
+            res.status(500).json({ error: 'Error al ajustar los puntos.' });
+        }
+    });
+
     // Add player to team manually (admin/referee only)
     app.post('/api/fantasy/leagues/:id/teams/:teamId/players/add', isAuthenticated, canAdminLeague, async (req, res) => {
         try {
@@ -7413,6 +7471,145 @@ export async function startVisualizerServer(discordClient) {
         } catch (e) {
             console.error('[API Fantasy Players] Error:', e);
             res.status(500).json({ error: 'Error al obtener los jugadores.' });
+        }
+    });
+
+    // Get player points history (gameweek-by-gameweek)
+    app.get('/api/fantasy/players/:playerName/history', isAuthenticated, async (req, res) => {
+        try {
+            const db = getDb();
+            const { leagueId } = req.query;
+            const { playerName } = req.params;
+
+            if (!leagueId) {
+                return res.status(400).json({ error: 'Falta el parámetro leagueId.' });
+            }
+
+            // Simple regex match for case-insensitive exact name comparison
+            const escapedName = playerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const query = {
+                playerName: { $regex: new RegExp("^" + escapedName + "$", "i") },
+                $or: [
+                    { leagueId: leagueId },
+                    { leagueId: new ObjectId(leagueId) }
+                ]
+            };
+
+            const historyDocs = await db.collection('fantasy_player_history')
+                .find(query)
+                .sort({ createdAt: 1 })
+                .toArray();
+
+            // Fetch team names for lookup
+            const teamIds = [...new Set(historyDocs.map(h => h.teamId).filter(Boolean))];
+            const teamMap = {};
+            if (teamIds.length > 0) {
+                const objIds = teamIds.map(id => ObjectId.isValid(id) ? new ObjectId(id) : null).filter(Boolean);
+                const teams = await db.collection('fantasy_teams').find({
+                    $or: [
+                        { _id: { $in: objIds } },
+                        { _id: { $in: teamIds.map(id => id.toString()) } }
+                    ]
+                }).toArray();
+                teams.forEach(t => {
+                    teamMap[t._id.toString()] = t.teamName;
+                });
+            }
+
+            const history = historyDocs.map(h => ({
+                points: h.points,
+                wasStarter: h.wasStarter,
+                teamName: teamMap[h.teamId] || 'Libre / Desconocido',
+                date: h.createdAt
+            }));
+
+            res.json({ history });
+        } catch (e) {
+            console.error('[API Player History] Error:', e);
+            res.status(500).json({ error: 'Error al obtener el historial del jugador.' });
+        }
+    });
+
+    // Configure market size (referees and global admins only)
+    app.post('/api/fantasy/leagues/:id/market-size', isAuthenticated, async (req, res) => {
+        try {
+            const isAdmin = req.user.id === process.env.OWNER_DISCORD_ID;
+            const isReferee = Array.isArray(req.user.roles) && req.user.roles.includes('1393505777443930183');
+            if (!isAdmin && !isReferee) {
+                return res.status(403).json({ error: 'Solo los administradores globales o árbitros pueden modificar el tamaño del mercado.' });
+            }
+
+            const { marketSize } = req.body;
+            const size = parseInt(marketSize, 10);
+            if (isNaN(size) || size < 5 || size > 150) {
+                return res.status(400).json({ error: 'El tamaño de mercado debe ser un número entero entre 5 y 150.' });
+            }
+
+            const db = getDb();
+            const leagueId = req.params.id;
+
+            const league = await db.collection('fantasy_leagues').findOne({ _id: new ObjectId(leagueId) });
+            if (!league) {
+                return res.status(404).json({ error: 'Liga no encontrada.' });
+            }
+
+            // Update marketSize in league Doc
+            await db.collection('fantasy_leagues').updateOne(
+                { _id: league._id },
+                { $set: { marketSize: size } }
+            );
+
+            // Refund and cancel all pending bids on the market free agents
+            const marketAgents = league.marketFreeAgents || [];
+            if (marketAgents.length > 0) {
+                const bidsToRefund = await db.collection('fantasy_market_bids').find({
+                    leagueId: leagueId,
+                    eaPlayerName: { $in: marketAgents },
+                    status: 'pending'
+                }).toArray();
+
+                for (const bid of bidsToRefund) {
+                    // Refund to bidder
+                    await db.collection('fantasy_teams').updateOne(
+                        { leagueId: leagueId, discordId: bid.bidderDiscordId },
+                        { $inc: { budget: bid.bidAmount } }
+                    );
+
+                    // Set bid status to rejected
+                    await db.collection('fantasy_market_bids').updateOne(
+                        { _id: bid._id },
+                        { $set: { status: 'rejected' } }
+                    );
+
+                    console.log(`[MARKET_SIZE_CHANGE] Reembolsados ${bid.bidAmount} € a ${bid.bidderDiscordId} por puja cancelada en ${bid.eaPlayerName} (cambio de tamaño de mercado)`);
+                }
+            }
+
+            // Regenerate the market free agents pool
+            const updatedLeagueDoc = await db.collection('fantasy_leagues').findOne({ _id: league._id });
+            const newMarketPool = await generateMarketFreeAgentsPool(db, updatedLeagueDoc);
+
+            // Registrar noticia de cambio de tamaño y regeneración
+            try {
+                const { logFantasyNews } = await import('./src/utils/fantasyNewsLogger.js');
+                const adminName = req.user.username || 'Admin';
+                const newsMsg = `⚙️ **Ajuste de Mercado**: El administrador **${adminName}** ha configurado el tamaño del mercado diario en **${size} jugadores**. El mercado libre ha sido regenerado y todas las pujas pendientes han sido devueltas.`;
+                await logFantasyNews(leagueId, 'admin_action', newsMsg, {
+                    size,
+                    adminName
+                });
+            } catch (newsErr) {
+                console.error('[API Market Size] Error registering news:', newsErr.message);
+            }
+
+            res.json({
+                success: true,
+                message: `Tamaño del mercado actualizado a ${size} y mercado regenerado correctamente.`,
+                marketFreeAgents: newMarketPool
+            });
+        } catch (e) {
+            console.error('[API Market Size] Error:', e);
+            res.status(500).json({ error: 'Error al actualizar el tamaño del mercado.' });
         }
     });
 
