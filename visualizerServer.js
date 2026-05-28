@@ -7497,7 +7497,7 @@ export async function startVisualizerServer(discordClient) {
 
             const historyDocs = await db.collection('fantasy_player_history')
                 .find(query)
-                .sort({ createdAt: 1 })
+                .sort({ createdAt: -1 })
                 .toArray();
 
             // Fetch team names for lookup
