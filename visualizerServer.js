@@ -7362,7 +7362,12 @@ export async function startVisualizerServer(discordClient) {
                         ).catch(err => console.error('Error saving basePoints:', err));
                         leagueDoc.basePoints[p.eaPlayerName] = base;
                     }
-                    points = Math.max(0, Math.round((rawPoints - base) * 10) / 10);
+                    const owner = ownerMap[p.eaPlayerName] || null;
+                    if (owner) {
+                        points = Math.max(0, Math.round((rawPoints - base) * 10) / 10);
+                    } else {
+                        points = rawPoints;
+                    }
                     basePointsValue = base;
                 }
                 const displayClub = (p.lastClub && p.lastClub.toLowerCase() === 'black hawks') ? 'Thunder Gaming' : p.lastClub;
@@ -8990,6 +8995,17 @@ export async function startVisualizerServer(discordClient) {
                 }
             });
 
+            // Fetch owners for search results to show correct points
+            const ownerMap = {};
+            if (leagueId) {
+                const teams = await db.collection('fantasy_teams').find({ leagueId }).toArray();
+                for (const team of teams) {
+                    for (const pName of (team.players || [])) {
+                        ownerMap[pName] = team.teamName;
+                    }
+                }
+            }
+
             // Calculate points and prices for search results
             const processed = players.map(p => {
                 const { price, points: rawPoints, avgRating } = calculatePlayerPointsAndPrice(p);
@@ -9014,7 +9030,12 @@ export async function startVisualizerServer(discordClient) {
                         ).catch(err => console.error('Error saving basePoints:', err));
                         leagueDoc.basePoints[p.eaPlayerName] = base;
                     }
-                    points = Math.max(0, Math.round((rawPoints - base) * 10) / 10);
+                    const owner = ownerMap[p.eaPlayerName] || null;
+                    if (owner) {
+                        points = Math.max(0, Math.round((rawPoints - base) * 10) / 10);
+                    } else {
+                        points = rawPoints;
+                    }
                     basePointsValue = base;
                 }
 
