@@ -6659,21 +6659,28 @@ export async function startVisualizerServer(discordClient) {
             const team = await db.collection('fantasy_teams').findOne({ _id: new ObjectId(teamId), leagueId });
             if (!team) return res.status(404).json({ error: 'Equipo no encontrado.' });
 
-            let newBalance;
             if (action === 'set') {
-                newBalance = Math.round(numAmount);
+                const newBalance = Math.round(numAmount);
+                if (newBalance < 0) {
+                    return res.status(400).json({ error: 'El presupuesto resultante no puede ser negativo.' });
+                }
+                await db.collection('fantasy_teams').updateOne(
+                    { _id: new ObjectId(teamId) },
+                    { $set: { balance: newBalance } }
+                );
             } else {
-                newBalance = Math.round(team.balance + numAmount);
+                const roundedAmount = Math.round(numAmount);
+                if (roundedAmount < 0) {
+                    // Check the team has enough to subtract
+                    if (team.balance + roundedAmount < 0) {
+                        return res.status(400).json({ error: 'El presupuesto resultante no puede ser negativo.' });
+                    }
+                }
+                await db.collection('fantasy_teams').updateOne(
+                    { _id: new ObjectId(teamId) },
+                    { $inc: { balance: roundedAmount } }
+                );
             }
-
-            if (newBalance < 0) {
-                return res.status(400).json({ error: 'El presupuesto resultante no puede ser negativo.' });
-            }
-
-            await db.collection('fantasy_teams').updateOne(
-                { _id: new ObjectId(teamId) },
-                { $set: { balance: newBalance } }
-            );
 
             res.json({
                 success: true,
@@ -7572,7 +7579,7 @@ export async function startVisualizerServer(discordClient) {
                     // Refund to bidder
                     await db.collection('fantasy_teams').updateOne(
                         { leagueId: leagueId, discordId: bid.bidderDiscordId },
-                        { $inc: { budget: bid.bidAmount } }
+                        { $inc: { balance: bid.bidAmount } }
                     );
 
                     // Set bid status to rejected
@@ -7873,7 +7880,13 @@ export async function startVisualizerServer(discordClient) {
                 const storedClause = ownerClauses[eaPlayerName] || 0;
                 const clauseAmount = Math.max(dynamicClause, storedClause);
 
-                if (userTeam.balance < clauseAmount) {
+                // Atomic balance check + debit: prevents two simultaneous clausulazos from both passing the check
+                const debitResult = await db.collection('fantasy_teams').findOneAndUpdate(
+                    { _id: userTeam._id, balance: { $gte: clauseAmount } },
+                    { $inc: { balance: -clauseAmount } },
+                    { returnDocument: 'after' }
+                );
+                if (!debitResult) {
                     return res.status(400).json({ error: `Saldo insuficiente para clausulazo. Requiere ${clauseAmount.toLocaleString('es-ES')} €.` });
                 }
 
@@ -7905,10 +7918,10 @@ export async function startVisualizerServer(discordClient) {
                 // 2. Add player to buyer, deduct balance, set initial clause based on paid price and set 2-day protection
                 const buyerInitialClause = Math.round(clauseAmount * clauseMultiplier);
                 const protectedUntil = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // 2 days
+                // Balance already debited atomically above via findOneAndUpdate, only update player list and clause
                 await db.collection('fantasy_teams').updateOne(
                     { discordId, leagueId },
                     {
-                        $inc: { balance: -clauseAmount },
                         $push: { players: eaPlayerName },
                         $set: { 
                             [`clauses.${eaPlayerName}`]: buyerInitialClause,
@@ -8299,7 +8312,9 @@ export async function startVisualizerServer(discordClient) {
                 }
             );
 
-            // Delete listings and bids
+            // Refund all pending bids on this player before deleting them
+            await refundPendingBidsForPlayer(db, leagueId, eaPlayerName);
+            // Delete listings and remaining bids
             await db.collection('fantasy_market_listings').deleteMany({ leagueId, sellerDiscordId: discordId, eaPlayerName });
             await db.collection('fantasy_market_bids').deleteMany({ leagueId, eaPlayerName, $or: [ { bidderDiscordId: discordId }, { sellerDiscordId: discordId } ] });
 
@@ -8347,14 +8362,20 @@ export async function startVisualizerServer(discordClient) {
             }
 
             const cost = newClauseAmount - currentClause;
-            if (userTeam.balance < cost) {
-                return res.status(400).json({ error: `Saldo insuficiente. Subir la cláusula cuesta ${cost.toLocaleString('es-ES')} € y tu saldo es ${userTeam.balance.toLocaleString('es-ES')} €.` });
+            // Atomic balance check + debit: prevents two simultaneous clause raises from both passing
+            const clauseDebit = await db.collection('fantasy_teams').findOneAndUpdate(
+                { discordId, leagueId, balance: { $gte: cost } },
+                { $inc: { balance: -cost } },
+                { returnDocument: 'after' }
+            );
+            if (!clauseDebit) {
+                return res.status(400).json({ error: `Saldo insuficiente. Subir la cláusula cuesta ${cost.toLocaleString('es-ES')} €.` });
             }
 
+            // Balance already debited atomically above, only update the clause value
             await db.collection('fantasy_teams').updateOne(
                 { discordId, leagueId },
                 {
-                    $inc: { balance: -cost },
                     $set: { [`clauses.${eaPlayerName}`]: Math.round(newClauseAmount) }
                 }
             );
@@ -8447,6 +8468,8 @@ export async function startVisualizerServer(discordClient) {
             if (!league) return res.status(404).json({ error: 'Liga no encontrada.' });
             if (league.status === 'closed') return res.status(400).json({ error: 'La liga está finalizada.' });
 
+            // Refund all pending bids on this player before deleting them
+            await refundPendingBidsForPlayer(db, leagueId, eaPlayerName);
             await db.collection('fantasy_market_listings').deleteOne({ leagueId, sellerDiscordId: discordId, eaPlayerName });
             // Remove pending bids for this listing
             await db.collection('fantasy_market_bids').deleteMany({ leagueId, sellerDiscordId: discordId, eaPlayerName });
@@ -8604,8 +8627,19 @@ export async function startVisualizerServer(discordClient) {
             const oldBidAmount = existingBid ? existingBid.bidAmount : 0;
             const diff = Math.round(bidAmount) - oldBidAmount;
 
-            if (userTeam.balance < diff) {
-                return res.status(400).json({ error: `Saldo insuficiente. Esta puja requiere un incremento de ${diff.toLocaleString('es-ES')} € en tu balance, y tu saldo actual es ${userTeam.balance.toLocaleString('es-ES')} €.` });
+            if (diff > 0) {
+                // Atomic balance check + debit: prevents two simultaneous bids from both passing the check
+                const bidDebitResult = await db.collection('fantasy_teams').findOneAndUpdate(
+                    { _id: userTeam._id, balance: { $gte: diff } },
+                    { $inc: { balance: -diff } },
+                    { returnDocument: 'after' }
+                );
+                if (!bidDebitResult) {
+                    return res.status(400).json({ error: `Saldo insuficiente. Esta puja requiere un incremento de ${diff.toLocaleString('es-ES')} € en tu balance.` });
+                }
+            } else if (diff < 0) {
+                // Bid amount decreased, refund the difference
+                await db.collection('fantasy_teams').updateOne({ _id: userTeam._id }, { $inc: { balance: -diff } });
             }
 
             if (sellerDiscordId === 'SYSTEM') {
@@ -8621,8 +8655,7 @@ export async function startVisualizerServer(discordClient) {
                 }
             }
 
-            // Deduct the difference from the bidder's balance immediately
-            await db.collection('fantasy_teams').updateOne({ _id: userTeam._id }, { $inc: { balance: -diff } });
+            // Balance already handled atomically above (debit or refund depending on diff sign)
 
             // Upsert bid
             await db.collection('fantasy_market_bids').updateOne(

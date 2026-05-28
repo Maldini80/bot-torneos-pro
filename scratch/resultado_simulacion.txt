@@ -1,0 +1,2358 @@
+Inicio de simulación: 27/5/2026, 5:26:56
+[OK] Conexión establecida. Iniciando consultas en modo LECTURA...
+[INFO] Ligas VPG activas detectadas: superliga-spain-a, superliga-spain-b, segunda-division-a-spain, segunda-division-b-spain, tercera-division-a-spain, tercera-division-b-spain, cuarta-division-a-spain, cuarta-division-b-spain, quinta-division-a-spain, quinta-division-b-spain, quinta-division-c, quinta-division-d
+[INFO] Cargados 82 equipos de clubes de la DB de VPG.
+[INFO] Cargando perfiles de jugadores para calcular deltas...
+[INFO] Cargados perfiles en BD para 4309 jugadores.
+
+--- PROCESANDO LIGA VPG: superliga-spain-a ---
+[VPG API] Clasificación obtenida: 14 equipos.
+[VPG API] Líderes para top_gk procesados: 22 jugadores.
+[VPG API] Líderes para top_cb procesados: 78 jugadores.
+[VPG API] Líderes para top_fb procesados: 7 jugadores.
+[VPG API] Líderes para top_cdm procesados: 75 jugadores.
+[VPG API] Líderes para top_cam procesados: 52 jugadores.
+[VPG API] Líderes para top_wingers procesados: 59 jugadores.
+[VPG API] Líderes para top_strikers procesados: 57 jugadores.
+
+--- PROCESANDO LIGA VPG: superliga-spain-b ---
+[VPG API] Clasificación obtenida: 14 equipos.
+[VPG API] Líderes para top_gk procesados: 23 jugadores.
+[VPG API] Líderes para top_cb procesados: 74 jugadores.
+[VPG API] Líderes para top_fb procesados: 4 jugadores.
+[VPG API] Líderes para top_cdm procesados: 80 jugadores.
+[VPG API] Líderes para top_cam procesados: 59 jugadores.
+[VPG API] Líderes para top_wingers procesados: 69 jugadores.
+[VPG API] Líderes para top_strikers procesados: 55 jugadores.
+
+--- PROCESANDO LIGA VPG: segunda-division-a-spain ---
+[VPG API] Clasificación obtenida: 16 equipos.
+[VPG API] Líderes para top_gk procesados: 27 jugadores.
+[VPG API] Líderes para top_cb procesados: 85 jugadores.
+[VPG API] Líderes para top_fb procesados: 13 jugadores.
+[VPG API] Líderes para top_cdm procesados: 75 jugadores.
+[VPG API] Líderes para top_cam procesados: 57 jugadores.
+[VPG API] Líderes para top_wingers procesados: 65 jugadores.
+[VPG API] Líderes para top_strikers procesados: 60 jugadores.
+
+--- PROCESANDO LIGA VPG: segunda-division-b-spain ---
+[VPG API] Clasificación obtenida: 14 equipos.
+[VPG API] Líderes para top_gk procesados: 24 jugadores.
+[VPG API] Líderes para top_cb procesados: 74 jugadores.
+[VPG API] Líderes para top_fb procesados: 13 jugadores.
+[VPG API] Líderes para top_cdm procesados: 77 jugadores.
+[VPG API] Líderes para top_cam procesados: 47 jugadores.
+[VPG API] Líderes para top_wingers procesados: 73 jugadores.
+[VPG API] Líderes para top_strikers procesados: 61 jugadores.
+
+--- PROCESANDO LIGA VPG: tercera-division-a-spain ---
+[VPG API] Clasificación obtenida: 14 equipos.
+[VPG API] Líderes para top_gk procesados: 31 jugadores.
+[VPG API] Líderes para top_cb procesados: 82 jugadores.
+[VPG API] Líderes para top_fb procesados: 10 jugadores.
+[VPG API] Líderes para top_cdm procesados: 70 jugadores.
+[VPG API] Líderes para top_cam procesados: 49 jugadores.
+[VPG API] Líderes para top_wingers procesados: 74 jugadores.
+[VPG API] Líderes para top_strikers procesados: 61 jugadores.
+
+--- PROCESANDO LIGA VPG: tercera-division-b-spain ---
+[VPG API] Clasificación obtenida: 14 equipos.
+[VPG API] Líderes para top_gk procesados: 22 jugadores.
+[VPG API] Líderes para top_cb procesados: 78 jugadores.
+[VPG API] Líderes para top_fb procesados: 4 jugadores.
+[VPG API] Líderes para top_cdm procesados: 75 jugadores.
+[VPG API] Líderes para top_cam procesados: 55 jugadores.
+[VPG API] Líderes para top_wingers procesados: 63 jugadores.
+[VPG API] Líderes para top_strikers procesados: 53 jugadores.
+
+--- PROCESANDO LIGA VPG: cuarta-division-a-spain ---
+[VPG API] Clasificación obtenida: 14 equipos.
+[VPG API] Líderes para top_gk procesados: 27 jugadores.
+[VPG API] Líderes para top_cb procesados: 81 jugadores.
+[VPG API] Líderes para top_fb procesados: 14 jugadores.
+[VPG API] Líderes para top_cdm procesados: 81 jugadores.
+[VPG API] Líderes para top_cam procesados: 65 jugadores.
+[VPG API] Líderes para top_wingers procesados: 71 jugadores.
+[VPG API] Líderes para top_strikers procesados: 60 jugadores.
+
+--- PROCESANDO LIGA VPG: cuarta-division-b-spain ---
+[VPG API] Clasificación obtenida: 14 equipos.
+[VPG API] Líderes para top_gk procesados: 29 jugadores.
+[VPG API] Líderes para top_cb procesados: 90 jugadores.
+[VPG API] Líderes para top_fb procesados: 5 jugadores.
+[VPG API] Líderes para top_cdm procesados: 81 jugadores.
+[VPG API] Líderes para top_cam procesados: 58 jugadores.
+[VPG API] Líderes para top_wingers procesados: 85 jugadores.
+[VPG API] Líderes para top_strikers procesados: 64 jugadores.
+
+--- PROCESANDO LIGA VPG: quinta-division-a-spain ---
+[VPG API] Clasificación obtenida: 16 equipos.
+[VPG API] Líderes para top_gk procesados: 38 jugadores.
+[VPG API] Líderes para top_cb procesados: 105 jugadores.
+[VPG API] Líderes para top_fb procesados: 11 jugadores.
+[VPG API] Líderes para top_cdm procesados: 92 jugadores.
+[VPG API] Líderes para top_cam procesados: 65 jugadores.
+[VPG API] Líderes para top_wingers procesados: 97 jugadores.
+[VPG API] Líderes para top_strikers procesados: 73 jugadores.
+
+--- PROCESANDO LIGA VPG: quinta-division-b-spain ---
+[VPG API] Clasificación obtenida: 16 equipos.
+[VPG API] Líderes para top_gk procesados: 32 jugadores.
+[VPG API] Líderes para top_cb procesados: 109 jugadores.
+[VPG API] Líderes para top_fb procesados: 7 jugadores.
+[VPG API] Líderes para top_cdm procesados: 91 jugadores.
+[VPG API] Líderes para top_cam procesados: 71 jugadores.
+[VPG API] Líderes para top_wingers procesados: 91 jugadores.
+[VPG API] Líderes para top_strikers procesados: 72 jugadores.
+
+--- PROCESANDO LIGA VPG: quinta-division-c ---
+[VPG API] Clasificación obtenida: 16 equipos.
+[VPG API] Líderes para top_gk procesados: 32 jugadores.
+[VPG API] Líderes para top_cb procesados: 84 jugadores.
+[VPG API] Líderes para top_fb procesados: 48 jugadores.
+[VPG API] Líderes para top_cdm procesados: 94 jugadores.
+[VPG API] Líderes para top_cam procesados: 85 jugadores.
+[VPG API] Líderes para top_wingers procesados: 88 jugadores.
+[VPG API] Líderes para top_strikers procesados: 75 jugadores.
+
+--- PROCESANDO LIGA VPG: quinta-division-d ---
+[VPG API] Clasificación obtenida: 16 equipos.
+[VPG API] Líderes para top_gk procesados: 36 jugadores.
+[VPG API] Líderes para top_cb procesados: 105 jugadores.
+[VPG API] Líderes para top_fb procesados: 17 jugadores.
+[VPG API] Líderes para top_cdm procesados: 100 jugadores.
+[VPG API] Líderes para top_cam procesados: 75 jugadores.
+[VPG API] Líderes para top_wingers procesados: 87 jugadores.
+[VPG API] Líderes para top_strikers procesados: 82 jugadores.
+
+[INFO] Simulación del cálculo de deltas completada.
+[INFO] Jugadores que sumarán puntos hoy: 976
+
+--- TOP 15 JUGADORES CON MÁS DELTAS DE PUNTOS HOY ---
+1. daniveera (Oxygen Levante): anterior: 0 pts -> actual: 221.2 pts (Delta: +221.2 pts)
+2. DBalles_ (MAGIC ESPORTS): anterior: 0 pts -> actual: 187.3 pts (Delta: +187.3 pts)
+3. Dj_FiveDog (CADIZ UNITED): anterior: 52.4 pts -> actual: 203.6 pts (Delta: +151.2 pts)
+4. TSX-Juanri2 (GUINEA PINK): anterior: 14.100000000000001 pts -> actual: 155 pts (Delta: +140.9 pts)
+5. Adrianbr03 (RYSIX GAMING): anterior: 224.6 pts -> actual: 361.6 pts (Delta: +137 pts)
+6. iibabyy (BANANO ESPORTS): anterior: 99 pts -> actual: 222.8 pts (Delta: +123.8 pts)
+7. ZaPPy_Clapz (GUINEA PINK): anterior: 201.5 pts -> actual: 318.2 pts (Delta: +116.7 pts)
+8. ese_golfito_tfe (COLOSSUS SOCCER): anterior: 71.9 pts -> actual: 175.5 pts (Delta: +103.6 pts)
+9. rober11pp (BONANZA FC): anterior: 90.9 pts -> actual: 188 pts (Delta: +97.1 pts)
+10. GzAntonio (CE EUROPA ESPORTS): anterior: 115.7 pts -> actual: 211.5 pts (Delta: +95.8 pts)
+11. tomas_manises (SPAIN FOX UNIT): anterior: 26.6 pts -> actual: 117.4 pts (Delta: +90.8 pts)
+12. xChaagoo7 (TRANSFORMERS CF): anterior: 327.9 pts -> actual: 409.09999999999997 pts (Delta: +81.2 pts)
+13. Gokucayde10 (RCD ROBACOBRE): anterior: 0 pts -> actual: 80.1 pts (Delta: +80.1 pts)
+14. thorr2002 (CE EUROPA ESPORTS): anterior: 66.8 pts -> actual: 146.1 pts (Delta: +79.3 pts)
+15. xroners95 (RCD ESPORTS): anterior: 110.2 pts -> actual: 188.3 pts (Delta: +78.1 pts)
+
+====================================================
+🏆 CÁLCULO DE REPARTO DE PUNTOS PARA LAS LIGAS FANTASY
+====================================================
+[INFO] Encontradas 80 ligas de Fantasy activas.
+
+----------------------------------------------------
+Liga Fantasy: jam esports (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 11 equipos participantes.
+👉 Equipo: "satiduxgaming" (Satitajr)
+   Puntos que sumará hoy: +240.2 pts
+   Premio económico que ganará: +24.020.000 €
+   Jugadores que aportaron: quiquejr78 (+15.1 pts), guto_12_ (+37.6 pts), Raul Pro (+26.6 pts), cliimeent (+36.4 pts), Xxelpadrino92xx (+36.3 pts), alexluciamaquina (+24.1 pts), pupen7 (+64.1 pts)
+👉 Equipo: "TW_izanjc11" (izanjc11)
+   Puntos que sumará hoy: +144.5 pts
+   Premio económico que ganará: +14.450.000 €
+   Jugadores que aportaron: belversingh (+15.1 pts), unaiiigarciiiaa_ (+65.4 pts), KTDNrubo (+19.2 pts), hendii8 (+8.4 pts), ferstari96i (+36.4 pts)
+👉 Equipo: "Maximin fc" (Maximin)
+   Puntos que sumará hoy: +166.7 pts
+   Premio económico que ganará: +16.670.000 €
+   Jugadores que aportaron: DONgollete (+21.7 pts), By_KoSToo (+35.3 pts), BUTRAl20l (+24.6 pts), Nokxy (+22.6 pts), robertopg9 (+14.9 pts), SeryaGM (+32.5 pts), mikelma29 (+15.1 pts)
+👉 Equipo: "Ivanovic Team" (Ivan)
+   Puntos que sumará hoy: +95 pts
+   Premio económico que ganará: +9.500.000 €
+   Jugadores que aportaron: NTT_Yer1k (+21.8 pts), WaitInth3Bush (+19.6 pts), JVT-10K (+15.3 pts), Huugopriet0 (+24.7 pts), UsamaCancel_01 (+13.6 pts)
+👉 Equipo: "Soretes Fc" (Dieguito)
+   Puntos que sumará hoy: +107.2 pts
+   Premio económico que ganará: +10.720.000 €
+   Jugadores que aportaron: Briiiiiiaann37 (+11.5 pts), 6_GULLIT (+35.3 pts), EST_XxdieguitoxX (+25.5 pts), xElShaaraWy-7 (+34.9 pts)
+👉 Equipo: "Team NiTrO" (NiTrO :D)
+   Puntos que sumará hoy: +186.1 pts
+   Premio económico que ganará: +18.610.000 €
+   Jugadores que aportaron: xValdes77 (+19.7 pts), EdwardSG (+24.9 pts), Valdi_17 (+25.7 pts), bojan_9000 (+29.5 pts), I-Maximin10 (+47.9 pts), satitajr (+38.4 pts)
+👉 Equipo: "Sin X FC" (noux1900)
+   Puntos que sumará hoy: +32.9 pts
+   Premio económico que ganará: +3.290.000 €
+   Jugadores que aportaron: pingabailarina69 (+32.9 pts)
+👉 Equipo: "Perro Sanchez Fc" (Ssanchez10)
+   Puntos que sumará hoy: +132.5 pts
+   Premio económico que ganará: +13.250.000 €
+   Jugadores que aportaron: antoniiomods (+30.3 pts), GERIGF111 (+16.7 pts), xNaanos (+29.3 pts), misterigle (+25 pts), zkowy (+16.3 pts), DarckCred_Joker (+14.9 pts)
+👉 Equipo: "VILLAPENAL FC" (VILLAPASTOR)
+   Puntos que sumará hoy: +84.3 pts
+   Premio económico que ganará: +8.430.000 €
+   Jugadores que aportaron: Edupb02 (+15.9 pts), TWNUTOSSS (+29 pts), alegrima (+18.5 pts), crischf11 (+8.1 pts), guaristiki11 (+12.8 pts)
+👉 Equipo: "BOOLS TEAM" (Bools_10)
+   Puntos que sumará hoy: +139.3 pts
+   Premio económico que ganará: +13.930.000 €
+   Jugadores que aportaron: elpepote2000 (+18 pts), lykano (+26.9 pts), rubstore66 (+7.9 pts), ublaya777 (+17.1 pts), Caarloscorralees (+69.4 pts)
+👉 Equipo: "JequeTanque" (Tanque22)
+   Puntos que sumará hoy: +78.4 pts
+   Premio económico que ganará: +7.840.000 €
+   Jugadores que aportaron: Villapastor (+27.4 pts), tonora666 (+14 pts), soek_mostoles (+2.9 pts), franchute3000 (+5.6 pts), joselitoRJ7 (+28.5 pts)
+
+----------------------------------------------------
+Liga Fantasy: Banano eSports (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 8 equipos participantes.
+👉 Equipo: "mg vicente45" (mg vicente45)
+   Puntos que sumará hoy: +234.4 pts
+   Premio económico que ganará: +23.440.000 €
+   Jugadores que aportaron: BstiaaL (+25.8 pts), tonora666 (+14 pts), ivanin3 (+36.3 pts), panterjack (+35.2 pts), lamborgamer (+7.4 pts), xbausan (+38.3 pts), Nacheete777 (+31 pts), AlmeOtF (+16.3 pts), yassingamerpro (+30.1 pts)
+👉 Equipo: "Hugo" (HuugoPriet0)
+   Puntos que sumará hoy: +154.6 pts
+   Premio económico que ganará: +15.460.000 €
+   Jugadores que aportaron: dablito2 (+15.9 pts), adriancella (+27.8 pts), Antony l7l (+28.6 pts), XxDanielito98xX (+31 pts), robertopg9 (+14.9 pts), ferstari96i (+36.4 pts)
+👉 Equipo: "SuplenteSports" (VasitoConHielo🥃)
+   Puntos que sumará hoy: +136.9 pts
+   Premio económico que ganará: +13.690.000 €
+   Jugadores que aportaron: jomigoga007 (+14.2 pts), elpepote2000 (+18 pts), 6_GULLIT (+35.3 pts), rzponzio (+36.9 pts), SeryaGM (+32.5 pts)
+👉 Equipo: "NegreiraFc" (dressen13)
+   Puntos que sumará hoy: +249.5 pts
+   Premio económico que ganará: +24.950.000 €
+   Jugadores que aportaron: andresdiiaaz (+24.7 pts), Jlmeneez (+17 pts), iibabyy (+123.8 pts), arjoniiitaa_g4 (+32.9 pts), Nokxy (+22.6 pts), joselitoRJ7 (+28.5 pts)
+👉 Equipo: "Pakito922" (PAKITO)
+   Puntos que sumará hoy: +199.4 pts
+   Premio económico que ganará: +19.940.000 €
+   Jugadores que aportaron: noux1900 (+27.5 pts), belversingh (+15.1 pts), Oskarrrr12 (+25.5 pts), franchute3000 (+5.6 pts), I-Maximin10 (+47.9 pts), pupen7 (+64.1 pts), Lamuda1217 (+13.7 pts)
+👉 Equipo: "Joosegnzl5" (JGonzalez.)
+   Puntos que sumará hoy: +182.1 pts
+   Premio económico que ganará: +18.210.000 €
+   Jugadores que aportaron: El_Bueno_De_Link (+19.9 pts), hectorop96 (+30 pts), popimarco11 (+18.3 pts), thecout69 (+44.3 pts), victortacone (+38.2 pts), Aleeez4 (+17.8 pts), UsamaCancel_01 (+13.6 pts)
+👉 Equipo: "Dablito" (dablito2)
+   Puntos que sumará hoy: +79.3 pts
+   Premio económico que ganará: +7.930.000 €
+   Jugadores que aportaron: TonyBlack95 (+17 pts), yyeraxxyy (+27.9 pts), MonKeyDFFYLU (+1.5 pts), pingabailarina69 (+32.9 pts)
+👉 Equipo: "Rudineta" (𝐑𝐔𝐃𝐈𝐒𝐂𝐎🍌)
+   Puntos que sumará hoy: +230.9 pts
+   Premio económico que ganará: +23.090.000 €
+   Jugadores que aportaron: Vpg_rapha (+22.1 pts), lostresplay (+21.7 pts), xXHatchZzz (+25.5 pts), ZaPPy_Clapz (+116.7 pts), Alecastillo (+23.7 pts), Alex_rubio3 (+21.2 pts)
+
+----------------------------------------------------
+Liga Fantasy: ESPARTANOS CF (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 12 equipos participantes.
+👉 Equipo: "La Zappyneta" (xfrenkie-_-)
+   Puntos que sumará hoy: +45.6 pts
+   Premio económico que ganará: +4.560.000 €
+   Jugadores que aportaron: sergiopdp7 (+17.3 pts), Dagova (+28.3 pts)
+👉 Equipo: "jomicebolla123" (jomigoga007)
+   Puntos que sumará hoy: +319.9 pts
+   Premio económico que ganará: +31.990.000 €
+   Jugadores que aportaron: Meju45 (+31.6 pts), BstiaaL (+25.8 pts), xNaanos (+29.3 pts), israeadri (+27.7 pts), XxDanielito98xX (+31 pts), Juanlukaku (+47.4 pts), bojan_9000 (+29.5 pts), Luucaaas (+20.4 pts), Antony l7l (+28.6 pts), l iMaaGiiK l (+48.6 pts)
+👉 Equipo: "TURKINHO FC" (turco)
+   Puntos que sumará hoy: +189.9 pts
+   Premio económico que ganará: +18.990.000 €
+   Jugadores que aportaron: quiquejr78 (+15.1 pts), z3uSgijon (+17.2 pts), MarioFresh (+16 pts), xmonteero (+32.7 pts), AitorRdguez (+24.7 pts), paquito (+35.7 pts), Vargas7_x (+13.1 pts), xMati___10x (+35.4 pts)
+👉 Equipo: "TeamDurand" (JraelDurand)
+   Puntos que sumará hoy: +148.5 pts
+   Premio económico que ganará: +14.850.000 €
+   Jugadores que aportaron: NTT_Yer1k (+21.8 pts), jomigoga007 (+14.2 pts), belversingh (+15.1 pts), GoE-SouL (+29.6 pts), arjoniiitaa_g4 (+32.9 pts), NotAguus_ (+21.2 pts), Lamuda1217 (+13.7 pts)
+👉 Equipo: "PerezTM" (Perez)
+   Puntos que sumará hoy: +108.7 pts
+   Premio económico que ganará: +10.870.000 €
+   Jugadores que aportaron: ivanin3 (+36.3 pts), donpe_10 (+27.7 pts), xXHatchZzz (+25.5 pts), KTDNrubo (+19.2 pts)
+👉 Equipo: "MAGIC TEAM JR" (joselitoJR7)
+   Puntos que sumará hoy: +78.2 pts
+   Premio económico que ganará: +7.820.000 €
+   Jugadores que aportaron: litocg13 (+29 pts), Jrael_Durand (+14.4 pts), TeweletelaJR (+34.8 pts)
+👉 Equipo: "Yuri FC" (Yuri)
+   Puntos que sumará hoy: +221.9 pts
+   Premio económico que ganará: +22.190.000 €
+   Jugadores que aportaron: noux1900 (+27.5 pts), AitorGarcia1998 (+13.5 pts), marcosalcaide3 (+15.7 pts), XMagoOZX (+24 pts), panterjack (+35.2 pts), Dape10 (+14.5 pts), elkrakenn23_ (+9.6 pts), victortacone (+38.2 pts), yassingamerpro (+30.1 pts), UsamaCancel_01 (+13.6 pts)
+👉 Equipo: "Briaannn" (Brian)
+   Puntos que sumará hoy: +114.7 pts
+   Premio económico que ganará: +11.470.000 €
+   Jugadores que aportaron: NK-Xpo (+30 pts), Jlmeneez (+17 pts), vlobato10 (+63.8 pts), soek_mostoles (+2.9 pts), mecvno (+1 pts)
+👉 Equipo: "Néstor" (Nestor07_)
+   Puntos que sumará hoy: +210.6 pts
+   Premio económico que ganará: +21.060.000 €
+   Jugadores que aportaron: El_Bueno_De_Link (+19.9 pts), elpepote2000 (+18 pts), lykano (+26.9 pts), xbausan (+38.3 pts), cristitos98 (+33.2 pts), ublaya777 (+17.1 pts), SeryaGM (+32.5 pts), Huugopriet0 (+24.7 pts)
+👉 Equipo: "ToNtAn FC" (hichiipro22)
+   Puntos que sumará hoy: +116.8 pts
+   Premio económico que ganará: +11.680.000 €
+   Jugadores que aportaron: DONgollete (+21.7 pts), borcontun_95 (+10.8 pts), MJB03 (+26.4 pts), misterigle (+25 pts), pingabailarina69 (+32.9 pts)
+👉 Equipo: "REAL CHUPE" (ErChupe78)
+   Puntos que sumará hoy: +86.7 pts
+   Premio económico que ganará: +8.670.000 €
+   Jugadores que aportaron: FX-Wheezy (+17 pts), Ponxii_Twitch_7 (+18.4 pts), adritor8994 (+7.4 pts), RauLTiiTy (+23.9 pts), TanqueRoldan22 (+13.9 pts), Jean_Marco97 (+6.1 pts)
+👉 Equipo: "PASTOSOQETECAGA" (XSUAREZ-16)
+   Puntos que sumará hoy: +53.8 pts
+   Premio económico que ganará: +5.380.000 €
+   Jugadores que aportaron: ADEJERO1989 (+19.3 pts), WaitInth3Bush (+19.6 pts), robertopg9 (+14.9 pts)
+
+----------------------------------------------------
+Liga Fantasy: IMPERIO GITANO (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 15 equipos participantes.
+👉 Equipo: "URI FC" (Uriii)
+   Puntos que sumará hoy: +286.6 pts
+   Premio económico que ganará: +28.660.000 €
+   Jugadores que aportaron: NTT_Yer1k (+21.8 pts), ZaPPy_Clapz (+116.7 pts), GoE-SouL (+29.6 pts), Quike_JL (+5.8 pts), l iMaaGiiK l (+48.6 pts), pupen7 (+64.1 pts)
+👉 Equipo: "Manu" (Climent)
+   Puntos que sumará hoy: +109.8 pts
+   Premio económico que ganará: +10.980.000 €
+   Jugadores que aportaron: antoniiomods (+30.3 pts), XxDanielito98xX (+31 pts), supergigio78 (+20.1 pts), decrow (+4.3 pts), alexluciamaquina (+24.1 pts)
+👉 Equipo: "Climent Gordo" (AlmeDeuS)
+   Puntos que sumará hoy: +168.7 pts
+   Premio económico que ganará: +16.870.000 €
+   Jugadores que aportaron: ImperiusHawk (+20.5 pts), TurNiRG (+28.6 pts), elpepote2000 (+18 pts), Serzgz12 (+20.3 pts), victortacone (+38.2 pts), paquito (+35.7 pts), lamborgamer (+7.4 pts)
+👉 Equipo: "Jaume maricon" (Rhymes)
+   Puntos que sumará hoy: +186 pts
+   Premio económico que ganará: +18.600.000 €
+   Jugadores que aportaron: Ponxii_Twitch_7 (+18.4 pts), unaiiigarciiiaa_ (+65.4 pts), Dape10 (+14.5 pts), NotAguus_ (+21.2 pts), hendii8 (+8.4 pts), ublaya777 (+17.1 pts), DaniiKun10 (+41 pts)
+👉 Equipo: "Los muertos de Climent Fc" (Mortal | 😵)
+   Puntos que sumará hoy: +73 pts
+   Premio económico que ganará: +7.300.000 €
+   Jugadores que aportaron: DarthScrypter (+28.7 pts), crischf11 (+8.1 pts), CaiCedoo333 (+36.2 pts)
+👉 Equipo: "Jezule" (JezuleRK)
+   Puntos que sumará hoy: +200.5 pts
+   Premio económico que ganará: +20.050.000 €
+   Jugadores que aportaron: GERIGF111 (+16.7 pts), marcosalcaide3 (+15.7 pts), iibabyy (+123.8 pts), thecout69 (+44.3 pts)
+👉 Equipo: "Pinto Orejudo FC" (Raauwlito)
+   Puntos que sumará hoy: +43 pts
+   Premio económico que ganará: +4.300.000 €
+   Jugadores que aportaron: quiquejr78 (+15.1 pts), Juanma-RdZ_92 (+9.4 pts), alegrima (+18.5 pts)
+👉 Equipo: "xDinaaz FC" (xDinaaz)
+   Puntos que sumará hoy: +61.5 pts
+   Premio económico que ganará: +6.150.000 €
+   Jugadores que aportaron: Heretics_Jordi (+36.9 pts), burpils (+24.6 pts)
+👉 Equipo: "xPinto De Motril FC" (xPinto)
+   Puntos que sumará hoy: +92.5 pts
+   Premio económico que ganará: +9.250.000 €
+   Jugadores que aportaron: adriancella (+27.8 pts), ariwi8 (+17.9 pts), kikin (+21.9 pts), elkrakenn23_ (+9.6 pts), JVT-10K (+15.3 pts)
+👉 Equipo: "Renjerneta" (xReenjxr_)
+   Puntos que sumará hoy: +166.2 pts
+   Premio económico que ganará: +16.620.000 €
+   Jugadores que aportaron: psychoz (+36.5 pts), Fernando_im (+14.6 pts), hectorop96 (+30 pts), xbausan (+38.3 pts), ravenn8 (+35.9 pts), alvaroohdzz (+10.9 pts)
+👉 Equipo: "pinto peluca" (KOWY)
+   Puntos que sumará hoy: +232.1 pts
+   Premio económico que ganará: +23.210.000 €
+   Jugadores que aportaron: andresdiiaaz (+24.7 pts), xValdes77 (+19.7 pts), XMagoOZX (+24 pts), Jlmeneez (+17 pts), KTDNrubo (+19.2 pts), zkowy (+16.3 pts), rzponzio (+36.9 pts), mikivf (+41.7 pts), zWeeDMyScuF (+18.9 pts), Lamuda1217 (+13.7 pts)
+👉 Equipo: "PintoColapinto" (Mikelma99)
+   Puntos que sumará hoy: +228.9 pts
+   Premio económico que ganará: +22.890.000 €
+   Jugadores que aportaron: Antonio983420 (+27.3 pts), MxkiClxmps (+10 pts), litocg13 (+29 pts), popimarco11 (+18.3 pts), bojan_9000 (+29.5 pts), PrinceJorge7_ (+22.9 pts), Juanlukaku (+47.4 pts), eRiksiLE (+20.8 pts), Alecastillo (+23.7 pts)
+👉 Equipo: "agutin" (xYeeyoo)
+   Puntos que sumará hoy: +232.6 pts
+   Premio económico que ganará: +23.260.000 €
+   Jugadores que aportaron: LF-NMOK (+16 pts), Dagova (+28.3 pts), Makensii-_- (+8.6 pts), xmonteero (+32.7 pts), panterjack (+35.2 pts), SeryaGM (+32.5 pts), thorr2002 (+79.3 pts)
+👉 Equipo: "jaumee (pintomaceta)" (16jaumee)
+   Puntos que sumará hoy: +68.5 pts
+   Premio económico que ganará: +6.850.000 €
+   Jugadores que aportaron: MrTaker22 (+20 pts), zzRaydenzz (+17.1 pts), Vicente4560 (+17.2 pts), Kaiser8_fc (+14.2 pts)
+👉 Equipo: "DaniveraFC" (Daniveera)
+   Puntos que sumará hoy: +55.5 pts
+   Premio económico que ganará: +5.550.000 €
+   Jugadores que aportaron: WaitInth3Bush (+19.6 pts), HumosXD (+35.9 pts)
+
+----------------------------------------------------
+Liga Fantasy: STAFF BLITZ (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 6 equipos participantes.
+👉 Equipo: "cc" (Uriii)
+   Puntos que sumará hoy: +265.3 pts
+   Premio económico que ganará: +26.530.000 €
+   Jugadores que aportaron: Valdi_17 (+25.7 pts), guto_12_ (+37.6 pts), TurNiRG (+28.6 pts), paquito (+35.7 pts), ravenn8 (+35.9 pts), Dape10 (+14.5 pts), yassingamerpro (+30.1 pts), ferstari96i (+36.4 pts), eRiksiLE (+20.8 pts)
+👉 Equipo: "TEST" (Maldii)
+   Puntos que sumará hoy: +210.3 pts
+   Premio económico que ganará: +21.030.000 €
+   Jugadores que aportaron: andresdiiaaz (+24.7 pts), hectorop96 (+30 pts), AntonioGuerraXI (+13.8 pts), cristitos98 (+33.2 pts), 6_GULLIT (+35.3 pts), xElShaaraWy-7 (+34.9 pts), satitajr (+38.4 pts)
+👉 Equipo: "xXHatchZzz+10" (xXHatchZzz)
+   Puntos que sumará hoy: +196.8 pts
+   Premio económico que ganará: +19.680.000 €
+   Jugadores que aportaron: FX-Wheezy (+17 pts), Heretics_Jordi (+36.9 pts), alex-_-ac130 (+23.3 pts), unaiiigarciiiaa_ (+65.4 pts), bojan_9000 (+29.5 pts), Huugopriet0 (+24.7 pts)
+👉 Equipo: "satiduxgaming" (Satitajr)
+   Puntos que sumará hoy: +70.1 pts
+   Premio económico que ganará: +7.010.000 €
+   Jugadores que aportaron: DONgollete (+21.7 pts), dablito2 (+15.9 pts), Vicente4560 (+17.2 pts), JVT-10K (+15.3 pts)
+👉 Equipo: "Nestor" (Nestor07_)
+   Puntos que sumará hoy: +206.4 pts
+   Premio económico que ganará: +20.640.000 €
+   Jugadores que aportaron: Edupb02 (+15.9 pts), izanjc08gg (+15.2 pts), borcontun_95 (+10.8 pts), Caarloscorralees (+69.4 pts), alvaroohdzz (+10.9 pts), vicente_haz (+45.5 pts), misterigle (+25 pts), Lamuda1217 (+13.7 pts)
+👉 Equipo: "Inter de Sparta" (Leo Madiba)
+   Puntos que sumará hoy: +108 pts
+   Premio económico que ganará: +10.800.000 €
+   Jugadores que aportaron: AMB_LMG (+27 pts), WaitInth3Bush (+19.6 pts), Luucaaas (+20.4 pts), DaniiKun10 (+41 pts)
+
+----------------------------------------------------
+Liga Fantasy: Qdm esports (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 18 equipos participantes.
+👉 Equipo: "sinfoneta" (Xborsalino-66)
+   Puntos que sumará hoy: +208 pts
+   Premio económico que ganará: +20.800.000 €
+   Jugadores que aportaron: FX-Wheezy (+17 pts), WaitInth3Bush (+19.6 pts), Caarloscorralees (+69.4 pts), CaiCedoo333 (+36.2 pts), hichipro (+18.4 pts), SeryaGM (+32.5 pts), DarckCred_Joker (+14.9 pts)
+👉 Equipo: "POPINHO FC" (Popi)
+   Puntos que sumará hoy: +123.3 pts
+   Premio económico que ganará: +12.330.000 €
+   Jugadores que aportaron: tonora666 (+14 pts), Valdi_17 (+25.7 pts), decrow (+4.3 pts), thorr2002 (+79.3 pts)
+👉 Equipo: "CANCELS FC" (Towers)
+   Puntos que sumará hoy: +144.7 pts
+   Premio económico que ganará: +14.470.000 €
+   Jugadores que aportaron: quiquejr78 (+15.1 pts), popimarco11 (+18.3 pts), RauLTiiTy (+23.9 pts), panterjack (+35.2 pts), joselitoRJ7 (+28.5 pts), Alecastillo (+23.7 pts)
+👉 Equipo: "Nenas de JC" (carbón)
+   Puntos que sumará hoy: +323.6 pts
+   Premio económico que ganará: +32.360.000 €
+   Jugadores que aportaron: antoniiomods (+30.3 pts), BstiaaL (+25.8 pts), misterigle (+25 pts), TSX-Juanri2 (+140.9 pts), Oskarrrr12 (+25.5 pts), l iMaaGiiK l (+48.6 pts), Vargas7_x (+13.1 pts), Jrael_Durand (+14.4 pts)
+👉 Equipo: "La Zappyneta" (xfrenkie-_-)
+   Puntos que sumará hoy: +46 pts
+   Premio económico que ganará: +4.600.000 €
+   Jugadores que aportaron: animal734 (+16.4 pts), GoE-SouL (+29.6 pts)
+👉 Equipo: "Aharon" (Aharon)
+   Puntos que sumará hoy: +229.2 pts
+   Premio económico que ganará: +22.920.000 €
+   Jugadores que aportaron: robertopg9 (+14.9 pts), ADEJERO1989 (+19.3 pts), byfonzo_ (+34 pts), Dape10 (+14.5 pts), KTDNrubo (+19.2 pts), king_albersis (+28.6 pts), vlobato10 (+63.8 pts), xElShaaraWy-7 (+34.9 pts)
+👉 Equipo: "PapayaFC" (xVenoM)
+   Puntos que sumará hoy: +41.3 pts
+   Premio económico que ganará: +4.130.000 €
+   Jugadores que aportaron: noux1900 (+27.5 pts), Malamadre (+13.8 pts)
+👉 Equipo: "Krlytos FC" (belversingh)
+   Puntos que sumará hoy: +167.3 pts
+   Premio económico que ganará: +16.730.000 €
+   Jugadores que aportaron: Edupb02 (+15.9 pts), AitorGarcia1998 (+13.5 pts), ublaya777 (+17.1 pts), zkowy (+16.3 pts), Nokxy (+22.6 pts), vicente_haz (+45.5 pts), cliimeent (+36.4 pts)
+👉 Equipo: "MAYANGODOWN" (xYeeyoo)
+   Puntos que sumará hoy: +132.4 pts
+   Premio económico que ganará: +13.240.000 €
+   Jugadores que aportaron: El_Bueno_De_Link (+19.9 pts), ariwi8 (+17.9 pts), paquito (+35.7 pts), xbausan (+38.3 pts), crischf11 (+8.1 pts), Guaire27 (+12.5 pts)
+👉 Equipo: "Cerro city" (Lezzy)
+   Puntos que sumará hoy: +102.2 pts
+   Premio económico que ganará: +10.220.000 €
+   Jugadores que aportaron: ivecgg (+11.6 pts), Chocopop (+38.2 pts), AlmeOtF (+16.3 pts), hendii8 (+8.4 pts), donpe_10 (+27.7 pts)
+👉 Equipo: "DC de moda" (AlvaroSMX7)
+   Puntos que sumará hoy: +184.4 pts
+   Premio económico que ganará: +18.440.000 €
+   Jugadores que aportaron: iibabyy (+123.8 pts), xKaoTikz (+15.5 pts), MonKeyDFFYLU (+1.5 pts), cristian-corti (+7.2 pts), ferstari96i (+36.4 pts)
+👉 Equipo: "toca y vete cacahuete" (chiser3000)
+   Puntos que sumará hoy: +88.5 pts
+   Premio económico que ganará: +8.850.000 €
+   Jugadores que aportaron: NTT_Yer1k (+21.8 pts), elkrakenn23_ (+9.6 pts), PrinceMatute (+18.1 pts), eRiksiLE (+20.8 pts), alex5thunder (+18.2 pts)
+👉 Equipo: "paraguayos fc" (xAlv4r0v1ch)
+   Puntos que sumará hoy: +209.4 pts
+   Premio económico que ganará: +20.940.000 €
+   Jugadores que aportaron: MrTaker22 (+20 pts), elpepote2000 (+18 pts), Juasomed1234 (+18.3 pts), xNaanos (+29.3 pts), mecvno (+1 pts), ZaPPy_Clapz (+116.7 pts), Jean_Marco97 (+6.1 pts)
+👉 Equipo: "LA MAZETA MECANICA" (MAZAEL)
+   Puntos que sumará hoy: +361.3 pts
+   Premio económico que ganará: +36.130.000 €
+   Jugadores que aportaron: Daniveera (+221.2 pts), TWNUTOSSS (+29 pts), Nacheete777 (+31 pts), lamborgamer (+7.4 pts), alegrima (+18.5 pts), bojan_9000 (+29.5 pts), Huugopriet0 (+24.7 pts)
+👉 Equipo: "AaronPadreAlvaroSMX" (𝐀𝐚𝐫𝐨𝐧.𝟏𝟒)
+   Puntos que sumará hoy: +132 pts
+   Premio económico que ganará: +13.200.000 €
+   Jugadores que aportaron: borcontun_95 (+10.8 pts), litocg13 (+29 pts), lostresplay (+21.7 pts), mikivf (+41.7 pts), victorpp21 (+28.8 pts)
+👉 Equipo: "Zapato" (el tato)
+   Puntos que sumará hoy: +193.6 pts
+   Premio económico que ganará: +19.360.000 €
+   Jugadores que aportaron: DarthScrypter (+28.7 pts), z3uSgijon (+17.2 pts), unaiiigarciiiaa_ (+65.4 pts), cristitos98 (+33.2 pts), Recre220802 (+15.3 pts), supergigio78 (+20.1 pts), Lamuda1217 (+13.7 pts)
+👉 Equipo: "xmonteero equipo" (xmonteero_)
+   Puntos que sumará hoy: +159.6 pts
+   Premio económico que ganará: +15.960.000 €
+   Jugadores que aportaron: AMB_LMG (+27 pts), xmonteero (+32.7 pts), sergiopdp7 (+17.3 pts), Luucaaas (+20.4 pts), NotAguus_ (+21.2 pts), DaniiKun10 (+41 pts)
+👉 Equipo: "TURQUINHO FC" (turco)
+   Puntos que sumará hoy: +82.9 pts
+   Premio económico que ganará: +8.290.000 €
+   Jugadores que aportaron: TurNiRG (+28.6 pts), NK-Xpo (+30 pts), alvaroohdzz (+10.9 pts), xKanela_ (+13.4 pts)
+
+----------------------------------------------------
+Liga Fantasy: COLUMBUS PACERS (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 7 equipos participantes.
+👉 Equipo: "Coco Sport alex1wrJ" (alex1wrJ)
+   Puntos que sumará hoy: +188.3 pts
+   Premio económico que ganará: +18.830.000 €
+   Jugadores que aportaron: DONgollete (+21.7 pts), BIL_0028 (+14.5 pts), ZaPPy_Clapz (+116.7 pts), xMati___10x (+35.4 pts)
+👉 Equipo: "X_LEONBROTHERS_X" (X_leonbrothers_X)
+   Puntos que sumará hoy: +66.2 pts
+   Premio económico que ganará: +6.620.000 €
+   Jugadores que aportaron: Heretics_Jordi (+36.9 pts), hichipro (+18.4 pts), alvaroohdzz (+10.9 pts)
+👉 Equipo: "Tragaldabas" (juanen84)
+   Puntos que sumará hoy: +261.1 pts
+   Premio económico que ganará: +26.110.000 €
+   Jugadores que aportaron: noux1900 (+27.5 pts), jomigoga007 (+14.2 pts), AntonioGuerraXI (+13.8 pts), ravenn8 (+35.9 pts), elfarru22 (+15.8 pts), NotAguus_ (+21.2 pts), cliimeent (+36.4 pts), xChaagoo7 (+81.2 pts), mikelma29 (+15.1 pts)
+👉 Equipo: "Er Feli te cuelgo de una farola" (Raauwlito)
+   Puntos que sumará hoy: +175.5 pts
+   Premio económico que ganará: +17.550.000 €
+   Jugadores que aportaron: BstiaaL (+25.8 pts), Fernando_im (+14.6 pts), vlobato10 (+63.8 pts), xElShaaraWy-7 (+34.9 pts), ferstari96i (+36.4 pts)
+👉 Equipo: "TraaKzZ" (TraaKzZ-)
+   Puntos que sumará hoy: +59.1 pts
+   Premio económico que ganará: +5.910.000 €
+   Jugadores que aportaron: Juasomed1234 (+18.3 pts), soek_mostoles (+2.9 pts), ublaya777 (+17.1 pts), Skills-Angel (+6.9 pts), TanqueRoldan22 (+13.9 pts)
+👉 Equipo: "MANQUISTAS FC" (xPetruuu)
+   Puntos que sumará hoy: +104.6 pts
+   Premio económico que ganará: +10.460.000 €
+   Jugadores que aportaron: MrTaker22 (+20 pts), hectorop96 (+30 pts), supergigio78 (+20.1 pts), Lamuda1217 (+13.7 pts), eRiksiLE (+20.8 pts)
+👉 Equipo: "Real Oviedo" (Hectormyers10) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: Ceuta Guardians (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 9 equipos participantes.
+👉 Equipo: "Eric Armas" (Eric_armas)
+   Puntos que sumará hoy: +147 pts
+   Premio económico que ganará: +14.700.000 €
+   Jugadores que aportaron: quiquejr78 (+15.1 pts), xValdes77 (+19.7 pts), david_parla17 (+29.2 pts), elkrakenn23_ (+9.6 pts), panzerkh11 (+15.3 pts), rzponzio (+36.9 pts), Alex_rubio3 (+21.2 pts)
+👉 Equipo: "TEAM DOKINHA" (Rubeenprieetoo)
+   Puntos que sumará hoy: +170.1 pts
+   Premio económico que ganará: +17.010.000 €
+   Jugadores que aportaron: NTT_Yer1k (+21.8 pts), israeadri (+27.7 pts), guto_12_ (+37.6 pts), alegrima (+18.5 pts), rubstore66 (+7.9 pts), crischf11 (+8.1 pts), UsamaCancel_01 (+13.6 pts), xElShaaraWy-7 (+34.9 pts)
+👉 Equipo: "Ventura Team" (Ventura_4_)
+   Puntos que sumará hoy: +74.2 pts
+   Premio económico que ganará: +7.420.000 €
+   Jugadores que aportaron: kikin (+21.9 pts), adritor8994 (+7.4 pts), GoE-SouL (+29.6 pts), Recre220802 (+15.3 pts)
+👉 Equipo: "Comunistas FC" (xBokadii)
+   Puntos que sumará hoy: +481 pts
+   Premio económico que ganará: +48.100.000 €
+   Jugadores que aportaron: Daniveera (+221.2 pts), WaitInth3Bush (+19.6 pts), TWNUTOSSS (+29 pts), Raul Pro (+26.6 pts), ravenn8 (+35.9 pts), cristitos98 (+33.2 pts), PrinceMatute (+18.1 pts), Juanlukaku (+47.4 pts), Lamuda1217 (+13.7 pts), Xxelpadrino92xx (+36.3 pts)
+👉 Equipo: "Minabo de Kiev" (Mortal | 😵)
+   Puntos que sumará hoy: +220.6 pts
+   Premio económico que ganará: +22.060.000 €
+   Jugadores que aportaron: AitorGarcia1998 (+13.5 pts), RauLTiiTy (+23.9 pts), alvaroohdzz (+10.9 pts), ZaPPy_Clapz (+116.7 pts), eRiksiLE (+20.8 pts), TeweletelaJR (+34.8 pts)
+👉 Equipo: "The best" (David_parla17)
+   Puntos que sumará hoy: +143.1 pts
+   Premio económico que ganará: +14.310.000 €
+   Jugadores que aportaron: DONgollete (+21.7 pts), tonora666 (+14 pts), elpepote2000 (+18 pts), KTDNrubo (+19.2 pts), vicente_haz (+45.5 pts), Huugopriet0 (+24.7 pts)
+👉 Equipo: "TtRode FC" (sergio_rodeee)
+   Puntos que sumará hoy: +195.2 pts
+   Premio económico que ganará: +19.520.000 €
+   Jugadores que aportaron: popimarco11 (+18.3 pts), XMagoOZX (+24 pts), panterjack (+35.2 pts), izanjc08gg (+15.2 pts), pupen7 (+64.1 pts), satitajr (+38.4 pts)
+👉 Equipo: "Dj Papz" (Pupen7)
+   Puntos que sumará hoy: +120 pts
+   Premio económico que ganará: +12.000.000 €
+   Jugadores que aportaron: noux1900 (+27.5 pts), animal734 (+16.4 pts), Luucaaas (+20.4 pts), Juanma-RdZ_92 (+9.4 pts), JVT-10K (+15.3 pts), XxDanielito98xX (+31 pts)
+👉 Equipo: "Pellizquito FC" (panterjack)
+   Puntos que sumará hoy: +46 pts
+   Premio económico que ganará: +4.600.000 €
+   Jugadores que aportaron: MrTaker22 (+20 pts), MonKeyDFFYLU (+1.5 pts), hichipro (+18.4 pts), Jean_Marco97 (+6.1 pts)
+
+----------------------------------------------------
+Liga Fantasy: CE EUROPA (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 9 equipos participantes.
+👉 Equipo: "YUAN GARSIA RATA JUDIA" (〽)
+   Puntos que sumará hoy: +173.5 pts
+   Premio económico que ganará: +17.350.000 €
+   Jugadores que aportaron: unaiiigarciiiaa_ (+65.4 pts), MJB03 (+26.4 pts), xValdes77 (+19.7 pts), panzerkh11 (+15.3 pts), Nokxy (+22.6 pts), alexluciamaquina (+24.1 pts)
+👉 Equipo: "Renjerneta" (xReenjxr_)
+   Puntos que sumará hoy: +264.6 pts
+   Premio económico que ganará: +26.460.000 €
+   Jugadores que aportaron: MrTaker22 (+20 pts), Heretics_Jordi (+36.9 pts), hendii8 (+8.4 pts), cliimeent (+36.4 pts), misterigle (+25 pts), Nacheete777 (+31 pts), sergioness (+13.9 pts), Lamuda1217 (+13.7 pts), thorr2002 (+79.3 pts)
+👉 Equipo: "MUSULMANCHESTER CITY" (𝐌𝐈𝐂𝐇𝐀𝐄𝐋 𝐎𝐋𝐈𝐒𝐄♱)
+   Puntos que sumará hoy: +143.2 pts
+   Premio económico que ganará: +14.320.000 €
+   Jugadores que aportaron: FX-Wheezy (+17 pts), tonora666 (+14 pts), sirmarkusen (+31.4 pts), CaiCedoo333 (+36.2 pts), bojan_9000 (+29.5 pts), mikelma29 (+15.1 pts)
+👉 Equipo: "xJordi cabra" (x 𝕵𝖔𝖗𝖉𝖎)
+   Puntos que sumará hoy: +172.9 pts
+   Premio económico que ganará: +17.290.000 €
+   Jugadores que aportaron: oxkronn (+18.4 pts), TWNUTOSSS (+29 pts), alegrima (+18.5 pts), alvaroohdzz (+10.9 pts), UsamaCancel_01 (+13.6 pts), pupen7 (+64.1 pts), hichipro (+18.4 pts)
+👉 Equipo: "toca y vete cacahuete" (chiser3000)
+   Puntos que sumará hoy: +206.3 pts
+   Premio económico que ganará: +20.630.000 €
+   Jugadores que aportaron: DONgollete (+21.7 pts), kikin (+21.9 pts), Dagova (+28.3 pts), israeadri (+27.7 pts), Oskarrrr12 (+25.5 pts), xChaagoo7 (+81.2 pts)
+👉 Equipo: "ToNtAn FC" (hichiipro22)
+   Puntos que sumará hoy: +48.2 pts
+   Premio económico que ganará: +4.820.000 €
+   Jugadores que aportaron: Vicente4560 (+17.2 pts), XxDanielito98xX (+31 pts)
+👉 Equipo: "Dictador Perez" (Perez)
+   Puntos que sumará hoy: +88.3 pts
+   Premio económico que ganará: +8.830.000 €
+   Jugadores que aportaron: ivecgg (+11.6 pts), Serzgz12 (+20.3 pts), ivanin3 (+36.3 pts), supergigio78 (+20.1 pts)
+👉 Equipo: "Gurutzeta FKT" (thorr2002)
+   Puntos que sumará hoy: +49.6 pts
+   Premio económico que ganará: +4.960.000 €
+   Jugadores que aportaron: marcosalcaide3 (+15.7 pts), NotAguus_ (+21.2 pts), Skills-Angel (+6.9 pts), Quike_JL (+5.8 pts)
+👉 Equipo: "Kuns Club" (Danikun10)
+   Puntos que sumará hoy: +149.8 pts
+   Premio económico que ganará: +14.980.000 €
+   Jugadores que aportaron: animal734 (+16.4 pts), Osvla (+19.5 pts), xXHatchZzz (+25.5 pts), Renjer (+26.6 pts), eRiksiLE (+20.8 pts), DaniiKun10 (+41 pts)
+
+----------------------------------------------------
+Liga Fantasy: AMIGOS LEAGUE (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 2 equipos participantes.
+👉 Equipo: "Caicedo" (Caicedooo) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+👉 Equipo: "Palmilla Fc" (AntonioGuerraXI) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: LtkEsports (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 10 equipos participantes.
+👉 Equipo: "xYanfr1" (xYanfr1)
+   Puntos que sumará hoy: +150.8 pts
+   Premio económico que ganará: +15.080.000 €
+   Jugadores que aportaron: litocg13 (+29 pts), TWNUTOSSS (+29 pts), Merino_11 (+24.8 pts), Aleeez4 (+17.8 pts), misterigle (+25 pts), seecrtetz_mortal (+25.2 pts)
+👉 Equipo: "sharawy" (xElShaaraWy)
+   Puntos que sumará hoy: +201.5 pts
+   Premio económico que ganará: +20.150.000 €
+   Jugadores que aportaron: ImperiusHawk (+20.5 pts), cliimeent (+36.4 pts), cristitos98 (+33.2 pts), alvaroohdzz (+10.9 pts), elbrokoo30 (+27.2 pts), Lamuda1217 (+13.7 pts), Huugopriet0 (+24.7 pts), xElShaaraWy-7 (+34.9 pts)
+👉 Equipo: "oxkroneta" (oxkron)
+   Puntos que sumará hoy: +149.9 pts
+   Premio económico que ganará: +14.990.000 €
+   Jugadores que aportaron: FX-Wheezy (+17 pts), ivanin3 (+36.3 pts), victortacone (+38.2 pts), alexluciamaquina (+24.1 pts), Alex_rubio3 (+21.2 pts), Vargas7_x (+13.1 pts)
+👉 Equipo: "Ccanoo71" (🚫Ccanoo71🚫🇪🇦)
+   Puntos que sumará hoy: +80.8 pts
+   Premio económico que ganará: +8.080.000 €
+   Jugadores que aportaron: MonKeyDFFYLU (+1.5 pts), thorr2002 (+79.3 pts)
+👉 Equipo: "batstraker" (BaTs_TrAkEr)
+   Puntos que sumará hoy: +35.9 pts
+   Premio económico que ganará: +3.590.000 €
+   Jugadores que aportaron: ravenn8 (+35.9 pts)
+👉 Equipo: "Fresquitos Club" (mariofresquis🍌)
+   Puntos que sumará hoy: +200.2 pts
+   Premio económico que ganará: +20.020.000 €
+   Jugadores que aportaron: Meju45 (+31.6 pts), byfonzo_ (+34 pts), jei_bi (+24.4 pts), ariwi8 (+17.9 pts), paquito (+35.7 pts), mikivf (+41.7 pts), DarckCred_Joker (+14.9 pts)
+👉 Equipo: "MarcosAlcaide" (MarcosAlcaide3)
+   Puntos que sumará hoy: +150.4 pts
+   Premio económico que ganará: +15.040.000 €
+   Jugadores que aportaron: Jlmeneez (+17 pts), tonora666 (+14 pts), CaiCedoo333 (+36.2 pts), payinki_3ndak (+27.1 pts), Luucaaas (+20.4 pts), robertopg9 (+14.9 pts), eRiksiLE (+20.8 pts)
+👉 Equipo: "Skyzze" (Skyzzero)
+   Puntos que sumará hoy: +118 pts
+   Premio económico que ganará: +11.800.000 €
+   Jugadores que aportaron: El_Bueno_De_Link (+19.9 pts), sergioness (+13.9 pts), elpepote2000 (+18 pts), xNaanos (+29.3 pts), rzponzio (+36.9 pts)
+👉 Equipo: "15006" (xXYeremagicXx)
+   Puntos que sumará hoy: +126.8 pts
+   Premio económico que ganará: +12.680.000 €
+   Jugadores que aportaron: Edupb02 (+15.9 pts), kikin (+21.9 pts), hectorop96 (+30 pts), KTDNrubo (+19.2 pts), Skills-Angel (+6.9 pts), molina73 (+26.8 pts), Jean_Marco97 (+6.1 pts)
+👉 Equipo: "xJzule" (JezuleRK)
+   Puntos que sumará hoy: +272.6 pts
+   Premio económico que ganará: +27.260.000 €
+   Jugadores que aportaron: GERIGF111 (+16.7 pts), TSX-Juanri2 (+140.9 pts), ublaya777 (+17.1 pts), xbausan (+38.3 pts), Alecastillo (+23.7 pts), HumosXD (+35.9 pts)
+
+----------------------------------------------------
+Liga Fantasy: Suzaku esports (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 8 equipos participantes.
+👉 Equipo: "OskarFC" (oskar__12)
+   Puntos que sumará hoy: +260.2 pts
+   Premio económico que ganará: +26.020.000 €
+   Jugadores que aportaron: FX-Wheezy (+17 pts), TWNUTOSSS (+29 pts), xbausan (+38.3 pts), Oskarrrr12 (+25.5 pts), ravenn8 (+35.9 pts), bojan_9000 (+29.5 pts), cliimeent (+36.4 pts), Lamuda1217 (+13.7 pts), xElShaaraWy-7 (+34.9 pts)
+👉 Equipo: "UsamaCancel_01" (UsamaCancel_01)
+   Puntos que sumará hoy: +35.9 pts
+   Premio económico que ganará: +3.590.000 €
+   Jugadores que aportaron: GERIGF111 (+16.7 pts), KTDNrubo (+19.2 pts)
+👉 Equipo: "bojan führer" (Raaulux_)
+   Puntos que sumará hoy: +144.8 pts
+   Premio económico que ganará: +14.480.000 €
+   Jugadores que aportaron: Woldaso (+17.4 pts), xXHatchZzz (+25.5 pts), GzAntonio (+95.8 pts), Jean_Marco97 (+6.1 pts)
+👉 Equipo: "Langostino Pérez" (kint780)
+   Puntos que sumará hoy: +193.8 pts
+   Premio económico que ganará: +19.380.000 €
+   Jugadores que aportaron: WaitInth3Bush (+19.6 pts), AntonioGuerraXI (+13.8 pts), Juanlukaku (+47.4 pts), elkrakenn23_ (+9.6 pts), byfonzo_ (+34 pts), eRiksiLE (+20.8 pts), l iMaaGiiK l (+48.6 pts)
+👉 Equipo: "Aston birra" (Albersis)
+   Puntos que sumará hoy: +74.9 pts
+   Premio económico que ganará: +7.490.000 €
+   Jugadores que aportaron: alex-_-ac130 (+23.3 pts), thecout69 (+44.3 pts), MonKeyDFFYLU (+1.5 pts), Quike_JL (+5.8 pts)
+👉 Equipo: "Viva er beti" (_Vargas7_)
+   Puntos que sumará hoy: +40.2 pts
+   Premio económico que ganará: +4.020.000 €
+   Jugadores que aportaron: lostresplay (+21.7 pts), alegrima (+18.5 pts)
+👉 Equipo: "Real Oviedo" (hectorop96)
+   Puntos que sumará hoy: +75.6 pts
+   Premio económico que ganará: +7.560.000 €
+   Jugadores que aportaron: XMagoOZX (+24 pts), RauLTiiTy (+23.9 pts), donpe_10 (+27.7 pts)
+👉 Equipo: "L1k4n0" (cCaNii-)
+   Puntos que sumará hoy: +60.4 pts
+   Premio económico que ganará: +6.040.000 €
+   Jugadores que aportaron: StamI3I (+33.4 pts), UsamaCancel_01 (+13.6 pts), xKanela_ (+13.4 pts)
+
+----------------------------------------------------
+Liga Fantasy: ISLANDIA (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 16 equipos participantes.
+👉 Equipo: "OSKARFC" (oskar__12)
+   Puntos que sumará hoy: +221.1 pts
+   Premio económico que ganará: +22.110.000 €
+   Jugadores que aportaron: MrTaker22 (+20 pts), BUTRAl20l (+24.6 pts), xValdes77 (+19.7 pts), BIL_0028 (+14.5 pts), ravenn8 (+35.9 pts), elbrokoo30 (+27.2 pts), mikelma29 (+15.1 pts), pupen7 (+64.1 pts)
+👉 Equipo: "xXHatchZzz+ 10" (xXHatchZzz)
+   Puntos que sumará hoy: +156.4 pts
+   Premio económico que ganará: +15.640.000 €
+   Jugadores que aportaron: Villapastor (+27.4 pts), victortacone (+38.2 pts), izanjc08gg (+15.2 pts), xXHatchZzz (+25.5 pts), ferstari96i (+36.4 pts), Lamuda1217 (+13.7 pts)
+👉 Equipo: "satiduxgaming" (Satitajr)
+   Puntos que sumará hoy: +74.1 pts
+   Premio económico que ganará: +7.410.000 €
+   Jugadores que aportaron: alegrima (+18.5 pts), eRiksiLE (+20.8 pts), TeweletelaJR (+34.8 pts)
+👉 Equipo: "TeamDuran" (JraelDurand)
+   Puntos que sumará hoy: +221.8 pts
+   Premio económico que ganará: +22.180.000 €
+   Jugadores que aportaron: quiquejr78 (+15.1 pts), z3uSgijon (+17.2 pts), litocg13 (+29 pts), GoE-SouL (+29.6 pts), cliimeent (+36.4 pts), rzponzio (+36.9 pts), Luucaaas (+20.4 pts), Vargas7_x (+13.1 pts), alexluciamaquina (+24.1 pts)
+👉 Equipo: "Negreira FC" (HuugoPriet0)
+   Puntos que sumará hoy: +177.2 pts
+   Premio económico que ganará: +17.720.000 €
+   Jugadores que aportaron: DONgollete (+21.7 pts), sergiopdp7 (+17.3 pts), Antony l7l (+28.6 pts), AitorRdguez (+24.7 pts), donpe_10 (+27.7 pts), Huugopriet0 (+24.7 pts), SeryaGM (+32.5 pts)
+👉 Equipo: "Danielito" (Daaaaniiiieeeeeliitoo)
+   Puntos que sumará hoy: +42 pts
+   Premio económico que ganará: +4.200.000 €
+   Jugadores que aportaron: Serzgz12 (+20.3 pts), lostresplay (+21.7 pts)
+👉 Equipo: "alex1wrJ" (alex1wrJ)
+   Puntos que sumará hoy: +158.2 pts
+   Premio económico que ganará: +15.820.000 €
+   Jugadores que aportaron: AntonioGuerraXI (+13.8 pts), belversingh (+15.1 pts), zzRaydenzz (+17.1 pts), misterigle (+25 pts), 6_GULLIT (+35.3 pts), xbausan (+38.3 pts), UsamaCancel_01 (+13.6 pts)
+👉 Equipo: "ToNtAnFC" (hichiipro22)
+   Puntos que sumará hoy: +151.2 pts
+   Premio económico que ganará: +15.120.000 €
+   Jugadores que aportaron: dablito2 (+15.9 pts), burpils (+24.6 pts), GzAntonio (+95.8 pts), robertopg9 (+14.9 pts)
+👉 Equipo: "MUSULMANCHESTER CITY" (𝐌𝐈𝐂𝐇𝐀𝐄𝐋 𝐎𝐋𝐈𝐒𝐄♱)
+   Puntos que sumará hoy: +117.7 pts
+   Premio económico que ganará: +11.770.000 €
+   Jugadores que aportaron: TonyBlack95 (+17 pts), victorpp21 (+28.8 pts), paquito (+35.7 pts), CaiCedoo333 (+36.2 pts)
+👉 Equipo: "Team kike" (Kikeeeee)
+   Puntos que sumará hoy: +99.1 pts
+   Premio económico que ganará: +9.910.000 €
+   Jugadores que aportaron: noux1900 (+27.5 pts), adriancella (+27.8 pts), NK-Xpo (+30 pts), Malamadre (+13.8 pts)
+👉 Equipo: "Madeira fc" (XPEPE)
+   Puntos que sumará hoy: +127.2 pts
+   Premio económico que ganará: +12.720.000 €
+   Jugadores que aportaron: andresdiiaaz (+24.7 pts), Merino_11 (+24.8 pts), TanqueRoldan22 (+13.9 pts), vlobato10 (+63.8 pts)
+👉 Equipo: "La Zappyneta" (xfrenkie-_-)
+   Puntos que sumará hoy: +189.6 pts
+   Premio económico que ganará: +18.960.000 €
+   Jugadores que aportaron: marcosalcaide3 (+15.7 pts), Vicente4560 (+17.2 pts), Fernando_im (+14.6 pts), Briiiiiiaann37 (+11.5 pts), ZaPPy_Clapz (+116.7 pts), crischf11 (+8.1 pts), Quike_JL (+5.8 pts)
+👉 Equipo: "Yuri FC" (Yuri)
+   Puntos que sumará hoy: +256.9 pts
+   Premio económico que ganará: +25.690.000 €
+   Jugadores que aportaron: NTT_Yer1k (+21.8 pts), xNaanos (+29.3 pts), WaitInth3Bush (+19.6 pts), elkrakenn23_ (+9.6 pts), Juanlukaku (+47.4 pts), cristitos98 (+33.2 pts), panterjack (+35.2 pts), xBokadii (+25.9 pts), xElShaaraWy-7 (+34.9 pts)
+👉 Equipo: "TURKINHO FC" (turco)
+   Puntos que sumará hoy: +172.6 pts
+   Premio económico que ganará: +17.260.000 €
+   Jugadores que aportaron: MarioFresh (+16 pts), ADEJERO1989 (+19.3 pts), TWNUTOSSS (+29 pts), Caarloscorralees (+69.4 pts), rubstore66 (+7.9 pts), XxDanielito98xX (+31 pts)
+👉 Equipo: "xJomicebolla" (jomigoga007)
+   Puntos que sumará hoy: +89 pts
+   Premio económico que ganará: +8.900.000 €
+   Jugadores que aportaron: oxkronn (+18.4 pts), ivanin3 (+36.3 pts), adritude (+16.2 pts), alvaroohdzz (+10.9 pts), cristian-corti (+7.2 pts)
+👉 Equipo: "Visca team" (Visca__4832) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: Athletic United (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 1 equipos participantes.
+👉 Equipo: "gambito" (gambito)
+   Puntos que sumará hoy: +58.7 pts
+   Premio económico que ganará: +5.870.000 €
+   Jugadores que aportaron: xXVitinho19Xx (+22.3 pts), msantana_9 (+36.4 pts)
+
+----------------------------------------------------
+Liga Fantasy: 2 DIVISION VPG (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 7 equipos participantes.
+👉 Equipo: "Perez FC" (Perez)
+   Puntos que sumará hoy: +197.7 pts
+   Premio económico que ganará: +19.770.000 €
+   Jugadores que aportaron: Adrianbr03 (+137 pts), Manelibz4_ (+60.7 pts)
+👉 Equipo: "Visca team" (Visca__4832)
+   Puntos que sumará hoy: +24.8 pts
+   Premio económico que ganará: +2.480.000 €
+   Jugadores que aportaron: ZoM-IkerCasillas (+11.5 pts), ZanderonFox (+13.3 pts)
+👉 Equipo: "Real vardrid" (felixguardiola)
+   Puntos que sumará hoy: +43.1 pts
+   Premio económico que ganará: +4.310.000 €
+   Jugadores que aportaron: AyrtonSennaKing (+5.9 pts), DavidCid98 (+17.5 pts), Javivi2798 (+17 pts), iAnthony6 (+2.7 pts)
+👉 Equipo: "Atleti" (Kevin ッ)
+   Puntos que sumará hoy: +26.5 pts
+   Premio económico que ganará: +2.650.000 €
+   Jugadores que aportaron: SuperMou82 (+7.1 pts), Abransito16 (+19.4 pts)
+👉 Equipo: "Ismael22614" (Ismael22614)
+   Puntos que sumará hoy: +189 pts
+   Premio económico que ganará: +18.900.000 €
+   Jugadores que aportaron: Joviamhill (+13.2 pts), Melow14 (+24.5 pts), tomas_manises (+90.8 pts), JPPArtist (+28.4 pts), Sevilla98M (+24.7 pts), FNICOLA24 (+7.4 pts)
+👉 Equipo: "Payos fc" (eneko11)
+   Puntos que sumará hoy: +80 pts
+   Premio económico que ganará: +8.000.000 €
+   Jugadores que aportaron: aleex_quero (+29.4 pts), ot4rxxp8 (+16.7 pts), KestiasxZG (+20 pts), ViceURU0020 (+13.9 pts)
+👉 Equipo: "Frente Atletico" (xRamonetti_10z) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: Yaitans (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 12 equipos participantes.
+👉 Equipo: "Vader lover" (xVega20)
+   Puntos que sumará hoy: +223.6 pts
+   Premio económico que ganará: +22.360.000 €
+   Jugadores que aportaron: GERIGF111 (+16.7 pts), misterigle (+25 pts), arjoniiitaa_g4 (+32.9 pts), panterjack (+35.2 pts), vlobato10 (+63.8 pts), UsamaCancel_01 (+13.6 pts), ferstari96i (+36.4 pts)
+👉 Equipo: "yaitans" (Izan)
+   Puntos que sumará hoy: +138.9 pts
+   Premio económico que ganará: +13.890.000 €
+   Jugadores que aportaron: Caarloscorralees (+69.4 pts), cristitos98 (+33.2 pts), Xxelpadrino92xx (+36.3 pts)
+👉 Equipo: "Los beibis kao" (kaottik)
+   Puntos que sumará hoy: +230.2 pts
+   Premio económico que ganará: +23.020.000 €
+   Jugadores que aportaron: joselitoRJ7 (+28.5 pts), lykano (+26.9 pts), Dape10 (+14.5 pts), KTDNrubo (+19.2 pts), 6_GULLIT (+35.3 pts), Briiiiiiaann37 (+11.5 pts), xChaagoo7 (+81.2 pts), Vargas7_x (+13.1 pts)
+👉 Equipo: "Yuri FC" (Yuri)
+   Puntos que sumará hoy: +126.2 pts
+   Premio económico que ganará: +12.620.000 €
+   Jugadores que aportaron: ImperiusHawk (+20.5 pts), BUTRAl20l (+24.6 pts), Raaulux (+14.7 pts), rzponzio (+36.9 pts), Jrael_Durand (+14.4 pts), mikelma29 (+15.1 pts)
+👉 Equipo: "VILLAPASTIS FC" (VILLAPASTOR)
+   Puntos que sumará hoy: +55.9 pts
+   Premio económico que ganará: +5.590.000 €
+   Jugadores que aportaron: ivanin3 (+36.3 pts), WaitInth3Bush (+19.6 pts)
+👉 Equipo: "TATO67" (TATO👾🖤)
+   Puntos que sumará hoy: +93.5 pts
+   Premio económico que ganará: +9.350.000 €
+   Jugadores que aportaron: Chocopop (+38.2 pts), mecvno (+1 pts), xMati___10x (+35.4 pts), zWeeDMyScuF (+18.9 pts)
+👉 Equipo: "Minabo de Kiev" (z3uS)
+   Puntos que sumará hoy: +121.8 pts
+   Premio económico que ganará: +12.180.000 €
+   Jugadores que aportaron: NTT_Yer1k (+21.8 pts), EdwardSG (+24.9 pts), vicente_haz (+45.5 pts), GoE-SouL (+29.6 pts)
+👉 Equipo: "Poyitnet" (Poyito99)
+   Puntos que sumará hoy: +34.4 pts
+   Premio económico que ganará: +3.440.000 €
+   Jugadores que aportaron: belversingh (+15.1 pts), ADEJERO1989 (+19.3 pts)
+👉 Equipo: "LF- NMOK FC" (jaavvii10)
+   Puntos que sumará hoy: +72.5 pts
+   Premio económico que ganará: +7.250.000 €
+   Jugadores que aportaron: DarthScrypter (+28.7 pts), TonyBlack95 (+17 pts), RauLTiiTy (+23.9 pts), soek_mostoles (+2.9 pts)
+👉 Equipo: "Raychu FC" (rraay_)
+   Puntos que sumará hoy: +141.8 pts
+   Premio económico que ganará: +14.180.000 €
+   Jugadores que aportaron: Raul Pro (+26.6 pts), psychoz (+36.5 pts), supergigio78 (+20.1 pts), Luucaaas (+20.4 pts), XxDanielito98xX (+31 pts), cristian-corti (+7.2 pts)
+👉 Equipo: "I love Carlix FC" (FranKO)
+   Puntos que sumará hoy: +46.9 pts
+   Premio económico que ganará: +4.690.000 €
+   Jugadores que aportaron: burpils (+24.6 pts), robertopg9 (+14.9 pts), lamborgamer (+7.4 pts)
+👉 Equipo: "Peligro" (dangerxs)
+   Puntos que sumará hoy: +110.3 pts
+   Premio económico que ganará: +11.030.000 €
+   Jugadores que aportaron: andresdiiaaz (+24.7 pts), sergiopdp7 (+17.3 pts), ublaya777 (+17.1 pts), Recre220802 (+15.3 pts), HumosXD (+35.9 pts)
+
+----------------------------------------------------
+Liga Fantasy: BLACK HAWKS (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 9 equipos participantes.
+👉 Equipo: "xFuture 11" (xFuture 11)
+   Puntos que sumará hoy: +85.9 pts
+   Premio económico que ganará: +8.590.000 €
+   Jugadores que aportaron: quiquejr78 (+15.1 pts), Fernando_im (+14.6 pts), Serzgz12 (+20.3 pts), ravenn8 (+35.9 pts)
+👉 Equipo: "Jokin_09" (jokin_09)
+   Puntos que sumará hoy: +178.1 pts
+   Premio económico que ganará: +17.810.000 €
+   Jugadores que aportaron: Meju45 (+31.6 pts), ivanin3 (+36.3 pts), kikin (+21.9 pts), david_parla17 (+29.2 pts), xbausan (+38.3 pts), eRiksiLE (+20.8 pts)
+👉 Equipo: "Amadeus Fc" (Supergigio)
+   Puntos que sumará hoy: +49.7 pts
+   Premio económico que ganará: +4.970.000 €
+   Jugadores que aportaron: Kaiser8_fc (+14.2 pts), Antony l7l (+28.6 pts), Skills-Angel (+6.9 pts)
+👉 Equipo: "Escaleras Balompie" (robertopg9)
+   Puntos que sumará hoy: +112.5 pts
+   Premio económico que ganará: +11.250.000 €
+   Jugadores que aportaron: sergiopdp7 (+17.3 pts), animal734 (+16.4 pts), supergigio78 (+20.1 pts), thecout69 (+44.3 pts), Jrael_Durand (+14.4 pts)
+👉 Equipo: "Werder semen" (adriancella)
+   Puntos que sumará hoy: +77.3 pts
+   Premio económico que ganará: +7.730.000 €
+   Jugadores que aportaron: xmonteero (+32.7 pts), mikivf (+41.7 pts), soek_mostoles (+2.9 pts)
+👉 Equipo: "Team xIsmjab" (xIsmjab)
+   Puntos que sumará hoy: +84.4 pts
+   Premio económico que ganará: +8.440.000 €
+   Jugadores que aportaron: ImperiusHawk (+20.5 pts), NK-Xpo (+30 pts), Dagova (+28.3 pts), franchute3000 (+5.6 pts)
+👉 Equipo: "PericoTussiero" (xDidAkO)
+   Puntos que sumará hoy: +156.5 pts
+   Premio económico que ganará: +15.650.000 €
+   Jugadores que aportaron: DONgollete (+21.7 pts), Merino_11 (+24.8 pts), By_KoSToo (+35.3 pts), misterigle (+25 pts), NotAguus_ (+21.2 pts), UsamaCancel_01 (+13.6 pts), DarckCred_Joker (+14.9 pts)
+👉 Equipo: "Camero FC" (RobertV)
+   Puntos que sumará hoy: +86.9 pts
+   Premio económico que ganará: +8.690.000 €
+   Jugadores que aportaron: noux1900 (+27.5 pts), ariwi8 (+17.9 pts), molina73 (+26.8 pts), mecvno (+1 pts), Lamuda1217 (+13.7 pts)
+👉 Equipo: "Fraanchu Team" (xFraanchu)
+   Puntos que sumará hoy: +348 pts
+   Premio económico que ganará: +34.800.000 €
+   Jugadores que aportaron: Daniveera (+221.2 pts), Raaulux (+14.7 pts), victorpp21 (+28.8 pts), paquito (+35.7 pts), mikelma29 (+15.1 pts), SeryaGM (+32.5 pts)
+
+----------------------------------------------------
+Liga Fantasy: Cryzen gaming (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 13 equipos participantes.
+👉 Equipo: "FC Puterazos" (19Angeel_)
+   Puntos que sumará hoy: +34.8 pts
+   Premio económico que ganará: +3.480.000 €
+   Jugadores que aportaron: TeweletelaJR (+34.8 pts)
+👉 Equipo: "Real Panchito FC" (SebasMoreno1998)
+   Puntos que sumará hoy: +180.1 pts
+   Premio económico que ganará: +18.010.000 €
+   Jugadores que aportaron: guto_12_ (+37.6 pts), Raul Pro (+26.6 pts), WaitInth3Bush (+19.6 pts), xKaoTikz (+15.5 pts), MonKeyDFFYLU (+1.5 pts), thorr2002 (+79.3 pts)
+👉 Equipo: "Turnicio Pochettino" (Turni)
+   Puntos que sumará hoy: +146.1 pts
+   Premio económico que ganará: +14.610.000 €
+   Jugadores que aportaron: DONgollete (+21.7 pts), Recre220802 (+15.3 pts), paquito (+35.7 pts), panzerkh11 (+15.3 pts), eRiksiLE (+20.8 pts), UsamaCancel_01 (+13.6 pts), Alecastillo (+23.7 pts)
+👉 Equipo: "Eriksile" (eRiKsiLE)
+   Puntos que sumará hoy: +204.4 pts
+   Premio económico que ganará: +20.440.000 €
+   Jugadores que aportaron: BIL_0028 (+14.5 pts), dablito2 (+15.9 pts), ZaPPy_Clapz (+116.7 pts), cristitos98 (+33.2 pts), alexluciamaquina (+24.1 pts)
+👉 Equipo: "AchauTeam" (Achau)
+   Puntos que sumará hoy: +170.3 pts
+   Premio económico que ganará: +17.030.000 €
+   Jugadores que aportaron: By_KoSToo (+35.3 pts), GzAntonio (+95.8 pts), decrow (+4.3 pts), xElShaaraWy-7 (+34.9 pts)
+👉 Equipo: "Snowfc" (Snow)
+   Puntos que sumará hoy: +122.2 pts
+   Premio económico que ganará: +12.220.000 €
+   Jugadores que aportaron: Meju45 (+31.6 pts), Vicente4560 (+17.2 pts), belversingh (+15.1 pts), bojan_9000 (+29.5 pts), elkrakenn23_ (+9.6 pts), KTDNrubo (+19.2 pts)
+👉 Equipo: "Expo" (NK | Xpo)
+   Puntos que sumará hoy: +107.7 pts
+   Premio económico que ganará: +10.770.000 €
+   Jugadores que aportaron: TonyBlack95 (+17 pts), Serzgz12 (+20.3 pts), zzRaydenzz (+17.1 pts), victortacone (+38.2 pts), mikelma29 (+15.1 pts)
+👉 Equipo: "FONFON X" (Fonziito🍀)
+   Puntos que sumará hoy: +82.4 pts
+   Premio económico que ganará: +8.240.000 €
+   Jugadores que aportaron: adriancella (+27.8 pts), kikin (+21.9 pts), xmonteero (+32.7 pts)
+👉 Equipo: "Real Fachadolid" (Alejandro Sanz)
+   Puntos que sumará hoy: +159.7 pts
+   Premio económico que ganará: +15.970.000 €
+   Jugadores que aportaron: Juanlukaku (+47.4 pts), mikivf (+41.7 pts), XxDanielito98xX (+31 pts), xBokadii (+25.9 pts), Lamuda1217 (+13.7 pts)
+👉 Equipo: "Boyombos Team" (RauLTiiTy)
+   Puntos que sumará hoy: +74.6 pts
+   Premio económico que ganará: +7.460.000 €
+   Jugadores que aportaron: Raaulux (+14.7 pts), tonora666 (+14 pts), Alex_rubio3 (+21.2 pts), Huugopriet0 (+24.7 pts)
+👉 Equipo: "Mariete" (mecano)
+   Puntos que sumará hoy: +158.4 pts
+   Premio económico que ganará: +15.840.000 €
+   Jugadores que aportaron: Edupb02 (+15.9 pts), XMagoOZX (+24 pts), AntonioGuerraXI (+13.8 pts), animal734 (+16.4 pts), crischf11 (+8.1 pts), AitorRdguez (+24.7 pts), Nokxy (+22.6 pts), pingabailarina69 (+32.9 pts)
+👉 Equipo: "Espantaviejas" (unaiiigarciiiaa)
+   Puntos que sumará hoy: +239.3 pts
+   Premio económico que ganará: +23.930.000 €
+   Jugadores que aportaron: LF-NMOK (+16 pts), unaiiigarciiiaa_ (+65.4 pts), lykano (+26.9 pts), xbausan (+38.3 pts), EST_XxdieguitoxX (+25.5 pts), adritor8994 (+7.4 pts), RauLTiiTy (+23.9 pts), HumosXD (+35.9 pts)
+👉 Equipo: "Team Khabib" (n3WW1s_) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: Bachateros FC (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 11 equipos participantes.
+👉 Equipo: "guillediazgo" (guillediazgo)
+   Puntos que sumará hoy: +182.8 pts
+   Premio económico que ganará: +18.280.000 €
+   Jugadores que aportaron: WaitInth3Bush (+19.6 pts), ADEJERO1989 (+19.3 pts), AntonioGuerraXI (+13.8 pts), cristitos98 (+33.2 pts), thecout69 (+44.3 pts), supergigio78 (+20.1 pts), SeryaGM (+32.5 pts)
+👉 Equipo: "URI FC" (Uriii)
+   Puntos que sumará hoy: +163.4 pts
+   Premio económico que ganará: +16.340.000 €
+   Jugadores que aportaron: noux1900 (+27.5 pts), MJB03 (+26.4 pts), israeadri (+27.7 pts), franchute3000 (+5.6 pts), NotAguus_ (+21.2 pts), king_albersis (+28.6 pts), UsamaCancel_01 (+13.6 pts), guaristiki11 (+12.8 pts)
+👉 Equipo: "Juanlu" (Juanlu(Juaso))
+   Puntos que sumará hoy: +157.4 pts
+   Premio económico que ganará: +15.740.000 €
+   Jugadores que aportaron: DONgollete (+21.7 pts), psychoz (+36.5 pts), XMagoOZX (+24 pts), xbausan (+38.3 pts), rzponzio (+36.9 pts)
+👉 Equipo: "Pollasos Fc" (tonyymedinaa95)
+   Puntos que sumará hoy: +111.5 pts
+   Premio económico que ganará: +11.150.000 €
+   Jugadores que aportaron: Edupb02 (+15.9 pts), GERIGF111 (+16.7 pts), unaiiigarciiiaa_ (+65.4 pts), adritor8994 (+7.4 pts), Jean_Marco97 (+6.1 pts)
+👉 Equipo: "SERGIATM9" (SERGIATM9)
+   Puntos que sumará hoy: +111.9 pts
+   Premio económico que ganará: +11.190.000 €
+   Jugadores que aportaron: MrTaker22 (+20 pts), tonora666 (+14 pts), ivanin3 (+36.3 pts), Luucaaas (+20.4 pts), Alex_rubio3 (+21.2 pts)
+👉 Equipo: "Imperius" (ImperiusHawk)
+   Puntos que sumará hoy: +98 pts
+   Premio económico que ganará: +9.800.000 €
+   Jugadores que aportaron: borcontun_95 (+10.8 pts), marcosalcaide3 (+15.7 pts), mikivf (+41.7 pts), decrow (+4.3 pts), xXHatchZzz (+25.5 pts)
+👉 Equipo: "DonpeSports" (mga98)
+   Puntos que sumará hoy: +70.4 pts
+   Premio económico que ganará: +7.040.000 €
+   Jugadores que aportaron: DarthScrypter (+28.7 pts), Ponxii_Twitch_7 (+18.4 pts), TanqueRoldan22 (+13.9 pts), Juanma-RdZ_92 (+9.4 pts)
+👉 Equipo: "SUSINHOU" (suso1O)
+   Puntos que sumará hoy: +71.3 pts
+   Premio económico que ganará: +7.130.000 €
+   Jugadores que aportaron: yyeraxxyy (+27.9 pts), hichipro (+18.4 pts), Aleeez4 (+17.8 pts), cristian-corti (+7.2 pts)
+👉 Equipo: "Retrinho" (Retrinho)
+   Puntos que sumará hoy: +67.1 pts
+   Premio económico que ganará: +6.710.000 €
+   Jugadores que aportaron: lostresplay (+21.7 pts), Recre220802 (+15.3 pts), yassingamerpro (+30.1 pts)
+👉 Equipo: "Briaiiann" (Brian)
+   Puntos que sumará hoy: +113.1 pts
+   Premio económico que ganará: +11.310.000 €
+   Jugadores que aportaron: jomigoga007 (+14.2 pts), Merino_11 (+24.8 pts), seecrtetz_mortal (+25.2 pts), panterjack (+35.2 pts), Lamuda1217 (+13.7 pts)
+👉 Equipo: "BRICE FC" (DBricee8)
+   Puntos que sumará hoy: +82.4 pts
+   Premio económico que ganará: +8.240.000 €
+   Jugadores que aportaron: ivecgg (+11.6 pts), TonyBlack95 (+17 pts), xElShaaraWy-7 (+34.9 pts), zWeeDMyScuF (+18.9 pts)
+
+----------------------------------------------------
+Liga Fantasy: Cadiz CFeSports (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 12 equipos participantes.
+👉 Equipo: "Equipo xMati" (xMati___10x)
+   Puntos que sumará hoy: +327.7 pts
+   Premio económico que ganará: +32.770.000 €
+   Jugadores que aportaron: dablito2 (+15.9 pts), NK-Xpo (+30 pts), Woldaso (+17.4 pts), AitorRdguez (+24.7 pts), Dape10 (+14.5 pts), TSX-Juanri2 (+140.9 pts), elkrakenn23_ (+9.6 pts), izanjc08gg (+15.2 pts), alexluciamaquina (+24.1 pts), xMati___10x (+35.4 pts)
+👉 Equipo: "Dagova" (Dagova)
+   Puntos que sumará hoy: +131.2 pts
+   Premio económico que ganará: +13.120.000 €
+   Jugadores que aportaron: noux1900 (+27.5 pts), Kaiser8_fc (+14.2 pts), joselitoRJ7 (+28.5 pts), Luucaaas (+20.4 pts), TeweletelaJR (+34.8 pts), Quike_JL (+5.8 pts)
+👉 Equipo: "Veganeta" (xVega20)
+   Puntos que sumará hoy: +18.1 pts
+   Premio económico que ganará: +1.810.000 €
+   Jugadores que aportaron: PrinceMatute (+18.1 pts)
+👉 Equipo: "Soy el numero 1" (Roberto Martínez)
+   Puntos que sumará hoy: +185.5 pts
+   Premio económico que ganará: +18.550.000 €
+   Jugadores que aportaron: quiquejr78 (+15.1 pts), belversingh (+15.1 pts), ZaPPy_Clapz (+116.7 pts), Briiiiiiaann37 (+11.5 pts), payinki_3ndak (+27.1 pts)
+👉 Equipo: "Hummus FC" (Humos)
+   Puntos que sumará hoy: +227 pts
+   Premio económico que ganará: +22.700.000 €
+   Jugadores que aportaron: ivecgg (+11.6 pts), animal734 (+16.4 pts), Serzgz12 (+20.3 pts), hectorop96 (+30 pts), cristitos98 (+33.2 pts), JVT-10K (+15.3 pts), vlobato10 (+63.8 pts), ferstari96i (+36.4 pts)
+👉 Equipo: "Poyito99" (Poyito99)
+   Puntos que sumará hoy: +127.3 pts
+   Premio económico que ganará: +12.730.000 €
+   Jugadores que aportaron: XMagoOZX (+24 pts), xValdes77 (+19.7 pts), Nokxy (+22.6 pts), TanqueRoldan22 (+13.9 pts), AlmeOtF (+16.3 pts), Jean_Marco97 (+6.1 pts), Huugopriet0 (+24.7 pts)
+👉 Equipo: "Mataratas fc" (chocopop1703)
+   Puntos que sumará hoy: +45.8 pts
+   Premio económico que ganará: +4.580.000 €
+   Jugadores que aportaron: Juasomed1234 (+18.3 pts), AntonioGuerraXI (+13.8 pts), Lamuda1217 (+13.7 pts)
+👉 Equipo: "XMagoOZX" (XMagoOZX)
+   Puntos que sumará hoy: +74.5 pts
+   Premio económico que ganará: +7.450.000 €
+   Jugadores que aportaron: tonora666 (+14 pts), burpils (+24.6 pts), ravenn8 (+35.9 pts)
+👉 Equipo: "Team Jorge" (PrinceJorge)
+   Puntos que sumará hoy: +87.5 pts
+   Premio económico que ganará: +8.750.000 €
+   Jugadores que aportaron: Edupb02 (+15.9 pts), TonyBlack95 (+17 pts), Recre220802 (+15.3 pts), alegrima (+18.5 pts), eRiksiLE (+20.8 pts)
+👉 Equipo: "Apestando FC" (Eric_armas)
+   Puntos que sumará hoy: +147.3 pts
+   Premio económico que ganará: +14.730.000 €
+   Jugadores que aportaron: DONgollete (+21.7 pts), ADEJERO1989 (+19.3 pts), TWNUTOSSS (+29 pts), elfarru22 (+15.8 pts), king_albersis (+28.6 pts), pingabailarina69 (+32.9 pts)
+👉 Equipo: "TATO" (TATO👾🖤)
+   Puntos que sumará hoy: +76.2 pts
+   Premio económico que ganará: +7.620.000 €
+   Jugadores que aportaron: Chocopop (+38.2 pts), PrinceJorge7_ (+22.9 pts), mikelma29 (+15.1 pts)
+👉 Equipo: "Muchísimos Numero FC" (Antonio_VE13)
+   Puntos que sumará hoy: +148.4 pts
+   Premio económico que ganará: +14.840.000 €
+   Jugadores que aportaron: Antonio983420 (+27.3 pts), Heretics_Jordi (+36.9 pts), CaiCedoo333 (+36.2 pts), panterjack (+35.2 pts), guaristiki11 (+12.8 pts)
+
+----------------------------------------------------
+Liga Fantasy: Alpha Wolfs (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 14 equipos participantes.
+👉 Equipo: "SamiFC" (JJw-SaMi)
+   Puntos que sumará hoy: +105.9 pts
+   Premio económico que ganará: +10.590.000 €
+   Jugadores que aportaron: bojan_9000 (+29.5 pts), rzponzio (+36.9 pts), elkrakenn23_ (+9.6 pts), AlmeOtF (+16.3 pts), UsamaCancel_01 (+13.6 pts)
+👉 Equipo: "AD Mérida" (edupb02)
+   Puntos que sumará hoy: +91.2 pts
+   Premio económico que ganará: +9.120.000 €
+   Jugadores que aportaron: Edupb02 (+15.9 pts), dablito2 (+15.9 pts), victortacone (+38.2 pts), NotAguus_ (+21.2 pts)
+👉 Equipo: "Matute team" (PrinceMatute)
+   Puntos que sumará hoy: +104.9 pts
+   Premio económico que ganará: +10.490.000 €
+   Jugadores que aportaron: GERIGF111 (+16.7 pts), burpils (+24.6 pts), NK-Xpo (+30 pts), guaristiki11 (+12.8 pts), eRiksiLE (+20.8 pts)
+👉 Equipo: "A por el moro FC" (JJw-MaNu)
+   Puntos que sumará hoy: +196.1 pts
+   Premio económico que ganará: +19.610.000 €
+   Jugadores que aportaron: ImperiusHawk (+20.5 pts), Aleeez4 (+17.8 pts), ZaPPy_Clapz (+116.7 pts), Makensii-_- (+8.6 pts), SeryaGM (+32.5 pts)
+👉 Equipo: "BorContunTeam" (borcontun)
+   Puntos que sumará hoy: +120 pts
+   Premio económico que ganará: +12.000.000 €
+   Jugadores que aportaron: lykano (+26.9 pts), Malamadre (+13.8 pts), xXHatchZzz (+25.5 pts), seecrtetz_mortal (+25.2 pts), Antony l7l (+28.6 pts)
+👉 Equipo: "juancaneta" (xtmk)
+   Puntos que sumará hoy: +178.2 pts
+   Premio económico que ganará: +17.820.000 €
+   Jugadores que aportaron: DarthScrypter (+28.7 pts), Jlmeneez (+17 pts), BUTRAl20l (+24.6 pts), Valdi_17 (+25.7 pts), crischf11 (+8.1 pts), Dape10 (+14.5 pts), xElShaaraWy-7 (+34.9 pts), Huugopriet0 (+24.7 pts)
+👉 Equipo: "R U B É N" (R U B E N .)
+   Puntos que sumará hoy: +103.5 pts
+   Premio económico que ganará: +10.350.000 €
+   Jugadores que aportaron: tonora666 (+14 pts), belversingh (+15.1 pts), KTDNrubo (+19.2 pts), Luucaaas (+20.4 pts), TeweletelaJR (+34.8 pts)
+👉 Equipo: "Raúl y 10 más" (TeweJR)
+   Puntos que sumará hoy: +63.2 pts
+   Premio económico que ganará: +6.320.000 €
+   Jugadores que aportaron: Fernando_im (+14.6 pts), l iMaaGiiK l (+48.6 pts)
+👉 Equipo: "xAitorinho" (AitorGarcia1998)
+   Puntos que sumará hoy: +27.8 pts
+   Premio económico que ganará: +2.780.000 €
+   Jugadores que aportaron: adriancella (+27.8 pts)
+👉 Equipo: "Gambillas Fc" (Pabzz__)
+   Puntos que sumará hoy: +74.6 pts
+   Premio económico que ganará: +7.460.000 €
+   Jugadores que aportaron: XMagoOZX (+24 pts), By_KoSToo (+35.3 pts), panzerkh11 (+15.3 pts)
+👉 Equipo: "RBB" (zorenice)
+   Puntos que sumará hoy: +235.9 pts
+   Premio económico que ganará: +23.590.000 €
+   Jugadores que aportaron: DONgollete (+21.7 pts), TonyBlack95 (+17 pts), kikin (+21.9 pts), ivanin3 (+36.3 pts), supergigio78 (+20.1 pts), misterigle (+25 pts), xbausan (+38.3 pts), EST_XxdieguitoxX (+25.5 pts), yassingamerpro (+30.1 pts)
+👉 Equipo: "Space fc" (nicoeff96)
+   Puntos que sumará hoy: +159.3 pts
+   Premio económico que ganará: +15.930.000 €
+   Jugadores que aportaron: popimarco11 (+18.3 pts), hectorop96 (+30 pts), xValdes77 (+19.7 pts), molina73 (+26.8 pts), alegrima (+18.5 pts), Eric_armas (+40.2 pts), Quike_JL (+5.8 pts)
+👉 Equipo: "Futbol Terrorista" (edgarb_13)
+   Puntos que sumará hoy: +32.9 pts
+   Premio económico que ganará: +3.290.000 €
+   Jugadores que aportaron: elpepote2000 (+18 pts), robertopg9 (+14.9 pts)
+👉 Equipo: "Birineta" (biri_tv)
+   Puntos que sumará hoy: +200.7 pts
+   Premio económico que ganará: +20.070.000 €
+   Jugadores que aportaron: S25D (+12.8 pts), animal734 (+16.4 pts), Vicente4560 (+17.2 pts), TSX-Juanri2 (+140.9 pts), xKanela_ (+13.4 pts)
+
+----------------------------------------------------
+Liga Fantasy: TRANSFORMERS CF (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 14 equipos participantes.
+👉 Equipo: "xNutos_" (𝕩ℕ𝕦𝕥𝕠𝕤)
+   Puntos que sumará hoy: +225.6 pts
+   Premio económico que ganará: +22.560.000 €
+   Jugadores que aportaron: DarthScrypter (+28.7 pts), Fernando_im (+14.6 pts), adritude (+16.2 pts), ZaPPy_Clapz (+116.7 pts), rubstore66 (+7.9 pts), Aleeez4 (+17.8 pts), Alecastillo (+23.7 pts)
+👉 Equipo: "HUMANES FC" (iinmoortal)
+   Puntos que sumará hoy: +79.4 pts
+   Premio económico que ganará: +7.940.000 €
+   Jugadores que aportaron: TWNUTOSSS (+29 pts), GERIGF111 (+16.7 pts), alegrima (+18.5 pts), izanjc08gg (+15.2 pts)
+👉 Equipo: "Manos mantequilla" (Mini bunga)
+   Puntos que sumará hoy: +167.2 pts
+   Premio económico que ganará: +16.720.000 €
+   Jugadores que aportaron: antoniiomods (+30.3 pts), Juasomed1234 (+18.3 pts), donpe_10 (+27.7 pts), mikivf (+41.7 pts), ferstari96i (+36.4 pts), guaristiki11 (+12.8 pts)
+👉 Equipo: "team kike" (Kikeeeee)
+   Puntos que sumará hoy: +72.1 pts
+   Premio económico que ganará: +7.210.000 €
+   Jugadores que aportaron: quiquejr78 (+15.1 pts), RauLTiiTy (+23.9 pts), DarckCred_Joker (+14.9 pts), alex5thunder (+18.2 pts)
+👉 Equipo: "Drifterking la cinta y el sprint" (xDrifterKing-27x)
+   Puntos que sumará hoy: +130.9 pts
+   Premio económico que ganará: +13.090.000 €
+   Jugadores que aportaron: ariwi8 (+17.9 pts), elkrakenn23_ (+9.6 pts), thorr2002 (+79.3 pts), alexluciamaquina (+24.1 pts)
+👉 Equipo: "CHAGO TEAM" (Chaagoo7)
+   Puntos que sumará hoy: +116.5 pts
+   Premio económico que ganará: +11.650.000 €
+   Jugadores que aportaron: panzerkh11 (+15.3 pts), franchute3000 (+5.6 pts), Jrael_Durand (+14.4 pts), xChaagoo7 (+81.2 pts)
+👉 Equipo: "La para tuya" (guaristiki11)
+   Puntos que sumará hoy: +77.7 pts
+   Premio económico que ganará: +7.770.000 €
+   Jugadores que aportaron: Meju45 (+31.6 pts), belversingh (+15.1 pts), Nacheete777 (+31 pts)
+👉 Equipo: "Wolteam" (woldaso)
+   Puntos que sumará hoy: +61.8 pts
+   Premio económico que ganará: +6.180.000 €
+   Jugadores que aportaron: DONgollete (+21.7 pts), xValdes77 (+19.7 pts), Luucaaas (+20.4 pts)
+👉 Equipo: "espartacos fc" (pelo pico pata)
+   Puntos que sumará hoy: +155.3 pts
+   Premio económico que ganará: +15.530.000 €
+   Jugadores que aportaron: andresdiiaaz (+24.7 pts), adriancella (+27.8 pts), robertopg9 (+14.9 pts), MonKeyDFFYLU (+1.5 pts), NotAguus_ (+21.2 pts), misterigle (+25 pts), Eric_armas (+40.2 pts)
+👉 Equipo: "GRIMA FC" (alegrima)
+   Puntos que sumará hoy: +178.8 pts
+   Premio económico que ganará: +17.880.000 €
+   Jugadores que aportaron: Jlmeneez (+17 pts), ADEJERO1989 (+19.3 pts), vicente_haz (+45.5 pts), joselitoRJ7 (+28.5 pts), Huugopriet0 (+24.7 pts), Lamuda1217 (+13.7 pts), yassingamerpro (+30.1 pts)
+👉 Equipo: "NO GOL FC" (X4K1miSZN)
+   Puntos que sumará hoy: +153.1 pts
+   Premio económico que ganará: +15.310.000 €
+   Jugadores que aportaron: El_Bueno_De_Link (+19.9 pts), alex-_-ac130 (+23.3 pts), TanqueRoldan22 (+13.9 pts), Juanlukaku (+47.4 pts), l iMaaGiiK l (+48.6 pts)
+👉 Equipo: "ArrozConVocesFc" (xBill)
+   Puntos que sumará hoy: +230.1 pts
+   Premio económico que ganará: +23.010.000 €
+   Jugadores que aportaron: XMagoOZX (+24 pts), By_KoSToo (+35.3 pts), king_albersis (+28.6 pts), Antony l7l (+28.6 pts), ravenn8 (+35.9 pts), victortacone (+38.2 pts), xBokadii (+25.9 pts), UsamaCancel_01 (+13.6 pts)
+👉 Equipo: "Team Alvaro" (.ALVARO.)
+   Puntos que sumará hoy: +91.7 pts
+   Premio económico que ganará: +9.170.000 €
+   Jugadores que aportaron: marcosalcaide3 (+15.7 pts), dablito2 (+15.9 pts), Skills-Angel (+6.9 pts), sergioness (+13.9 pts), PrinceMatute (+18.1 pts), Alex_rubio3 (+21.2 pts)
+👉 Equipo: "Discapacitados FC" (Hadock)
+   Puntos que sumará hoy: +122.5 pts
+   Premio económico que ganará: +12.250.000 €
+   Jugadores que aportaron: NTT_Yer1k (+21.8 pts), tonora666 (+14 pts), Briiiiiiaann37 (+11.5 pts), seecrtetz_mortal (+25.2 pts), mikelma29 (+15.1 pts), xElShaaraWy-7 (+34.9 pts)
+
+----------------------------------------------------
+Liga Fantasy: Los Wuachiturros (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 7 equipos participantes.
+👉 Equipo: "JequeTanque" (Tanque22)
+   Puntos que sumará hoy: +226.8 pts
+   Premio económico que ganará: +22.680.000 €
+   Jugadores que aportaron: El_Bueno_De_Link (+19.9 pts), payinki_3ndak (+27.1 pts), EdwardSG (+24.9 pts), TanqueRoldan22 (+13.9 pts), CaiCedoo333 (+36.2 pts), rubstore66 (+7.9 pts), ravenn8 (+35.9 pts), Huugopriet0 (+24.7 pts), Xxelpadrino92xx (+36.3 pts)
+👉 Equipo: "AC FRÍO FC" (Maximin)
+   Puntos que sumará hoy: +105.8 pts
+   Premio económico que ganará: +10.580.000 €
+   Jugadores que aportaron: ariwi8 (+17.9 pts), z3uSgijon (+17.2 pts), NotAguus_ (+21.2 pts), cliimeent (+36.4 pts), Vargas7_x (+13.1 pts)
+👉 Equipo: "IvanovicTeam" (Ivan)
+   Puntos que sumará hoy: +170.9 pts
+   Premio económico que ganará: +17.090.000 €
+   Jugadores que aportaron: MrTaker22 (+20 pts), borcontun_95 (+10.8 pts), MJB03 (+26.4 pts), NK-Xpo (+30 pts), Luucaaas (+20.4 pts), AitorRdguez (+24.7 pts), Aleeez4 (+17.8 pts), eRiksiLE (+20.8 pts)
+👉 Equipo: "Los soretes" (Dieguito)
+   Puntos que sumará hoy: +21.2 pts
+   Premio económico que ganará: +2.120.000 €
+   Jugadores que aportaron: Alex_rubio3 (+21.2 pts)
+👉 Equipo: "vendetta_0690" (VendettA_0690)
+   Puntos que sumará hoy: +42.8 pts
+   Premio económico que ganará: +4.280.000 €
+   Jugadores que aportaron: lostresplay (+21.7 pts), Briiiiiiaann37 (+11.5 pts), elkrakenn23_ (+9.6 pts)
+👉 Equipo: "TraaKzZ" (TraaKzZ-)
+   Puntos que sumará hoy: +32.5 pts
+   Premio económico que ganará: +3.250.000 €
+   Jugadores que aportaron: SeryaGM (+32.5 pts)
+👉 Equipo: "El numero1" (Roberto Martínez)
+   Puntos que sumará hoy: +152.6 pts
+   Premio económico que ganará: +15.260.000 €
+   Jugadores que aportaron: Meju45 (+31.6 pts), xValdes77 (+19.7 pts), Chocopop (+38.2 pts), sergiopdp7 (+17.3 pts), bojan_9000 (+29.5 pts), AlmeOtF (+16.3 pts)
+
+----------------------------------------------------
+Liga Fantasy: NOU TES TRISTE (Modo: ACCUMULATED)
+----------------------------------------------------
+[INFO] Liga tiene 11 equipos participantes.
+👉 Equipo: "jotaeme" (rubitolito)
+   Puntos que sumará hoy: +157.5 pts
+   Premio económico que ganará: +15.750.000 €
+   Jugadores que aportaron: ImperiusHawk (+20.5 pts), El_Cuest (+23.8 pts), bulnes_ (+42.4 pts), RauLTiiTy (+23.9 pts), silguix11 (+9 pts), Maarkuus10 (+37.9 pts)
+👉 Equipo: "Rulineta FC" (rauudiissoon)
+   Puntos que sumará hoy: +99.1 pts
+   Premio económico que ganará: +9.910.000 €
+   Jugadores que aportaron: TurNiRG (+28.6 pts), GERIGF111 (+16.7 pts), joselitoRJ7 (+28.5 pts), xavimano1992 (+4.5 pts), eRiksiLE (+20.8 pts)
+👉 Equipo: "Avanti noutestriste" (El Caudillo)
+   Puntos que sumará hoy: +57.6 pts
+   Premio económico que ganará: +5.760.000 €
+   Jugadores que aportaron: KestiasxZG (+20 pts), bilbaino88 (+13.9 pts), Alecastillo (+23.7 pts)
+👉 Equipo: "Visca Team" (Visca__4832)
+   Puntos que sumará hoy: +185.4 pts
+   Premio económico que ganará: +18.540.000 €
+   Jugadores que aportaron: franatic_vsl (+24.5 pts), blea (+25.6 pts), el-fari-esdios (+21.9 pts), WrongBoyz (+64.1 pts), Dape10 (+14.5 pts), Alex_rubio3 (+21.2 pts), UsamaCancel_01 (+13.6 pts)
+👉 Equipo: "Eduars" (eduarss)
+   Puntos que sumará hoy: +105.2 pts
+   Premio económico que ganará: +10.520.000 €
+   Jugadores que aportaron: WEIOS (+32.6 pts), ariwi8 (+17.9 pts), josearex (+27 pts), donpe_10 (+27.7 pts)
+👉 Equipo: "Bastard Munchen" (King Kaiser)
+   Puntos que sumará hoy: +76.6 pts
+   Premio económico que ganará: +7.660.000 €
+   Jugadores que aportaron: KAN70RNA (+17.8 pts), Malamadre (+13.8 pts), eds09_ (+45 pts)
+👉 Equipo: "morosNO" (danirodri)
+   Puntos que sumará hoy: +96.5 pts
+   Premio económico que ganará: +9.650.000 €
+   Jugadores que aportaron: Caarloscorralees (+69.4 pts), vBriann2k (+27.1 pts)
+👉 Equipo: "At cordobes" (andaluz27)
+   Puntos que sumará hoy: +173.9 pts
+   Premio económico que ganará: +17.390.000 €
+   Jugadores que aportaron: aleex_quero (+29.4 pts), jimmixyt (+24.5 pts), TheLucifer98 (+32.2 pts), mikivf (+41.7 pts), Nacheete777 (+31 pts), mikelma29 (+15.1 pts)
+👉 Equipo: "tralarero" (BaTs_TrAkEr) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+👉 Equipo: "Gafe FC" (Concefer) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+👉 Equipo: "HansiSudaca" (Mimz44) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: Tempus x (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 7 equipos participantes.
+👉 Equipo: "Arjonitaldo" (Arjon1ta)
+   Puntos que sumará hoy: +102 pts
+   Premio económico que ganará: +10.200.000 €
+   Jugadores que aportaron: dablito2 (+15.9 pts), lamborgamer (+7.4 pts), vicente_haz (+45.5 pts), cristitos98 (+33.2 pts)
+👉 Equipo: "Autovía jr" (Raul-guerrero22)
+   Puntos que sumará hoy: +95.9 pts
+   Premio económico que ganará: +9.590.000 €
+   Jugadores que aportaron: xValdes77 (+19.7 pts), EST_XxdieguitoxX (+25.5 pts), elfarru22 (+15.8 pts), xElShaaraWy-7 (+34.9 pts)
+👉 Equipo: "La Farrukinha" (xDonFarru)
+   Puntos que sumará hoy: +105.9 pts
+   Premio económico que ganará: +10.590.000 €
+   Jugadores que aportaron: Serzgz12 (+20.3 pts), kikin (+21.9 pts), KTDNrubo (+19.2 pts), GoE-SouL (+29.6 pts), robertopg9 (+14.9 pts)
+👉 Equipo: "Vicente_haz" (Vicente_haz)
+   Puntos que sumará hoy: +88.3 pts
+   Premio económico que ganará: +8.830.000 €
+   Jugadores que aportaron: TonyBlack95 (+17 pts), lostresplay (+21.7 pts), MonKeyDFFYLU (+1.5 pts), izanjc08gg (+15.2 pts), pingabailarina69 (+32.9 pts)
+👉 Equipo: "Andaluces NO" (Ponzio)
+   Puntos que sumará hoy: +134.6 pts
+   Premio económico que ganará: +13.460.000 €
+   Jugadores que aportaron: noux1900 (+27.5 pts), LF-NMOK (+16 pts), byfonzo_ (+34 pts), ravenn8 (+35.9 pts), Alex_rubio3 (+21.2 pts)
+👉 Equipo: "Valencia CF" (Aimar)
+   Puntos que sumará hoy: +100.7 pts
+   Premio económico que ganará: +10.070.000 €
+   Jugadores que aportaron: andresdiiaaz (+24.7 pts), NK-Xpo (+30 pts), adriancella (+27.8 pts), alex5thunder (+18.2 pts)
+👉 Equipo: "Botardos FC" (scrypter.)
+   Puntos que sumará hoy: +80.5 pts
+   Premio económico que ganará: +8.050.000 €
+   Jugadores que aportaron: Juasomed1234 (+18.3 pts), Recre220802 (+15.3 pts), donpe_10 (+27.7 pts), decrow (+4.3 pts), DarckCred_Joker (+14.9 pts)
+
+----------------------------------------------------
+Liga Fantasy: Liga ultímate esports (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 6 equipos participantes.
+👉 Equipo: "Equipo toliio" (toliiozgamer)
+   Puntos que sumará hoy: +80.2 pts
+   Premio económico que ganará: +8.020.000 €
+   Jugadores que aportaron: esca306 (+14 pts), Dani_sm14 (+20 pts), Dellachola (+35 pts), omaar179 (+11.2 pts)
+👉 Equipo: "Nau" (nauarmdar)
+   Puntos que sumará hoy: +148.9 pts
+   Premio económico que ganará: +14.890.000 €
+   Jugadores que aportaron: Baigoorri05 (+18.6 pts), solracmc (+15.9 pts), erdios99 (+29.3 pts), zYeraii99 (+13.3 pts), thecrackayoub (+17.1 pts), ivanthomas10 (+7.1 pts), Lizerap (+47.6 pts)
+👉 Equipo: "DCR fc" (deemiiaannn)
+   Puntos que sumará hoy: +61.2 pts
+   Premio económico que ganará: +6.120.000 €
+   Jugadores que aportaron: WairoF1 (+25.1 pts), Errdelacruz (+18.6 pts), Byjon95 (+17.5 pts)
+👉 Equipo: "U.D Ñao" (Flakrooss)
+   Puntos que sumará hoy: +111.6 pts
+   Premio económico que ganará: +11.160.000 €
+   Jugadores que aportaron: Zz-Muller25-zZ (+36.2 pts), AdictoAMosito (+19.3 pts), vvaro77 (+23.2 pts), RedPhoenix9 (+32.9 pts)
+👉 Equipo: "Javii" (Javi)
+   Puntos que sumará hoy: +148.5 pts
+   Premio económico que ganará: +14.850.000 €
+   Jugadores que aportaron: rubendapedra (+24.9 pts), Jaumoncio (+32 pts), MAGUIVER10 (+16.7 pts), paradamays  (+18.6 pts), PlayerNomad (+27.8 pts), FrancoJr1627 (+17.1 pts), adrikiller7sanz (+11.4 pts)
+👉 Equipo: "Real betis" (Cristianpulgada7) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: Kemao Fantasy (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 10 equipos participantes.
+👉 Equipo: "Rioja" (danielrioja10)
+   Puntos que sumará hoy: +90.2 pts
+   Premio económico que ganará: +9.020.000 €
+   Jugadores que aportaron: CRISTIAN-15M-8 (+19.7 pts), Esteban_EM (+24.3 pts), Danielrioja10 (+36.5 pts), LeMapache (+9.7 pts)
+👉 Equipo: "Damianbappe" (damiancillo15)
+   Puntos que sumará hoy: +126 pts
+   Premio económico que ganará: +12.600.000 €
+   Jugadores que aportaron: cristianlokillo_ (+33.5 pts), tatonio (+15.4 pts), MaarcJ08 (+9.6 pts), Varooo24 (+22.7 pts), Angelotss (+18.2 pts), Twitch_Oreja (+26.6 pts)
+👉 Equipo: "Gerard" (gerardx09)
+   Puntos que sumará hoy: +78.6 pts
+   Premio económico que ganará: +7.860.000 €
+   Jugadores que aportaron: gofio45 (+6.7 pts), J14_FV (+23 pts), Angelclaret8 (+10.7 pts), adri_styles (+7.1 pts), Azaramoss (+31.1 pts)
+👉 Equipo: "Galvansito DT" (Francisco Galvan)
+   Puntos que sumará hoy: +89.5 pts
+   Premio económico que ganará: +8.950.000 €
+   Jugadores que aportaron: Boxeador_7 (+33.3 pts), Tito_Hax17 (+25.1 pts), ProAbrahamX (+31.1 pts)
+👉 Equipo: "Real Suciedad" (Aitor)
+   Puntos que sumará hoy: +116.9 pts
+   Premio económico que ganará: +11.690.000 €
+   Jugadores que aportaron: danico_21 (+20.5 pts), AitorXI (+8.4 pts), titipopopom (+31.6 pts), otero (+29.2 pts), yanerosolitario (+27.2 pts)
+👉 Equipo: "Fénix" (vriko86)
+   Puntos que sumará hoy: +121.6 pts
+   Premio económico que ganará: +12.160.000 €
+   Jugadores que aportaron: Zanatoide (+24.4 pts), Jano-1128 (+14.1 pts), Toni-Wonders (+29.6 pts), Javi-NB94 (+0.9 pts), KaiserMRB (+17.3 pts), Vriko86 (+35.3 pts)
+👉 Equipo: "A MAGICA FC" (DUR0cmoUNR0BL3)
+   Puntos que sumará hoy: +37.5 pts
+   Premio económico que ganará: +3.750.000 €
+   Jugadores que aportaron: aaroncito206 (+11.7 pts), terry_muerde22 (+25.8 pts)
+👉 Equipo: "Anthony_EY0512" (Antoni)
+   Puntos que sumará hoy: +102 pts
+   Premio económico que ganará: +10.200.000 €
+   Jugadores que aportaron: Lorenzogalvan (+6.7 pts), lpcarnicero (+31.8 pts), rulo (+18.5 pts), DUR0cmoUNR0BL3 (+26.3 pts), Rubendlg (+18.7 pts)
+👉 Equipo: "Bazugres FC" (Bordelux01)
+   Puntos que sumará hoy: +135.4 pts
+   Premio económico que ganará: +13.540.000 €
+   Jugadores que aportaron: FarennTM (+34.8 pts), mrmaroto (+13.9 pts), espagnol_94 (+29.5 pts), Juanjo1794 (+21.1 pts), antoniogarciagal (+36.1 pts)
+👉 Equipo: "La Calle FC" (DeiV)
+   Puntos que sumará hoy: +38.7 pts
+   Premio económico que ganará: +3.870.000 €
+   Jugadores que aportaron: javimarty9 (+6.4 pts), ikercivico2008 (+32.3 pts)
+
+----------------------------------------------------
+Liga Fantasy: Oxygen Levante (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 11 equipos participantes.
+👉 Equipo: "Lito Capitano" (Liitoo13)
+   Puntos que sumará hoy: +171.4 pts
+   Premio económico que ganará: +17.140.000 €
+   Jugadores que aportaron: noux1900 (+27.5 pts), MarioFresh (+16 pts), TanqueRoldan22 (+13.9 pts), arjoniiitaa_g4 (+32.9 pts), SeryaGM (+32.5 pts), l iMaaGiiK l (+48.6 pts)
+👉 Equipo: "Climent" (Climent)
+   Puntos que sumará hoy: +111.2 pts
+   Premio económico que ganará: +11.120.000 €
+   Jugadores que aportaron: quiquejr78 (+15.1 pts), NK-Xpo (+30 pts), Nacheete777 (+31 pts), donpe_10 (+27.7 pts), adritor8994 (+7.4 pts)
+👉 Equipo: "Real Oviedo" (Butra)
+   Puntos que sumará hoy: +109.7 pts
+   Premio económico que ganará: +10.970.000 €
+   Jugadores que aportaron: MrTaker22 (+20 pts), z3uSgijon (+17.2 pts), tonora666 (+14 pts), borcontun_95 (+10.8 pts), CaiCedoo333 (+36.2 pts), Briiiiiiaann37 (+11.5 pts)
+👉 Equipo: "Los peras" (16jaumee)
+   Puntos que sumará hoy: +39.5 pts
+   Premio económico que ganará: +3.950.000 €
+   Jugadores que aportaron: FX-Wheezy (+17 pts), GERIGF111 (+16.7 pts), Quike_JL (+5.8 pts)
+👉 Equipo: "Soldado de vinicius" (KOWY)
+   Puntos que sumará hoy: +161 pts
+   Premio económico que ganará: +16.100.000 €
+   Jugadores que aportaron: Edupb02 (+15.9 pts), izanjc08gg (+15.2 pts), xValdes77 (+19.7 pts), popimarco11 (+18.3 pts), hichipro (+18.4 pts), AitorRdguez (+24.7 pts), alexluciamaquina (+24.1 pts), Huugopriet0 (+24.7 pts)
+👉 Equipo: "Panse" (Panzerkh)
+   Puntos que sumará hoy: +56.2 pts
+   Premio económico que ganará: +5.620.000 €
+   Jugadores que aportaron: franchute3000 (+5.6 pts), 6_GULLIT (+35.3 pts), panzerkh11 (+15.3 pts)
+👉 Equipo: "Al-Andalus Fc" (xDinaaz)
+   Puntos que sumará hoy: +273.1 pts
+   Premio económico que ganará: +27.310.000 €
+   Jugadores que aportaron: DONgollete (+21.7 pts), unaiiigarciiiaa_ (+65.4 pts), ZaPPy_Clapz (+116.7 pts), EST_XxdieguitoxX (+25.5 pts), Lamuda1217 (+13.7 pts), yassingamerpro (+30.1 pts)
+👉 Equipo: "Backupgk" (PEPEGK_22)
+   Puntos que sumará hoy: +81.3 pts
+   Premio económico que ganará: +8.130.000 €
+   Jugadores que aportaron: DarthScrypter (+28.7 pts), marcosalcaide3 (+15.7 pts), rzponzio (+36.9 pts)
+👉 Equipo: "BanDanivera" (Daniveera)
+   Puntos que sumará hoy: +108.8 pts
+   Premio económico que ganará: +10.880.000 €
+   Jugadores que aportaron: yyeraxxyy (+27.9 pts), belversingh (+15.1 pts), bojan_9000 (+29.5 pts), alegrima (+18.5 pts), Aleeez4 (+17.8 pts)
+👉 Equipo: "Sagrada" (alex)
+   Puntos que sumará hoy: +52.8 pts
+   Premio económico que ganará: +5.280.000 €
+   Jugadores que aportaron: zzRaydenzz (+17.1 pts), Luucaaas (+20.4 pts), Recre220802 (+15.3 pts)
+👉 Equipo: "ERDAM ATUP UT" (bausan)
+   Puntos que sumará hoy: +79.4 pts
+   Premio económico que ganará: +7.940.000 €
+   Jugadores que aportaron: S25D (+12.8 pts), burpils (+24.6 pts), AJCFM07_TuRcO (+28.6 pts), xKanela_ (+13.4 pts)
+
+----------------------------------------------------
+Liga Fantasy: Las Palmas UNITY (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 3 equipos participantes.
+👉 Equipo: "Payos fc" (eneko11) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+👉 Equipo: "Ismael" (Ismael22614) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+👉 Equipo: "El Pruebas" (DjPelotas) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: Shiva eSports (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 10 equipos participantes.
+👉 Equipo: "NikMokFC" (payinki)
+   Puntos que sumará hoy: +87.6 pts
+   Premio económico que ganará: +8.760.000 €
+   Jugadores que aportaron: XMagoOZX (+24 pts), payinki_3ndak (+27.1 pts), crischf11 (+8.1 pts), Alex_rubio3 (+21.2 pts), cristian-corti (+7.2 pts)
+👉 Equipo: "Panchitos Controlando" (sadi)
+   Puntos que sumará hoy: +38.2 pts
+   Premio económico que ganará: +3.820.000 €
+   Jugadores que aportaron: elkrakenn23_ (+9.6 pts), Antony l7l (+28.6 pts)
+👉 Equipo: "Markitus" (MARKITUS)
+   Puntos que sumará hoy: +20.9 pts
+   Premio económico que ganará: +2.090.000 €
+   Jugadores que aportaron: tonora666 (+14 pts), Skills-Angel (+6.9 pts)
+👉 Equipo: "Palmilla FC" (Zaaphy)
+   Puntos que sumará hoy: +138.1 pts
+   Premio económico que ganará: +13.810.000 €
+   Jugadores que aportaron: El_Bueno_De_Link (+19.9 pts), Jlmeneez (+17 pts), Dagova (+28.3 pts), belversingh (+15.1 pts), Nokxy (+22.6 pts), panterjack (+35.2 pts)
+👉 Equipo: "Rubito" (Fonsi)
+   Puntos que sumará hoy: +44.4 pts
+   Premio económico que ganará: +4.440.000 €
+   Jugadores que aportaron: GERIGF111 (+16.7 pts), donpe_10 (+27.7 pts)
+👉 Equipo: "NValtierra" (Nerea_Valtierra)
+   Puntos que sumará hoy: +82.7 pts
+   Premio económico que ganará: +8.270.000 €
+   Jugadores que aportaron: quiquejr78 (+15.1 pts), Juasomed1234 (+18.3 pts), seecrtetz_mortal (+25.2 pts), alexluciamaquina (+24.1 pts)
+👉 Equipo: "Malamadre" (꧁श्व_मलामद्रे꧂ ֆɦʋ_ʍǟʟǟʍǟɖʀɛ)
+   Puntos que sumará hoy: +158.5 pts
+   Premio económico que ganará: +15.850.000 €
+   Jugadores que aportaron: david_parla17 (+29.2 pts), GuilleDiazGo (+26.3 pts), NotAguus_ (+21.2 pts), victorpp21 (+28.8 pts), guaristiki11 (+12.8 pts), Eric_armas (+40.2 pts)
+👉 Equipo: "Maestro FC" (Ortttiz)
+   Puntos que sumará hoy: +91.7 pts
+   Premio económico que ganará: +9.170.000 €
+   Jugadores que aportaron: NTT_Yer1k (+21.8 pts), adriancella (+27.8 pts), ADEJERO1989 (+19.3 pts), hendii8 (+8.4 pts), Jrael_Durand (+14.4 pts)
+👉 Equipo: "Payo Cayetano" (VALDÉS)
+   Puntos que sumará hoy: +323.3 pts
+   Premio económico que ganará: +32.330.000 €
+   Jugadores que aportaron: elpepote2000 (+18 pts), By_KoSToo (+35.3 pts), CaiCedoo333 (+36.2 pts), thecout69 (+44.3 pts), TSX-Juanri2 (+140.9 pts), l iMaaGiiK l (+48.6 pts)
+👉 Equipo: "Abollados FC" (Talens) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: 7 DIVISION (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 2 equipos participantes.
+👉 Equipo: "id" (felixguardiola)
+   Puntos que sumará hoy: +26.9 pts
+   Premio económico que ganará: +2.690.000 €
+   Jugadores que aportaron: Sevilla98M (+24.7 pts), CesarKawaRotor (+2.2 pts)
+👉 Equipo: "Aldaia" (Danigod_) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: Joseda sigue tocando esta🎺 (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 3 equipos participantes.
+👉 Equipo: "Atleti" (Kevin ッ) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+👉 Equipo: "OrlegiOut FC" (pabloogm)
+   Puntos que sumará hoy: +87 pts
+   Premio económico que ganará: +8.700.000 €
+   Jugadores que aportaron: caxoborracho92 (+15.6 pts), golpe905ligero (+40.3 pts), Briiiiiiaann37 (+11.5 pts), PadillAIM (+19.6 pts)
+👉 Equipo: "IG de Joseda🍻" (Tancao) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: Vike Calvo (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 9 equipos participantes.
+👉 Equipo: "Atleti" (Kevin ッ)
+   Puntos que sumará hoy: +27.6 pts
+   Premio económico que ganará: +2.760.000 €
+   Jugadores que aportaron: borcontun_95 (+10.8 pts), JacindaRaven94 (+16.8 pts)
+👉 Equipo: "OrlegiOut FC" (pabloogm)
+   Puntos que sumará hoy: +16.8 pts
+   Premio económico que ganará: +1.680.000 €
+   Jugadores que aportaron: soek_mostoles (+2.9 pts), Xoel (+13.9 pts)
+👉 Equipo: "Tebi" (Tebi)
+   Puntos que sumará hoy: +69.5 pts
+   Premio económico que ganará: +6.950.000 €
+   Jugadores que aportaron: caxoborracho92 (+15.6 pts), joselitoRJ7 (+28.5 pts), santymo (+18.2 pts), cristian-corti (+7.2 pts)
+👉 Equipo: "Downchester city" (Briianvr25)
+   Puntos que sumará hoy: +107.1 pts
+   Premio económico que ganará: +10.710.000 €
+   Jugadores que aportaron: itschowww2899 (+17.3 pts), Manelibz4_ (+60.7 pts), alvaroohdzz (+10.9 pts), alex5thunder (+18.2 pts)
+👉 Equipo: "Cojos fc" (alvarituuu8)
+   Puntos que sumará hoy: +167 pts
+   Premio económico que ganará: +16.700.000 €
+   Jugadores que aportaron: GERIGF111 (+16.7 pts), ZaPPy_Clapz (+116.7 pts), Uriijr (+33.6 pts)
+👉 Equipo: "IG de Joseda🍻" (Tancao)
+   Puntos que sumará hoy: +119.6 pts
+   Premio económico que ganará: +11.960.000 €
+   Jugadores que aportaron: DarthScrypter (+28.7 pts), RitmoLoco (+27.5 pts), ADEJERO1989 (+19.3 pts), silguix11 (+9 pts), NotAguus_ (+21.2 pts), izandemolition (+13.9 pts)
+👉 Equipo: "123 BALOMPIE" (felixguardiola)
+   Puntos que sumará hoy: +91.4 pts
+   Premio económico que ganará: +9.140.000 €
+   Jugadores que aportaron: elpepote2000 (+18 pts), Melow14 (+24.5 pts), ot4rxxp8 (+16.7 pts), ChopJunior10 (+21 pts), CharlieKirkicius (+11.2 pts)
+👉 Equipo: "Joseda10 FC" (Josedapulpi10)
+   Puntos que sumará hoy: +111.9 pts
+   Premio económico que ganará: +11.190.000 €
+   Jugadores que aportaron: josearex (+27 pts), Manchi280 (+16.9 pts), pepon (+22.6 pts), lamborgamer (+7.4 pts), Uniq_Juan (+17.2 pts), eRiksiLE (+20.8 pts)
+👉 Equipo: "Frutería Manoli" (VikennyS)
+   Puntos que sumará hoy: +34.8 pts
+   Premio económico que ganará: +3.480.000 €
+   Jugadores que aportaron: S25D (+12.8 pts), dablito2 (+15.9 pts), Jean_Marco97 (+6.1 pts)
+
+----------------------------------------------------
+Liga Fantasy: LetalSayans League (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 5 equipos participantes.
+👉 Equipo: "RobaCobre CF" (𝕾𝖍𝖆𝖉𝖔𝖝)
+   Puntos que sumará hoy: +40.9 pts
+   Premio económico que ganará: +4.090.000 €
+   Jugadores que aportaron: XxjumarleyxX (+10 pts), markitowason (+17.5 pts), Kevin187 (+6.5 pts), Neymar Yuncal (+6.9 pts)
+👉 Equipo: "La Cassalleta VLC" (ChuRReRo__99 🦂)
+   Puntos que sumará hoy: +34.5 pts
+   Premio económico que ganará: +3.450.000 €
+   Jugadores que aportaron: Track4ty (+13.6 pts), Don_Moncho_JR (+20.9 pts)
+👉 Equipo: "Raduu marikita" (unii007)
+   Puntos que sumará hoy: +85.9 pts
+   Premio económico que ganará: +8.590.000 €
+   Jugadores que aportaron: Xavim_07 (+37.1 pts), PaabloHT_Twitch (+9.4 pts), Raoska7 (+26.1 pts), serginho33 (+7 pts), MartinJR_29 (+6.3 pts)
+👉 Equipo: "Fali FC" (Vencedor X Fali)
+   Puntos que sumará hoy: +65.7 pts
+   Premio económico que ganará: +6.570.000 €
+   Jugadores que aportaron: DaNiGoD_11 (+23.9 pts), Angelon_Son (+10 pts), BRONCATANGO (+18.3 pts), josearwin365 (+13.5 pts)
+👉 Equipo: "Malakito de Memphis" (Jon_AM19)
+   Puntos que sumará hoy: +59.3 pts
+   Premio económico que ganará: +5.930.000 €
+   Jugadores que aportaron: JAU1804 (+10 pts), BayfreshNana (+18.3 pts), ICE F187 (+11.5 pts), almorecas (+19.5 pts)
+
+----------------------------------------------------
+Liga Fantasy: Imagine Esports League (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 3 equipos participantes.
+👉 Equipo: "Rebo's Team" (RubenRubi3)
+   Puntos que sumará hoy: +188.2 pts
+   Premio económico que ganará: +18.820.000 €
+   Jugadores que aportaron: ByCristian_Caii (+49.9 pts), yureshh (+34 pts), dvazquezm23 (+26.1 pts), Jaime-n13 (+35.8 pts), cazorshenko21 (+42.4 pts)
+👉 Equipo: "SrShini" (SrShini) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+👉 Equipo: "Jonnie Walker Fc" (Pepelu345 Imagine Esports) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: Superliga Revolution (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: Liga regalaso (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 1 equipos participantes.
+👉 Equipo: "Ismael22614" (Ismael22614) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: Nova Gaming (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 7 equipos participantes.
+👉 Equipo: "Borrachos Fc" (Dani🖤)
+   Puntos que sumará hoy: +67 pts
+   Premio económico que ganará: +6.700.000 €
+   Jugadores que aportaron: ariwi8 (+17.9 pts), MiiKeetelopet (+23 pts), setysonrb (+26.1 pts)
+👉 Equipo: "Pedro fc" (Pedro)
+   Puntos que sumará hoy: +70.7 pts
+   Premio económico que ganará: +7.070.000 €
+   Jugadores que aportaron: syhgman (+26.2 pts), Xoel (+13.9 pts), feernaandito (+30.6 pts)
+👉 Equipo: "Aura FC" (Samu)
+   Puntos que sumará hoy: +73.1 pts
+   Premio económico que ganará: +7.310.000 €
+   Jugadores que aportaron: elamodeillueca (+7.4 pts), Heretics_Jordi (+36.9 pts), carlitoss027 (+17.6 pts), omaar179 (+11.2 pts)
+👉 Equipo: "DOWNCHESTER CITY" (Briianvr25)
+   Puntos que sumará hoy: +17 pts
+   Premio económico que ganará: +1.700.000 €
+   Jugadores que aportaron: FX-Wheezy (+17 pts)
+👉 Equipo: "Zxgarii Players" (zxgari) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+👉 Equipo: "Asilota" (Axel) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+👉 Equipo: "MS esports" (🅼🅸🅻🅾) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: Ryux Clan (Modo: ACCUMULATED)
+----------------------------------------------------
+[INFO] Liga tiene 14 equipos participantes.
+👉 Equipo: "Tonitollora" (K1NGxBAROU)
+   Puntos que sumará hoy: +328.9 pts
+   Premio económico que ganará: +32.890.000 €
+   Jugadores que aportaron: Daniveera (+221.2 pts), bysqaxx (+23.3 pts), belversingh (+15.1 pts), cliimeent (+36.4 pts), hipnotik (+32.9 pts)
+👉 Equipo: "Ryux clan" (dylanmejor20)
+   Puntos que sumará hoy: +153.3 pts
+   Premio económico que ganará: +15.330.000 €
+   Jugadores que aportaron: LF-NMOK (+16 pts), ZaPPy_Clapz (+116.7 pts), Madoja93 (+13.4 pts), cristian-corti (+7.2 pts)
+👉 Equipo: "LF-NMOK FC" (jaavvii10)
+   Puntos que sumará hoy: +78.8 pts
+   Premio económico que ganará: +7.880.000 €
+   Jugadores que aportaron: Lodakirr (+17.2 pts), TottiXOne (+38.6 pts), chemi23ap (+23 pts)
+👉 Equipo: "z3uSFC" (z3uS)
+   Puntos que sumará hoy: +175.3 pts
+   Premio económico que ganará: +17.530.000 €
+   Jugadores que aportaron: PASCUALCAN (+24.6 pts), Juasomed1234 (+18.3 pts), z3uSgijon (+17.2 pts), albertito2309 (+17.5 pts), SrPG_11 (+10 pts), zkowy (+16.3 pts), alexao_fcb (+37.4 pts), rubendiz9 (+34 pts)
+👉 Equipo: "OriiGutii FC" (Gutinho)
+   Puntos que sumará hoy: +77.4 pts
+   Premio económico que ganará: +7.740.000 €
+   Jugadores que aportaron: Joeec0le28 (+20.8 pts), Jose98perona (+14.9 pts), PrinceJorge7_ (+22.9 pts), el gran mago11_ (+18.8 pts)
+👉 Equipo: "chicho" (perez97esp)
+   Puntos que sumará hoy: +132.9 pts
+   Premio económico que ganará: +13.290.000 €
+   Jugadores que aportaron: popimarco11 (+18.3 pts), BUTRAl20l (+24.6 pts), tonora666 (+14 pts), xBokadii (+25.9 pts), Ander74 (+21.2 pts), Jrael_Durand (+14.4 pts), rickysamba (+14.5 pts)
+👉 Equipo: "uosii fc" (Uosii621)
+   Puntos que sumará hoy: +114.8 pts
+   Premio económico que ganará: +11.480.000 €
+   Jugadores que aportaron: cabezinha10 (+31 pts), XMagoOZX (+24 pts), JuanC_4T (+25.7 pts), Malamadre (+13.8 pts), sarmientojuve (+20.3 pts)
+👉 Equipo: "Jejeeee" (aadrianpereez09)
+   Puntos que sumará hoy: +77.5 pts
+   Premio económico que ganará: +7.750.000 €
+   Jugadores que aportaron: quiquejr78 (+15.1 pts), Jlmeneez (+17 pts), bichitodelfrigo (+21 pts), xXCagedTiGerXx99 (+6.9 pts), Danidasousa14 (+17.5 pts)
+👉 Equipo: "bota juniors" (mario)
+   Puntos que sumará hoy: +16.3 pts
+   Premio económico que ganará: +1.630.000 €
+   Jugadores que aportaron: IVANROS97 (+16.3 pts)
+👉 Equipo: "La Sinduneta" (Hay mi kuki)
+   Puntos que sumará hoy: +62.5 pts
+   Premio económico que ganará: +6.250.000 €
+   Jugadores que aportaron: jei_bi (+24.4 pts), MVathletic (+16.9 pts), Alex_rubio3 (+21.2 pts)
+👉 Equipo: "Nastel fc maksi" (Maksi_ntll)
+   Puntos que sumará hoy: +115.7 pts
+   Premio económico que ganará: +11.570.000 €
+   Jugadores que aportaron: Meju45 (+31.6 pts), RaizeNN9 (+27.5 pts), thecout69 (+44.3 pts), javiivii16112000 (+12.3 pts)
+👉 Equipo: "Alvarofc" (Alllvvaro)
+   Puntos que sumará hoy: +29.6 pts
+   Premio económico que ganará: +2.960.000 €
+   Jugadores que aportaron: GoE-SouL (+29.6 pts)
+👉 Equipo: "Favelas FC" (Dopiii_)
+   Puntos que sumará hoy: +28.3 pts
+   Premio económico que ganará: +2.830.000 €
+   Jugadores que aportaron: omsdazz (+10.7 pts), robertopg9 (+14.9 pts), OriiGutii (+2.7 pts)
+👉 Equipo: "RealMadrid" (Milano) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: ADCEUTA ESPORTS (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 9 equipos participantes.
+👉 Equipo: "REAL CHUPE FC" (ErChupe78)
+   Puntos que sumará hoy: +125.2 pts
+   Premio económico que ganará: +12.520.000 €
+   Jugadores que aportaron: TurNiRG (+28.6 pts), GERIGF111 (+16.7 pts), KTDNrubo (+19.2 pts), AitorRdguez (+24.7 pts), victorpp21 (+28.8 pts), cristian-corti (+7.2 pts)
+👉 Equipo: "Palmilla FC" (AntonioGuerraXI)
+   Puntos que sumará hoy: +96.4 pts
+   Premio económico que ganará: +9.640.000 €
+   Jugadores que aportaron: oxkronn (+18.4 pts), Luucaaas (+20.4 pts), Huugopriet0 (+24.7 pts), pingabailarina69 (+32.9 pts)
+👉 Equipo: "Danielito" (Daaaaniiiieeeeeliitoo)
+   Puntos que sumará hoy: +189.3 pts
+   Premio económico que ganará: +18.930.000 €
+   Jugadores que aportaron: El_Bueno_De_Link (+19.9 pts), kikin (+21.9 pts), XxDanielito98xX (+31 pts), supergigio78 (+20.1 pts), ublaya777 (+17.1 pts), thorr2002 (+79.3 pts)
+👉 Equipo: "Deus" (AlmeDeuS)
+   Puntos que sumará hoy: +140.7 pts
+   Premio económico que ganará: +14.070.000 €
+   Jugadores que aportaron: FX-Wheezy (+17 pts), Heretics_Jordi (+36.9 pts), izanjc08gg (+15.2 pts), paquito (+35.7 pts), ravenn8 (+35.9 pts)
+👉 Equipo: "CabezaFC" (Cabeza04)
+   Puntos que sumará hoy: +69.1 pts
+   Premio económico que ganará: +6.910.000 €
+   Jugadores que aportaron: DONgollete (+21.7 pts), borcontun_95 (+10.8 pts), lamborgamer (+7.4 pts), MonKeyDFFYLU (+1.5 pts), donpe_10 (+27.7 pts)
+👉 Equipo: "Gullit.FC" (6_gullit)
+   Puntos que sumará hoy: +47.9 pts
+   Premio económico que ganará: +4.790.000 €
+   Jugadores que aportaron: ImperiusHawk (+20.5 pts), Villapastor (+27.4 pts)
+👉 Equipo: "Birrareal CF" (AbrMartiinez)
+   Puntos que sumará hoy: +103.8 pts
+   Premio económico que ganará: +10.380.000 €
+   Jugadores que aportaron: zzRaydenzz (+17.1 pts), lostresplay (+21.7 pts), xXHatchZzz (+25.5 pts), Juanma-RdZ_92 (+9.4 pts), yassingamerpro (+30.1 pts)
+👉 Equipo: "Castillo" (TTV_alecastillo)
+   Puntos que sumará hoy: +35.6 pts
+   Premio económico que ganará: +3.560.000 €
+   Jugadores que aportaron: S25D (+12.8 pts), TonyBlack95 (+17 pts), Quike_JL (+5.8 pts)
+👉 Equipo: "PXI VILLAREAL CF" (Ponxii7)
+   Puntos que sumará hoy: +172.2 pts
+   Premio económico que ganará: +17.220.000 €
+   Jugadores que aportaron: Meju45 (+31.6 pts), ZaPPy_Clapz (+116.7 pts), RauLTiiTy (+23.9 pts)
+
+----------------------------------------------------
+Liga Fantasy: BRIGANTIA ESP (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 8 equipos participantes.
+👉 Equipo: "Las Vegas" (AlbertoSG_97)
+   Puntos que sumará hoy: +117.3 pts
+   Premio económico que ganará: +11.730.000 €
+   Jugadores que aportaron: davidpoke169 (+16.7 pts), JVT-10K (+15.3 pts), pupen7 (+64.1 pts), Alex_rubio3 (+21.2 pts)
+👉 Equipo: "ATHLETIK CLUB" (jaitz-fusil)
+   Puntos que sumará hoy: +132.8 pts
+   Premio económico que ganará: +13.280.000 €
+   Jugadores que aportaron: FX-Wheezy (+17 pts), Dellachola (+35 pts), Aleeez4 (+17.8 pts), yassingamerpro (+30.1 pts), pingabailarina69 (+32.9 pts)
+👉 Equipo: "Ken Kaneki" (Ken Kaneki)
+   Puntos que sumará hoy: +98.9 pts
+   Premio económico que ganará: +9.890.000 €
+   Jugadores que aportaron: ivecgg (+11.6 pts), BUTRAl20l (+24.6 pts), xNaanos (+29.3 pts), Jayinho5 (+16 pts), zmataa (+17.4 pts)
+👉 Equipo: "Capitan general" (isaac_frieiro)
+   Puntos que sumará hoy: +99.5 pts
+   Premio económico que ganará: +9.950.000 €
+   Jugadores que aportaron: ImperiusHawk (+20.5 pts), FAB6_98 (+34.4 pts), omaar179 (+11.2 pts), UnknownGT3 (+9.3 pts), alexluciamaquina (+24.1 pts)
+👉 Equipo: "Cafu Capitan" (Jaimejc16)
+   Puntos que sumará hoy: +87 pts
+   Premio económico que ganará: +8.700.000 €
+   Jugadores que aportaron: StamI3I (+33.4 pts), Serzgz12 (+20.3 pts), Kaiser8_fc (+14.2 pts), papigalsia07 (+11 pts), mecvno (+1 pts), ivanthomas10 (+7.1 pts)
+👉 Equipo: "Independencia FC" (Sánchez l94l)
+   Puntos que sumará hoy: +225 pts
+   Premio económico que ganará: +22.500.000 €
+   Jugadores que aportaron: Zz-Muller25-zZ (+36.2 pts), killoyo9 (+31.1 pts), xValdes77 (+19.7 pts), elpepote2000 (+18 pts), Trokele (+39.9 pts), erdios99 (+29.3 pts), Spencer_Spawn (+11.7 pts), diablinho7 (+18.3 pts), eRiksiLE (+20.8 pts)
+👉 Equipo: "brujas fc" (White)
+   Puntos que sumará hoy: +55.7 pts
+   Premio económico que ganará: +5.570.000 €
+   Jugadores que aportaron: andresdiiaaz (+24.7 pts), XxDanielito98xX (+31 pts)
+👉 Equipo: "Cojos fc" (ajedrez8)
+   Puntos que sumará hoy: +97.4 pts
+   Premio económico que ganará: +9.740.000 €
+   Jugadores que aportaron: Juasomed1234 (+18.3 pts), Dani_sm14 (+20 pts), CHINOBADAJOZ (+11.4 pts), TanqueRoldan22 (+13.9 pts), elbrokoo30 (+27.2 pts), sergiomp82 (+6.6 pts)
+
+----------------------------------------------------
+Liga Fantasy: Caso Tonali (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 7 equipos participantes.
+👉 Equipo: "Langostino Perez" (kint780)
+   Puntos que sumará hoy: +221.6 pts
+   Premio económico que ganará: +22.160.000 €
+   Jugadores que aportaron: quiquejr78 (+15.1 pts), iibabyy (+123.8 pts), franchute3000 (+5.6 pts), victortacone (+38.2 pts), Quike_JL (+5.8 pts), DarckCred_Joker (+14.9 pts), alex5thunder (+18.2 pts)
+👉 Equipo: "Solpru Team" (NeGuiix)
+   Puntos que sumará hoy: +121.9 pts
+   Premio económico que ganará: +12.190.000 €
+   Jugadores que aportaron: Valdi_17 (+25.7 pts), xValdes77 (+19.7 pts), KTDNrubo (+19.2 pts), cristitos98 (+33.2 pts), alexluciamaquina (+24.1 pts)
+👉 Equipo: "Undertaker" (PEPEGK_22)
+   Puntos que sumará hoy: +220 pts
+   Premio económico que ganará: +22.000.000 €
+   Jugadores que aportaron: DarthScrypter (+28.7 pts), Heretics_Jordi (+36.9 pts), sergiopdp7 (+17.3 pts), Luucaaas (+20.4 pts), ZaPPy_Clapz (+116.7 pts)
+👉 Equipo: "Ñeverkusen FC" (Aimar)
+   Puntos que sumará hoy: +81.7 pts
+   Premio económico que ganará: +8.170.000 €
+   Jugadores que aportaron: ImperiusHawk (+20.5 pts), soek_mostoles (+2.9 pts), victorpp21 (+28.8 pts), bojan_9000 (+29.5 pts)
+👉 Equipo: "Eric Armas" (Eric_armas)
+   Puntos que sumará hoy: +109.9 pts
+   Premio económico que ganará: +10.990.000 €
+   Jugadores que aportaron: Dagova (+28.3 pts), robertopg9 (+14.9 pts), paquito (+35.7 pts), Nacheete777 (+31 pts)
+👉 Equipo: "DOWNCHESTER CITY" (Briianvr25)
+   Puntos que sumará hoy: +83.7 pts
+   Premio económico que ganará: +8.370.000 €
+   Jugadores que aportaron: FX-Wheezy (+17 pts), belversingh (+15.1 pts), sadikito_0519 (+20.7 pts), Aleeez4 (+17.8 pts), Vargas7_x (+13.1 pts)
+👉 Equipo: "Molinazo FC" (emoliina (Ruletas))
+   Puntos que sumará hoy: +135.1 pts
+   Premio económico que ganará: +13.510.000 €
+   Jugadores que aportaron: andresdiiaaz (+24.7 pts), yyeraxxyy (+27.9 pts), xmonteero (+32.7 pts), ferstari96i (+36.4 pts), xKanela_ (+13.4 pts)
+
+----------------------------------------------------
+Liga Fantasy: Vynz Club (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 6 equipos participantes.
+👉 Equipo: "Los Galleguitos" (xGalleguinho)
+   Puntos que sumará hoy: +83.4 pts
+   Premio económico que ganará: +8.340.000 €
+   Jugadores que aportaron: noux1900 (+27.5 pts), sergiopdp7 (+17.3 pts), Errdelacruz (+18.6 pts), andres0514 (+20 pts)
+👉 Equipo: "Madeirafc" (XPEPE)
+   Puntos que sumará hoy: +96.5 pts
+   Premio económico que ganará: +9.650.000 €
+   Jugadores que aportaron: dablito2 (+15.9 pts), ivanin3 (+36.3 pts), Recre220802 (+15.3 pts), Keeko14 (+4.2 pts), JonnyParra (+24.8 pts)
+👉 Equipo: "morale" (morales)
+   Puntos que sumará hoy: +55.3 pts
+   Premio económico que ganará: +5.530.000 €
+   Jugadores que aportaron: LF-NMOK (+16 pts), franexe10 (+7.2 pts), EndrickI9I (+32.1 pts)
+👉 Equipo: "PORRITHANAIKOS" (toppp3LKN)
+   Puntos que sumará hoy: +58.3 pts
+   Premio económico que ganará: +5.830.000 €
+   Jugadores que aportaron: chrisxbanner (+17.7 pts), IVANROS97 (+16.3 pts), TheKingOfPES1 (+24.3 pts)
+👉 Equipo: "xDanii" (Danii)
+   Puntos que sumará hoy: +66.7 pts
+   Premio económico que ganará: +6.670.000 €
+   Jugadores que aportaron: Nezzu19 (+15.1 pts), PORLUUUUU (+16.6 pts), robertopg9 (+14.9 pts), supergigio78 (+20.1 pts)
+👉 Equipo: "Tikitaka Show" (xPiituu)
+   Puntos que sumará hoy: +103.6 pts
+   Premio económico que ganará: +10.360.000 €
+   Jugadores que aportaron: Xxhugoo_gbxX (+14.5 pts), onomatopeya (+15.8 pts), Juasomed1234 (+18.3 pts), bichitodelfrigo (+21 pts), lobesno13 (+16.5 pts), Byjon95 (+17.5 pts)
+
+----------------------------------------------------
+Liga Fantasy: UD Las Palmas (Modo: ACCUMULATED)
+----------------------------------------------------
+[INFO] Liga tiene 5 equipos participantes.
+👉 Equipo: "U.D Telde" (oooliver9 | UDLP Unity 🐥)
+   Puntos que sumará hoy: +79.5 pts
+   Premio económico que ganará: +7.950.000 €
+   Jugadores que aportaron: FX-Wheezy (+17 pts), Villapastor (+27.4 pts), antonio_moski (+28.8 pts), flamenco3 (+6.3 pts)
+👉 Equipo: "Payos fc" (eneko11)
+   Puntos que sumará hoy: +146.3 pts
+   Premio económico que ganará: +14.630.000 €
+   Jugadores que aportaron: Palmerini420 (+17.1 pts), Valdi_17 (+25.7 pts), nbvddy (+31.2 pts), pichakid (+15.8 pts), Alex_GR96 (+14.7 pts), vPalmeRin (+41.8 pts)
+👉 Equipo: "El Barrio Fc" (udlp_eeliiiaann11)
+   Puntos que sumará hoy: +47.3 pts
+   Premio económico que ganará: +4.730.000 €
+   Jugadores que aportaron: El_Bueno_De_Link (+19.9 pts), Omar_sm21 (+4.2 pts), culhote (+2 pts), omaar179 (+11.2 pts), sergio_88bcn (+10 pts)
+👉 Equipo: "UDLP FC" (UDLP_TheBossYeroOfficial)
+   Puntos que sumará hoy: +77.4 pts
+   Premio económico que ganará: +7.740.000 €
+   Jugadores que aportaron: oxkronn (+18.4 pts), Albertgalle (+32.2 pts), Lamuda1217 (+13.7 pts), Vargas7_x (+13.1 pts)
+👉 Equipo: "Latarteta" (lataas10_)
+   Puntos que sumará hoy: +70.2 pts
+   Premio económico que ganará: +7.020.000 €
+   Jugadores que aportaron: AitorRdguez (+24.7 pts), vicente_haz (+45.5 pts)
+
+----------------------------------------------------
+Liga Fantasy: Juncazo League (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 6 equipos participantes.
+👉 Equipo: "EL DICTADOR" (Marcos/Zanatoide)
+   Puntos que sumará hoy: +73.2 pts
+   Premio económico que ganará: +7.320.000 €
+   Jugadores que aportaron: Lodakirr (+17.2 pts), josemonzo (+14.6 pts), Zanatoide (+24.4 pts), Jlmeneez (+17 pts)
+👉 Equipo: "Bley Bley" (Juanjo1794)
+   Puntos que sumará hoy: +203.9 pts
+   Premio económico que ganará: +20.390.000 €
+   Jugadores que aportaron: MrTaker22 (+20 pts), WEIOS (+32.6 pts), panterjack (+35.2 pts), Terre88888 (+19.5 pts), franmp0004 (+19.2 pts), xGalleguinho (+56.3 pts), Juanjo1794 (+21.1 pts)
+👉 Equipo: "Gonxaaaa" (Gonx9)
+   Puntos que sumará hoy: +23.6 pts
+   Premio económico que ganará: +2.360.000 €
+   Jugadores que aportaron: RussellBC_18 (+23.6 pts)
+👉 Equipo: "LeMapache" (adri)
+   Puntos que sumará hoy: +115 pts
+   Premio económico que ganará: +11.500.000 €
+   Jugadores que aportaron: FX-Wheezy (+17 pts), NK-Xpo (+30 pts), LeMapache (+9.7 pts), Malamadre (+13.8 pts), Daani6-X (+44.5 pts)
+👉 Equipo: "Rayo Vayacaño" (J14)
+   Puntos que sumará hoy: +103.5 pts
+   Premio económico que ganará: +10.350.000 €
+   Jugadores que aportaron: J14_FV (+23 pts), Gabri16f1 (+39.1 pts), MarioFresh (+16 pts), KTDNrubo (+19.2 pts), JowiRCCV (+6.2 pts)
+👉 Equipo: "Marcos DIMITE" (Gabi_Giba🇮🇨🇮🇨)
+   Puntos que sumará hoy: +33.4 pts
+   Premio económico que ganará: +3.340.000 €
+   Jugadores que aportaron: quiquejr78 (+15.1 pts), diablinho7 (+18.3 pts)
+
+----------------------------------------------------
+Liga Fantasy: GMask Villarreal Academy (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 8 equipos participantes.
+👉 Equipo: "Bordagalacticos" (handrusco)
+   Puntos que sumará hoy: +65 pts
+   Premio económico que ganará: +6.500.000 €
+   Jugadores que aportaron: Baigoorri05 (+18.6 pts), carlitoss027 (+17.6 pts), zmataa (+17.4 pts), adrikiller7sanz (+11.4 pts)
+👉 Equipo: "LaKarloneta" (Karlos1026)
+   Puntos que sumará hoy: +17.1 pts
+   Premio económico que ganará: +1.710.000 €
+   Jugadores que aportaron: FrancoJr1627 (+17.1 pts)
+👉 Equipo: "Los Gipsy Fc" (Abraham picao)
+   Puntos que sumará hoy: +102 pts
+   Premio económico que ganará: +10.200.000 €
+   Jugadores que aportaron: franexe10 (+7.2 pts), Julito_FCB (+26.5 pts), Lillo722 (+34 pts), Jayinho5 (+16 pts), Malaga94  (+18.3 pts)
+👉 Equipo: "Da pedriña" (rubendapedra)
+   Puntos que sumará hoy: +67.3 pts
+   Premio económico que ganará: +6.730.000 €
+   Jugadores que aportaron: agoniz15 (+21.3 pts), davidpoke169 (+16.7 pts), DaNNy_IToOo (+2.3 pts), ObiJoker_o0o (+17.7 pts), UnknownGT3 (+9.3 pts)
+👉 Equipo: "Manchester Piti" (Esteban)
+   Puntos que sumará hoy: +148.1 pts
+   Premio económico que ganará: +14.810.000 €
+   Jugadores que aportaron: LEGOLAS7410 (+30.7 pts), Jaumoncio (+32 pts), kiwingamerhd (+34.5 pts), papigalsia07 (+11 pts), Trokele (+39.9 pts)
+👉 Equipo: "GMK MONO" (GMK MONO)
+   Puntos que sumará hoy: +114.8 pts
+   Premio económico que ganará: +11.480.000 €
+   Jugadores que aportaron: ilogic21 (+28.6 pts), Gabri16f1 (+39.1 pts), vvaro77 (+23.2 pts), riera (+17.3 pts), sergiomp82 (+6.6 pts)
+👉 Equipo: "FUENGIRAZA" (daniiramiirez)
+   Puntos que sumará hoy: +27.8 pts
+   Premio económico que ganará: +2.780.000 €
+   Jugadores que aportaron: Aguu_cr (+11.5 pts), luislIy (+10 pts), flamenco3 (+6.3 pts)
+👉 Equipo: "Luislly" (luislly) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: Ttt (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: Judas brothers (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: FCP ESPORTS (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: Zenturions (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 7 equipos participantes.
+👉 Equipo: "RuboTestarudo" (Mikelma99)
+   Puntos que sumará hoy: +205.7 pts
+   Premio económico que ganará: +20.570.000 €
+   Jugadores que aportaron: antoniiomods (+30.3 pts), Fernando_im (+14.6 pts), GERIGF111 (+16.7 pts), elpepote2000 (+18 pts), 6_GULLIT (+35.3 pts), panterjack (+35.2 pts), eRiksiLE (+20.8 pts), TeweletelaJR (+34.8 pts)
+👉 Equipo: "Dretecabezon" (Minilvd)
+   Puntos que sumará hoy: +83.1 pts
+   Premio económico que ganará: +8.310.000 €
+   Jugadores que aportaron: FX-Wheezy (+17 pts), ariwi8 (+17.9 pts), BstiaaL (+25.8 pts), Makensii-_- (+8.6 pts), Malamadre (+13.8 pts)
+👉 Equipo: "Team Alvaro" (.ALVARO.)
+   Puntos que sumará hoy: +69.9 pts
+   Premio económico que ganará: +6.990.000 €
+   Jugadores que aportaron: NK-Xpo (+30 pts), Serzgz12 (+20.3 pts), WaitInth3Bush (+19.6 pts)
+👉 Equipo: "Jaaaaaen" (Nanos)
+   Puntos que sumará hoy: +55.5 pts
+   Premio económico que ganará: +5.550.000 €
+   Jugadores que aportaron: borcontun_95 (+10.8 pts), GoE-SouL (+29.6 pts), mikelma29 (+15.1 pts)
+👉 Equipo: "Drete vas con los de blanco" (Wait)
+   Puntos que sumará hoy: +131.2 pts
+   Premio económico que ganará: +13.120.000 €
+   Jugadores que aportaron: El_Bueno_De_Link (+19.9 pts), lykano (+26.9 pts), TanqueRoldan22 (+13.9 pts), Antony l7l (+28.6 pts), Alecastillo (+23.7 pts), alex5thunder (+18.2 pts)
+👉 Equipo: "Adolfoteniarazon" (Ivan_pastor5)
+   Puntos que sumará hoy: +98.5 pts
+   Premio económico que ganará: +9.850.000 €
+   Jugadores que aportaron: ImperiusHawk (+20.5 pts), vlobato10 (+63.8 pts), Kaiser8_fc (+14.2 pts)
+👉 Equipo: "CD TENERIFE" (DONgollete)
+   Puntos que sumará hoy: +191.4 pts
+   Premio económico que ganará: +19.140.000 €
+   Jugadores que aportaron: quiquejr78 (+15.1 pts), Skills-Angel (+6.9 pts), ublaya777 (+17.1 pts), alvaroohdzz (+10.9 pts), Nacheete777 (+31 pts), Caarloscorralees (+69.4 pts), DaniiKun10 (+41 pts)
+
+----------------------------------------------------
+Liga Fantasy: RKM eSports (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: RKM eSports (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 9 equipos participantes.
+👉 Equipo: "LEON FC" (Pleeon01)
+   Puntos que sumará hoy: +34.2 pts
+   Premio económico que ganará: +3.420.000 €
+   Jugadores que aportaron: Joviamhill (+13.2 pts), Javireff (+21 pts)
+👉 Equipo: "Losar FC" (Ivanlosar)
+   Puntos que sumará hoy: +53.2 pts
+   Premio económico que ganará: +5.320.000 €
+   Jugadores que aportaron: manolojm520 (+28.5 pts), MedwedPuszka (+9.1 pts), AlexitoLNZ (+15.6 pts)
+👉 Equipo: "Aroquitas" (Sergio Gavino)
+   Puntos que sumará hoy: +40.6 pts
+   Premio económico que ganará: +4.060.000 €
+   Jugadores que aportaron: AJaroXIII (+26.7 pts), P1T0PAN (+0.4 pts), silguix11 (+9 pts), xavimano1992 (+4.5 pts)
+👉 Equipo: "EL GRAN FIYA" (RAFIYA)
+   Puntos que sumará hoy: +70.6 pts
+   Premio económico que ganará: +7.060.000 €
+   Jugadores que aportaron: Xxhugoo_gbxX (+14.5 pts), Arisan99 (+16.9 pts), ot4rxxp8 (+16.7 pts), Ismael22614 (+22.5 pts)
+👉 Equipo: "Bastiam" (x-NoTbastiam-_-)
+   Puntos que sumará hoy: +56 pts
+   Premio económico que ganará: +5.600.000 €
+   Jugadores que aportaron: Pavisaaa (+17.6 pts), Xoel (+13.9 pts), DjP3l0t4s (+24.5 pts)
+👉 Equipo: "Robacobresyjugadores" (Rumanorobacobre)
+   Puntos que sumará hoy: +38.5 pts
+   Premio económico que ganará: +3.850.000 €
+   Jugadores que aportaron: carlitosxiri99 (+11.6 pts), AyubDz667 (+22.2 pts), tato7 (+4.7 pts)
+👉 Equipo: "Real Alcorcón FC" (Adri1one)
+   Puntos que sumará hoy: +29.2 pts
+   Premio económico que ganará: +2.920.000 €
+   Jugadores que aportaron: AyrtonSennaKing (+5.9 pts), Sanchez19238 (+16.2 pts), gns36 (+7.1 pts)
+👉 Equipo: "La masía fc" (Maik)
+   Puntos que sumará hoy: +63.2 pts
+   Premio económico que ganará: +6.320.000 €
+   Jugadores que aportaron: Esteban-caicedo (+6.9 pts), josemanxa10 (+13.6 pts), Milkbox1996 (+31.5 pts), CharlieKirkicius (+11.2 pts)
+👉 Equipo: "Marcospedro07" (Pedro.lejo) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: Tim gimas (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 10 equipos participantes.
+👉 Equipo: "Malitos" (Raven)
+   Puntos que sumará hoy: +172.8 pts
+   Premio económico que ganará: +17.280.000 €
+   Jugadores que aportaron: ublaya777 (+17.1 pts), NK-Xpo (+30 pts), AntonioGuerraXI (+13.8 pts), KTDNrubo (+19.2 pts), ravenn8 (+35.9 pts), xbausan (+38.3 pts), alegrima (+18.5 pts)
+👉 Equipo: "FerStar" (FeerStaaR)
+   Puntos que sumará hoy: +28.5 pts
+   Premio económico que ganará: +2.850.000 €
+   Jugadores que aportaron: Fernando_im (+14.6 pts), TanqueRoldan22 (+13.9 pts)
+👉 Equipo: "Valdi y 10 mas" (Valdi_17)
+   Puntos que sumará hoy: +98.3 pts
+   Premio económico que ganará: +9.830.000 €
+   Jugadores que aportaron: XMagoOZX (+24 pts), victorpp21 (+28.8 pts), vicente_haz (+45.5 pts)
+👉 Equipo: "Gutooo" (Guto)
+   Puntos que sumará hoy: +103.7 pts
+   Premio económico que ganará: +10.370.000 €
+   Jugadores que aportaron: xNaanos (+29.3 pts), GERIGF111 (+16.7 pts), AitorRdguez (+24.7 pts), robertopg9 (+14.9 pts), PrinceMatute (+18.1 pts)
+👉 Equipo: "lykano subnormal" (Cristitos)
+   Puntos que sumará hoy: +136.5 pts
+   Premio económico que ganará: +13.650.000 €
+   Jugadores que aportaron: ariwi8 (+17.9 pts), BstiaaL (+25.8 pts), molina73 (+26.8 pts), yassingamerpro (+30.1 pts), HumosXD (+35.9 pts)
+👉 Equipo: "Juanlukaku FC" (Juanlukaku)
+   Puntos que sumará hoy: +38.7 pts
+   Premio económico que ganará: +3.870.000 €
+   Jugadores que aportaron: DONgollete (+21.7 pts), TonyBlack95 (+17 pts)
+👉 Equipo: "Serosera" (ZeROzera)
+   Puntos que sumará hoy: +143.6 pts
+   Premio económico que ganará: +14.360.000 €
+   Jugadores que aportaron: TurNiRG (+28.6 pts), tonora666 (+14 pts), rzponzio (+36.9 pts), pupen7 (+64.1 pts)
+👉 Equipo: "kanela fc" (Xkanela)
+   Puntos que sumará hoy: +173.4 pts
+   Premio económico que ganará: +17.340.000 €
+   Jugadores que aportaron: marcosalcaide3 (+15.7 pts), By_KoSToo (+35.3 pts), CaiCedoo333 (+36.2 pts), mikivf (+41.7 pts), GuilleDiazGo (+26.3 pts), alex5thunder (+18.2 pts)
+👉 Equipo: "Brokoo" (Brokoo)
+   Puntos que sumará hoy: +88.2 pts
+   Premio económico que ganará: +8.820.000 €
+   Jugadores que aportaron: BIL_0028 (+14.5 pts), king_albersis (+28.6 pts), Luucaaas (+20.4 pts), Huugopriet0 (+24.7 pts)
+👉 Equipo: "Golden Japan" (Wakabayashi)
+   Puntos que sumará hoy: +123.7 pts
+   Premio económico que ganará: +12.370.000 €
+   Jugadores que aportaron: DarthScrypter (+28.7 pts), MarioFresh (+16 pts), ivanin3 (+36.3 pts), soek_mostoles (+2.9 pts), byfonzo_ (+34 pts), Quike_JL (+5.8 pts)
+
+----------------------------------------------------
+Liga Fantasy: Js Elcano (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 8 equipos participantes.
+👉 Equipo: "Pist(N)acho" (Nachete)
+   Puntos que sumará hoy: +220.7 pts
+   Premio económico que ganará: +22.070.000 €
+   Jugadores que aportaron: Dj_FiveDog (+151.2 pts), Joviamhill (+13.2 pts), alvaroohdzz (+10.9 pts), blaskito (+10.9 pts), Lamuda1217 (+13.7 pts), eRiksiLE (+20.8 pts)
+👉 Equipo: "Juan de Dios Fc" (ジュアンディ)
+   Puntos que sumará hoy: +48.1 pts
+   Premio económico que ganará: +4.810.000 €
+   Jugadores que aportaron: xValdes77 (+19.7 pts), JPPArtist (+28.4 pts)
+👉 Equipo: "JS ELCANO CAPITAN" (Xx_ViRusSeS_xX)
+   Puntos que sumará hoy: +42.7 pts
+   Premio económico que ganará: +4.270.000 €
+   Jugadores que aportaron: AlexitoLNZ (+15.6 pts), Javireff (+21 pts), Jean_Marco97 (+6.1 pts)
+👉 Equipo: "Kikin" (kikinar)
+   Puntos que sumará hoy: +117.6 pts
+   Premio económico que ganará: +11.760.000 €
+   Jugadores que aportaron: caxoborracho92 (+15.6 pts), eZ-xXx (+28.6 pts), Juanma-RdZ_92 (+9.4 pts), sadikito_0519 (+20.7 pts), FNICOLA24 (+7.4 pts), HumosXD (+35.9 pts)
+👉 Equipo: "Ervittity" ([MG]JS ELCANO)
+   Puntos que sumará hoy: +62.4 pts
+   Premio económico que ganará: +6.240.000 €
+   Jugadores que aportaron: Melow14 (+24.5 pts), Kaiser8_fc (+14.2 pts), Alecastillo (+23.7 pts)
+👉 Equipo: "CD UDLP" (YoSoyUDLP)
+   Puntos que sumará hoy: +94 pts
+   Premio económico que ganará: +9.400.000 €
+   Jugadores que aportaron: Xxhugoo_gbxX (+14.5 pts), Arisan99 (+16.9 pts), el_buitre99 (+26.5 pts), bilbaino88 (+13.9 pts), AyubDz667 (+22.2 pts)
+👉 Equipo: "Witi Fc" (Oscaarr0)
+   Puntos que sumará hoy: +45 pts
+   Premio económico que ganará: +4.500.000 €
+   Jugadores que aportaron: andresdiiaaz (+24.7 pts), juanfranpr3 (+20.3 pts)
+👉 Equipo: "Darío el pajotas" (Darío)
+   Puntos que sumará hoy: +7.1 pts
+   Premio económico que ganará: +710.000 €
+   Jugadores que aportaron: gns36 (+7.1 pts)
+
+----------------------------------------------------
+Liga Fantasy: IRON REDEMRIOM (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: Kurama (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: Evasion (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: La súper liga (Modo: ACCUMULATED)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: Fantasy UDLP #1 (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 5 equipos participantes.
+👉 Equipo: "CD UDLP" (YoSoyUDLP)
+   Puntos que sumará hoy: +78.5 pts
+   Premio económico que ganará: +7.850.000 €
+   Jugadores que aportaron: selozer (+20.1 pts), Jayinho5 (+16 pts), cazorshenko21 (+42.4 pts)
+👉 Equipo: "Vicpano" (Victor Alvarez) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+👉 Equipo: "Siu" (iiibaai._) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+👉 Equipo: "Decadicadi" (Juankeke) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+👉 Equipo: "Ikonkk" (Dokis) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: FANTASY ICONS (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: Icons team (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: Superfantasy Icons (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 1 equipos participantes.
+👉 Equipo: "Xexu team" (Xexu17)
+   Puntos que sumará hoy: +39.4 pts
+   Premio económico que ganará: +3.940.000 €
+   Jugadores que aportaron: aandreesm (+3.3 pts), antoniogarciagal (+36.1 pts)
+
+----------------------------------------------------
+Liga Fantasy: SANTAMARIA LEAGUE (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: Cosas (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: RUDOS CD (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 7 equipos participantes.
+👉 Equipo: "Ibaipa" (iiibaai._)
+   Puntos que sumará hoy: +143.6 pts
+   Premio económico que ganará: +14.360.000 €
+   Jugadores que aportaron: elpepote2000 (+18 pts), aleex_quero (+29.4 pts), silguix11 (+9 pts), msantana_9 (+36.4 pts), DarckCred_Joker (+14.9 pts), HumosXD (+35.9 pts)
+👉 Equipo: "RUDOS CD" (ElDesacataoJ-_-4)
+   Puntos que sumará hoy: +80.2 pts
+   Premio económico que ganará: +8.020.000 €
+   Jugadores que aportaron: oxkronn (+18.4 pts), xCr1vas (+16.6 pts), franxus11 (+18.6 pts), Renjer (+26.6 pts)
+👉 Equipo: "MANQUIS" (Weiosrecre)
+   Puntos que sumará hoy: +85.8 pts
+   Premio económico que ganará: +8.580.000 €
+   Jugadores que aportaron: burpils (+24.6 pts), Milkbox1996 (+31.5 pts), xXVitinho19Xx (+22.3 pts), adritor8994 (+7.4 pts)
+👉 Equipo: "Codigoteta" (el tato)
+   Puntos que sumará hoy: +222.8 pts
+   Premio económico que ganará: +22.280.000 €
+   Jugadores que aportaron: racsozehcnas (+17.1 pts), TSX-Juanri2 (+140.9 pts), ot4rxxp8 (+16.7 pts), Ivancito1007A (+48.1 pts)
+👉 Equipo: "Probeas" (Probeas3109)
+   Puntos que sumará hoy: +61.3 pts
+   Premio económico que ganará: +6.130.000 €
+   Jugadores que aportaron: juanfran154 (+22.5 pts), Akgofficial23 (+5.7 pts), andres0514 (+20 pts), ercros (+13.1 pts)
+👉 Equipo: "GOLPE FC" (golpe)
+   Puntos que sumará hoy: +85.1 pts
+   Premio económico que ganará: +8.510.000 €
+   Jugadores que aportaron: Luismuriana2005 (+22.7 pts), germaniko09 (+4.8 pts), eds09_ (+45 pts), alex1998 (+12.6 pts)
+👉 Equipo: "Manolo FC" (Manolo|KAKÁ)
+   Puntos que sumará hoy: +44.2 pts
+   Premio económico que ganará: +4.420.000 €
+   Jugadores que aportaron: M4Rk1tUs (+29 pts), xGarrincha-10x (+15.2 pts)
+
+----------------------------------------------------
+Liga Fantasy: Cosas (Modo: ACCUMULATED)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: 187 Picantes (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 12 equipos participantes.
+👉 Equipo: "Dictadores fc" (Kevin9x19)
+   Puntos que sumará hoy: +106.8 pts
+   Premio económico que ganará: +10.680.000 €
+   Jugadores que aportaron: Seffakito (+10 pts), LeGeND_RuBiio10 (+47.5 pts), Gaditano_yt (+49.3 pts)
+👉 Equipo: "Marceloret FC" (alex26agt)
+   Puntos que sumará hoy: +112.6 pts
+   Premio económico que ganará: +11.260.000 €
+   Jugadores que aportaron: ALCALDE_QUINBY (+10.1 pts), Jeremy_Vp11 (+8.5 pts), 93Zurda93 (+17.2 pts), markitowason (+17.5 pts), Pilpors (+52.4 pts), Neymar Yuncal (+6.9 pts)
+👉 Equipo: "Porrineli" (jaumesp1)
+   Puntos que sumará hoy: +66.5 pts
+   Premio económico que ganará: +6.650.000 €
+   Jugadores que aportaron: jara2018cast (+10 pts), Ka1ser30 (+10 pts), sacchi1984 (+11 pts), Mateoss1990 (+29 pts), Kevin187 (+6.5 pts)
+👉 Equipo: "Kingods" (Danigod_)
+   Puntos que sumará hoy: +17.2 pts
+   Premio económico que ganará: +1.720.000 €
+   Jugadores que aportaron: xexio93 (+17.2 pts)
+👉 Equipo: "Maiki FC" (Miquel)
+   Puntos que sumará hoy: +76.3 pts
+   Premio económico que ganará: +7.630.000 €
+   Jugadores que aportaron: Fristail100xsien (+19.8 pts), FFrenezy (+6.9 pts), Don_Moncho_JR (+20.9 pts), JoanPia (+20.7 pts), themagi08 (+8 pts)
+👉 Equipo: "ICE F187" (ICE F187)
+   Puntos que sumará hoy: +90.1 pts
+   Premio económico que ganará: +9.010.000 €
+   Jugadores que aportaron: Dribox (+40.1 pts), gallod10s (+28.6 pts), conca12 (+7.9 pts), Alecillo19 (+13.5 pts)
+👉 Equipo: "The Problem FC" (pablo11hoyos)
+   Puntos que sumará hoy: +153.7 pts
+   Premio económico que ganará: +15.370.000 €
+   Jugadores que aportaron: Cantabro92 (+44.4 pts), marrufaaaa04 (+3.5 pts), Ra_shooter17 (+33.3 pts), PaabloHT_Twitch (+9.4 pts), hadock (+54.7 pts), thonixavi (+8.4 pts)
+👉 Equipo: "SeffakitoFC" (JavierSeffak)
+   Puntos que sumará hoy: +20.2 pts
+   Premio económico que ganará: +2.020.000 €
+   Jugadores que aportaron: isi_perdi (+7.4 pts), elrusiko987 (+6.9 pts), Josebaa12 (+5.9 pts)
+👉 Equipo: "Fc Pro" (alejandroyuncal)
+   Puntos que sumará hoy: +97.1 pts
+   Premio económico que ganará: +9.710.000 €
+   Jugadores que aportaron: rober11pp (+97.1 pts)
+👉 Equipo: "Eufaresisnos" (Adrián)
+   Puntos que sumará hoy: +109.3 pts
+   Premio económico que ganará: +10.930.000 €
+   Jugadores que aportaron: aithor72 (+12 pts), goanche (+20.3 pts), JAU1804 (+10 pts), Crisaneco_77 (+48 pts), Machuka (+0.5 pts), temp-272106 (+18.5 pts)
+👉 Equipo: "Hectorhr" (h21)
+   Puntos que sumará hoy: +38.8 pts
+   Premio económico que ganará: +3.880.000 €
+   Jugadores que aportaron: soyleyenda2308 (+5 pts), viciadox7 (+33.8 pts)
+👉 Equipo: "Dimonis FC" (jau13)
+   Puntos que sumará hoy: +6.6 pts
+   Premio económico que ganará: +660.000 €
+   Jugadores que aportaron: zxc-_-jesus89 (+6.6 pts)
+
+----------------------------------------------------
+Liga Fantasy: CULONES (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: ByCulones (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 2 equipos participantes.
+👉 Equipo: "Vishi" (nerero23)
+   Puntos que sumará hoy: +124.9 pts
+   Premio económico que ganará: +12.490.000 €
+   Jugadores que aportaron: blankito1997 (+25 pts), LeGeND_RuBiio10 (+47.5 pts), Pilpors (+52.4 pts)
+👉 Equipo: "Soylarata" (carlosjiimenez1)
+   Puntos que sumará hoy: +46.3 pts
+   Premio económico que ganará: +4.630.000 €
+   Jugadores que aportaron: Gospia (+22.8 pts), Ka1ser30 (+10 pts), Kevin187 (+6.5 pts), masue18adj (+7 pts)
+
+----------------------------------------------------
+Liga Fantasy: Vishi (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 3 equipos participantes.
+👉 Equipo: "Sile" (carlosjiimenez1)
+   Puntos que sumará hoy: +114.7 pts
+   Premio económico que ganará: +11.470.000 €
+   Jugadores que aportaron: Ekaaain99 (+11.5 pts), Cantabro92 (+44.4 pts), Javieryunai10 (+11.3 pts), LeGeND_RuBiio10 (+47.5 pts)
+👉 Equipo: "Banano" (mg vicente45) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+👉 Equipo: "r3egegh3" (ZNDR.) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: MONDONGO CUP (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 8 equipos participantes.
+👉 Equipo: "INCAPACITAOS FC" (cristianbreezy)
+   Puntos que sumará hoy: +74.3 pts
+   Premio económico que ganará: +7.430.000 €
+   Jugadores que aportaron: ValverdeSiwi14 (+10 pts), riggsbourne (+10 pts), JowiRCCV (+6.2 pts), LuisRuiz_97 (+10.8 pts), Alfevi1981 (+37.3 pts)
+👉 Equipo: "Etarras FC" (Asiidr)
+   Puntos que sumará hoy: +43.7 pts
+   Premio económico que ganará: +4.370.000 €
+   Jugadores que aportaron: LaDeUnquera (+37.2 pts), Tausito (+6.5 pts)
+👉 Equipo: "Tuenti bujarron" (Fonsi)
+   Puntos que sumará hoy: +104.6 pts
+   Premio económico que ganará: +10.460.000 €
+   Jugadores que aportaron: alexinstic23 (+25.5 pts), Kuko_jr4 (+25.2 pts), litazo (+29.7 pts), NOTRUBYDACHERRY (+24.2 pts)
+👉 Equipo: "Guli team" (ELCAUDILLO69)
+   Puntos que sumará hoy: +47.2 pts
+   Premio económico que ganará: +4.720.000 €
+   Jugadores que aportaron: miguel_diaz13R (+22.8 pts), gulipas69 (+24.4 pts)
+👉 Equipo: "FC Pirrianos" (El Pirri)
+   Puntos que sumará hoy: +105.1 pts
+   Premio económico que ganará: +10.510.000 €
+   Jugadores que aportaron: tipo_bionico5 (+24.3 pts), tokinha11 (+36.9 pts), Juantiogot_YT (+16.6 pts), klausm99 (+13.3 pts), Joaky_22 (+14 pts)
+👉 Equipo: "Calvinhos FC" (smok-samurai)
+   Puntos que sumará hoy: +69.8 pts
+   Premio económico que ganará: +6.980.000 €
+   Jugadores que aportaron: vitxu3 (+11.9 pts), Genio_92 (+21.7 pts), Davidprogamerpv (+28.3 pts), PelochoLV (+7.9 pts)
+👉 Equipo: "Yonkis FC" (bynano)
+   Puntos que sumará hoy: +50.6 pts
+   Premio económico que ganará: +5.060.000 €
+   Jugadores que aportaron: SadWale21 (+35.8 pts), JD1egoo (+14.8 pts)
+👉 Equipo: "Vodka Juniors" (dytan17)
+   Puntos que sumará hoy: +76.9 pts
+   Premio económico que ganará: +7.690.000 €
+   Jugadores que aportaron: AleACF9 (+10 pts), dytan17 (+10 pts), rober_delpino (+20.5 pts), Bernycastro (+36.4 pts)
+
+----------------------------------------------------
+Liga Fantasy: Judas Brothers 2 (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 1 equipos participantes.
+👉 Equipo: "Chago team" (Chaagoo7)
+   Puntos que sumará hoy: +49.2 pts
+   Premio económico que ganará: +4.920.000 €
+   Jugadores que aportaron: WaitInth3Bush (+19.6 pts), Skills-Angel (+6.9 pts), xCr1vas (+16.6 pts), Jean_Marco97 (+6.1 pts)
+
+----------------------------------------------------
+Liga Fantasy: Cobre (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 2 equipos participantes.
+👉 Equipo: "Synthetize" (Carver5)
+   Puntos que sumará hoy: +145 pts
+   Premio económico que ganará: +14.500.000 €
+   Jugadores que aportaron: rayan_bbt4 (+32.1 pts), omsdazz (+10.7 pts), albertito2309 (+17.5 pts), Zam0ra (+23.7 pts), Kapafr (+42.2 pts), el gran mago11_ (+18.8 pts)
+👉 Equipo: "Er Rolex" (PredatorxSnake) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+----------------------------------------------------
+Liga Fantasy: Robacobriers (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 4 equipos participantes.
+👉 Equipo: "Er Rolex" (PredatorxSnake)
+   Puntos que sumará hoy: +65.3 pts
+   Premio económico que ganará: +6.530.000 €
+   Jugadores que aportaron: Joeec0le28 (+20.8 pts), chemi23ap (+23 pts), OriiGutii (+2.7 pts), el gran mago11_ (+18.8 pts)
+👉 Equipo: "Minguitos UD" (El Tuberias)
+   Puntos que sumará hoy: +152.2 pts
+   Premio económico que ganará: +15.220.000 €
+   Jugadores que aportaron: Nezzu19 (+15.1 pts), GirlGamer_besi (+19 pts), rickysamba (+14.5 pts), ese_golfito_tfe (+103.6 pts)
+👉 Equipo: "Synthetize FC" (Carver5)
+   Puntos que sumará hoy: +56.3 pts
+   Premio económico que ganará: +5.630.000 €
+   Jugadores que aportaron: cabezinha10 (+31 pts), MVathletic (+16.9 pts), proplayer095 (+1.5 pts), xXCagedTiGerXx99 (+6.9 pts)
+👉 Equipo: "Rayan fc" (bestmoney11)
+   Puntos que sumará hoy: +70.8 pts
+   Premio económico que ganará: +7.080.000 €
+   Jugadores que aportaron: diablo1232trf (+18.1 pts), omsdazz (+10.7 pts), IVANROS97 (+16.3 pts), Madoja93 (+13.4 pts), javiivii16112000 (+12.3 pts)
+
+----------------------------------------------------
+Liga Fantasy: The real ones (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: RCD ROBACOBRE (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: Liga MAGIC (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 4 equipos participantes.
+👉 Equipo: "V de Vendetta" (BALLES_CR)
+   Puntos que sumará hoy: +113.9 pts
+   Premio económico que ganará: +11.390.000 €
+   Jugadores que aportaron: Sanchez19238 (+16.2 pts), supergigio78 (+20.1 pts), Manelibz4_ (+60.7 pts), Skills-Angel (+6.9 pts), sergio_88bcn (+10 pts)
+👉 Equipo: "Joanisius" (ILoJOAN)
+   Puntos que sumará hoy: +84.5 pts
+   Premio económico que ganará: +8.450.000 €
+   Jugadores que aportaron: tinei95 (+29.2 pts), Briiiiiiaann37 (+11.5 pts), msantana_9 (+36.4 pts), FNICOLA24 (+7.4 pts)
+👉 Equipo: "CasaNegra" (xN0t_SaaD🇲🇦)
+   Puntos que sumará hoy: +116.3 pts
+   Premio económico que ganará: +11.630.000 €
+   Jugadores que aportaron: GERIGF111 (+16.7 pts), paquito (+35.7 pts), CaiCedoo333 (+36.2 pts), donpe_10 (+27.7 pts)
+👉 Equipo: "Kenitra AC" (elbicho_59TTV)
+   Puntos que sumará hoy: +96.2 pts
+   Premio económico que ganará: +9.620.000 €
+   Jugadores que aportaron: Arisan99 (+16.9 pts), robertopg9 (+14.9 pts), Luismuriana2005 (+22.7 pts), Antony l7l (+28.6 pts), Gabrii0 (+13.1 pts)
+
+----------------------------------------------------
+Liga Fantasy: LOS NOTAS (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 1 equipos participantes.
+👉 Equipo: "MUSULMANCHESTER CITY" (𝐌𝐈𝐂𝐇𝐀𝐄𝐋 𝐎𝐋𝐈𝐒𝐄♱)
+   Puntos que sumará hoy: +128 pts
+   Premio económico que ganará: +12.800.000 €
+   Jugadores que aportaron: Pavisaaa (+17.6 pts), Sanchez19238 (+16.2 pts), robertopg9 (+14.9 pts), thorr2002 (+79.3 pts)
+
+----------------------------------------------------
+Liga Fantasy: 11111 (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 0 equipos participantes.
+
+----------------------------------------------------
+Liga Fantasy: Cadiz United (Modo: ZERO)
+----------------------------------------------------
+[INFO] Liga tiene 11 equipos participantes.
+👉 Equipo: "Cadicadi" (Juankeke)
+   Puntos que sumará hoy: +10 pts
+   Premio económico que ganará: +1.000.000 €
+   Jugadores que aportaron: abuelo 1664 (+10 pts)
+👉 Equipo: "Pochetini" (Franfdz6)
+   Puntos que sumará hoy: +50.1 pts
+   Premio económico que ganará: +5.010.000 €
+   Jugadores que aportaron: Elpacha12 (+16.3 pts), pepelu345 (+21.6 pts), SoGy_9 (+12.2 pts)
+👉 Equipo: "Arbeloa" (Abraham_LooL_7)
+   Puntos que sumará hoy: +44.6 pts
+   Premio económico que ganará: +4.460.000 €
+   Jugadores que aportaron: akasss1312 (+23.8 pts), eRiksiLE (+20.8 pts)
+👉 Equipo: "Danisusu" (Daniel)
+   Puntos que sumará hoy: +45 pts
+   Premio económico que ganará: +4.500.000 €
+   Jugadores que aportaron: Serzgz12 (+20.3 pts), mecvno (+1 pts), Alecastillo (+23.7 pts)
+👉 Equipo: "Joselitoflikhs" (Josele barber)
+   Puntos que sumará hoy: +80.8 pts
+   Premio económico que ganará: +8.080.000 €
+   Jugadores que aportaron: antonio_moski (+28.8 pts), djjpaloooooo9 (+16.1 pts), HumosXD (+35.9 pts)
+👉 Equipo: "Jpm team" (Jpm_13_cadiz)
+   Puntos que sumará hoy: +91.4 pts
+   Premio económico que ganará: +9.140.000 €
+   Jugadores que aportaron: Patonca69 (+28.6 pts), pablodelsafa (+9 pts), tonora666 (+14 pts), belversingh (+15.1 pts), barreiroxx8 (+24.7 pts)
+👉 Equipo: "Serquik" (serquik)
+   Puntos que sumará hoy: +81.5 pts
+   Premio económico que ganará: +8.150.000 €
+   Jugadores que aportaron: culhote (+2 pts), jose11698 (+18.1 pts), Luucaaas (+20.4 pts), DaniiKun10 (+41 pts)
+👉 Equipo: "Sanmateo furbo club" (Danicod)
+   Puntos que sumará hoy: +55.1 pts
+   Premio económico que ganará: +5.510.000 €
+   Jugadores que aportaron: ADEJERO1989 (+19.3 pts), Jaime-n13 (+35.8 pts)
+👉 Equipo: "CRISO FC" (Cristian Navarro González) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+👉 Equipo: "Akasrey" (elakass) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+👉 Equipo: "MS esports" (🅼🅸🅻🅾) -> 0 puntos hoy (ningún jugador activo sumó puntos).
+
+====================================================
+[OK] SIMULACIÓN COMPLETADA SIN ERRORES.
+Total de equipos analizados: 477
+====================================================
+
+[INFO] Conexión de base de datos cerrada de forma segura.

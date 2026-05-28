@@ -1,0 +1,179 @@
+User: "6_GULLIT" | Team: "AD CEUTA ESPORTS" (adceuta-esports) | Pos: undefined | LB: top_cdm | PJ: 20 | Pts: 374.6
+User: "6_GULLIT" | Team: "AD CEUTA ESPORTS" (adceuta-esports) | Pos: undefined | LB: top_cam | PJ: 20 | Pts: 320.6
+User: "adrianzurdo_sfc" | Team: "VentuCorp" (VentuCorpEAFC) | Pos: undefined | LB: top_wingers | PJ: 13 | Pts: 118.7
+User: "adrilopez710" | Team: "SUZAKU ESPORTS" (SUZAKU-ESPORTS) | Pos: undefined | LB: top_cb | PJ: 18 | Pts: 265.8
+User: "aitorgarcia1998" | Team: "ALPHA WOLFS" (Alpha-WolfS) | Pos: undefined | LB: top_cb | PJ: 20 | Pts: 208.1
+User: "AitorRdguez" | Team: "LTK ESPORTS" (ltk-esports) | Pos: undefined | LB: top_cdm | PJ: 20 | Pts: 248.5
+User: "AitorRdguez" | Team: "LTK ESPORTS" (ltk-esports) | Pos: undefined | LB: top_cam | PJ: 20 | Pts: 220.5
+User: "Alecastillo" | Team: "AD CEUTA ESPORTS" (adceuta-esports) | Pos: undefined | LB: top_strikers | PJ: 8 | Pts: 90.2
+User: "Aleeez4" | Team: "BANANO ESPORTS" (banano-esport) | Pos: undefined | LB: top_wingers | PJ: 20 | Pts: 179.1
+User: "alex-_-ac130" | Team: "ZENTURIONS" (monta-esports-club) | Pos: undefined | LB: top_cb | PJ: 18 | Pts: 232.2
+User: "AlmeOtF" | Team: "AD CEUTA ESPORTS" (adceuta-esports) | Pos: undefined | LB: top_wingers | PJ: 18 | Pts: 233.3
+User: "AMB_LMG" | Team: "GMK Villarreal CF" (Team-GMASK) | Pos: undefined | LB: top_gk | PJ: 4 | Pts: 40.5
+User: "andresdiiaaz" | Team: "BANANO ESPORTS" (banano-esport) | Pos: undefined | LB: top_gk | PJ: 18 | Pts: 214.1
+User: "antoniiomods" | Team: "90min FC" (90min) | Pos: undefined | LB: top_gk | PJ: 20 | Pts: 280.5
+User: "AntonioGuerraXI" | Team: "AD CEUTA ESPORTS" (adceuta-esports) | Pos: undefined | LB: top_cb | PJ: 20 | Pts: 285.2
+User: "arjoniiitaa_g4" | Team: "Tempus Esports" (Tempus-Esports) | Pos: undefined | LB: top_cdm | PJ: 14 | Pts: 281
+User: "arjoniiitaa_g4" | Team: "Tempus Esports" (Tempus-Esports) | Pos: undefined | LB: top_cam | PJ: 20 | Pts: 345.2
+User: "BabaEspumosa" | Team: "CE EUROPA ESPORTS" (ce-europa-esports) | Pos: undefined | LB: top_fb | PJ: 1 | Pts: 0
+User: "bojan_9000" | Team: "SUZAKU ESPORTS" (SUZAKU-ESPORTS) | Pos: undefined | LB: top_cdm | PJ: 14 | Pts: 210.9
+User: "bojan_9000" | Team: "SUZAKU ESPORTS" (SUZAKU-ESPORTS) | Pos: undefined | LB: top_cam | PJ: 12 | Pts: 147.4
+User: "Bools_10" | Team: "JAM ESPORTS" (JAM-ES) | Pos: undefined | LB: top_cam | PJ: 10 | Pts: 98.7
+User: "borealito" | Team: "VentuCorp" (VentuCorpEAFC) | Pos: undefined | LB: top_cdm | PJ: 14 | Pts: 195.9
+User: "BstiaaL" | Team: "Tempus Esports" (Tempus-Esports) | Pos: undefined | LB: top_cb | PJ: 20 | Pts: 232.8
+User: "byfonzo_" | Team: "CRYZEN GAMING" (cryzen-gaming-weewklas) | Pos: undefined | LB: top_wingers | PJ: 20 | Pts: 231.3
+User: "bysima10" | Team: "VentuCorp" (VentuCorpEAFC) | Pos: undefined | LB: top_strikers | PJ: 15 | Pts: 198.7
+User: "caarloscorralees" | Team: "ZENTURIONS" (monta-esports-club) | Pos: undefined | LB: top_wingers | PJ: 20 | Pts: 463
+User: "chamiisanchez1" | Team: "90min FC" (90min) | Pos: undefined | LB: top_cam | PJ: 12 | Pts: 144.3
+User: "charlyy2295" | Team: "VentuCorp" (VentuCorpEAFC) | Pos: undefined | LB: top_wingers | PJ: 6 | Pts: 89.6
+User: "cris-borras" | Team: "GMK Villarreal CF" (Team-GMASK) | Pos: undefined | LB: top_gk | PJ: 16 | Pts: 197.2
+User: "cristitos98" | Team: "GMK Villarreal CF" (Team-GMASK) | Pos: undefined | LB: top_cdm | PJ: 20 | Pts: 348.2
+User: "cristitos98" | Team: "GMK Villarreal CF" (Team-GMASK) | Pos: undefined | LB: top_cam | PJ: 20 | Pts: 302.2
+User: "Dape10" | Team: "Tempus Esports" (Tempus-Esports) | Pos: undefined | LB: top_wingers | PJ: 20 | Pts: 248.4
+User: "DarthScrypter" | Team: "Tempus Esports" (Tempus-Esports) | Pos: undefined | LB: top_gk | PJ: 20 | Pts: 224.4
+User: "Decrow" | Team: "VentuCorp" (VentuCorpEAFC) | Pos: undefined | LB: top_cam | PJ: 8 | Pts: 87.2
+User: "diosito" | Team: "CRYZEN GAMING" (cryzen-gaming-weewklas) | Pos: undefined | LB: top_strikers | PJ: 10 | Pts: 102.7
+User: "DONgollete" | Team: "ZENTURIONS" (monta-esports-club) | Pos: undefined | LB: top_gk | PJ: 19 | Pts: 214.8
+User: "edupb02" | Team: "ALPHA WOLFS" (Alpha-WolfS) | Pos: undefined | LB: top_gk | PJ: 20 | Pts: 215.1
+User: "EdwardSG" | Team: "90min FC" (90min) | Pos: undefined | LB: top_cb | PJ: 18 | Pts: 236.9
+User: "elbrokoo30" | Team: "GMK Villarreal CF" (Team-GMASK) | Pos: undefined | LB: top_wingers | PJ: 20 | Pts: 346.1
+User: "elfarru22" | Team: "Tempus Esports" (Tempus-Esports) | Pos: undefined | LB: top_wingers | PJ: 20 | Pts: 236.2
+User: "ElPisoOrito" | Team: "90min FC" (90min) | Pos: undefined | LB: top_strikers | PJ: 18 | Pts: 206.3
+User: "emoliina" | Team: "JS ELCANO" (js-elcano) | Pos: undefined | LB: top_wingers | PJ: 15 | Pts: 163.1
+User: "eriksile" | Team: "CRYZEN GAMING" (cryzen-gaming-weewklas) | Pos: undefined | LB: top_strikers | PJ: 16 | Pts: 173.7
+User: "Espartac0_87" | Team: "Tempus Esports" (Tempus-Esports) | Pos: undefined | LB: top_strikers | PJ: 16 | Pts: 197.9
+User: "EST_XxdieguitoxX" | Team: "JAM ESPORTS" (JAM-ES) | Pos: undefined | LB: top_wingers | PJ: 18 | Pts: 206.3
+User: "eurex_luvchenko" | Team: "BANANO ESPORTS" (banano-esport) | Pos: undefined | LB: top_cam | PJ: 8 | Pts: 102.5
+User: "fernando_im" | Team: "AD CEUTA ESPORTS" (adceuta-esports) | Pos: undefined | LB: top_cb | PJ: 20 | Pts: 221.6
+User: "ferstari96i" | Team: "GMK Villarreal CF" (Team-GMASK) | Pos: undefined | LB: top_strikers | PJ: 20 | Pts: 473.9
+User: "Franchute3000" | Team: "JS ELCANO" (js-elcano) | Pos: undefined | LB: top_cdm | PJ: 13 | Pts: 173.5
+User: "Franchute3000" | Team: "JS ELCANO" (js-elcano) | Pos: undefined | LB: top_cam | PJ: 10 | Pts: 132.6
+User: "FX-Wheezy" | Team: "JS ELCANO" (js-elcano) | Pos: undefined | LB: top_gk | PJ: 3 | Pts: 41.3
+User: "GS_GALEX" | Team: "CE EUROPA ESPORTS" (ce-europa-esports) | Pos: undefined | LB: top_fb | PJ: 2 | Pts: 15.2
+User: "Guaire27" | Team: "90min FC" (90min) | Pos: undefined | LB: top_strikers | PJ: 20 | Pts: 244.5
+User: "guto_12_" | Team: "GMK Villarreal CF" (Team-GMASK) | Pos: undefined | LB: top_cb | PJ: 20 | Pts: 305.3
+User: "GzAntonio" | Team: "CE EUROPA ESPORTS" (ce-europa-esports) | Pos: undefined | LB: top_cam | PJ: 12 | Pts: 95.8
+User: "hectorop96" | Team: "SUZAKU ESPORTS" (SUZAKU-ESPORTS) | Pos: undefined | LB: top_cb | PJ: 20 | Pts: 254
+User: "Heretics_Jordi" | Team: "CE EUROPA ESPORTS" (ce-europa-esports) | Pos: undefined | LB: top_cb | PJ: 16 | Pts: 183.3
+User: "hi_im_smurf" | Team: "VentuCorp" (VentuCorpEAFC) | Pos: undefined | LB: top_cam | PJ: 12 | Pts: 113.2
+User: "hichipro" | Team: "CE EUROPA ESPORTS" (ce-europa-esports) | Pos: undefined | LB: top_wingers | PJ: 12 | Pts: 161
+User: "Huugopriet0" | Team: "BANANO ESPORTS" (banano-esport) | Pos: undefined | LB: top_strikers | PJ: 20 | Pts: 236.3
+User: "I-Maximin10" | Team: "JAM ESPORTS" (JAM-ES) | Pos: undefined | LB: top_strikers | PJ: 20 | Pts: 322.7
+User: "ImNiTrO21" | Team: "JAM ESPORTS" (JAM-ES) | Pos: undefined | LB: top_wingers | PJ: 12 | Pts: 140.5
+User: "israeadri" | Team: "Tempus Esports" (Tempus-Esports) | Pos: undefined | LB: top_cb | PJ: 20 | Pts: 233.9
+User: "ivan_pastor5" | Team: "ZENTURIONS" (monta-esports-club) | Pos: undefined | LB: top_cdm | PJ: 11 | Pts: 195
+User: "ivan_pastor5" | Team: "ZENTURIONS" (monta-esports-club) | Pos: undefined | LB: top_cam | PJ: 11 | Pts: 179
+User: "ivan_pastor5" | Team: "ZENTURIONS" (monta-esports-club) | Pos: undefined | LB: top_strikers | PJ: 9 | Pts: 166.5
+User: "ivanagui47" | Team: "VentuCorp" (VentuCorpEAFC) | Pos: undefined | LB: top_strikers | PJ: 9 | Pts: 111
+User: "ivanovic57" | Team: "JAM ESPORTS" (JAM-ES) | Pos: undefined | LB: top_cdm | PJ: 16 | Pts: 245
+User: "ivanovic57" | Team: "JAM ESPORTS" (JAM-ES) | Pos: undefined | LB: top_cam | PJ: 16 | Pts: 215
+User: "ivanscve" | Team: "VentuCorp" (VentuCorpEAFC) | Pos: undefined | LB: top_gk | PJ: 4 | Pts: 10
+User: "ivecgg" | Team: "AD CEUTA ESPORTS" (adceuta-esports) | Pos: undefined | LB: top_gk | PJ: 20 | Pts: 227.2
+User: "izanjc08gg" | Team: "JAM ESPORTS" (JAM-ES) | Pos: undefined | LB: top_wingers | PJ: 10 | Pts: 92.9
+User: "JJw-SaMi" | Team: "ALPHA WOLFS" (Alpha-WolfS) | Pos: undefined | LB: top_wingers | PJ: 14 | Pts: 179.3
+User: "joneyjr" | Team: "ZENTURIONS" (monta-esports-club) | Pos: undefined | LB: top_wingers | PJ: 14 | Pts: 187.6
+User: "joooaaquiiin" | Team: "JS ELCANO" (js-elcano) | Pos: undefined | LB: top_gk | PJ: 16 | Pts: 185.8
+User: "juanlukaku" | Team: "GMK Villarreal CF" (Team-GMASK) | Pos: undefined | LB: top_wingers | PJ: 20 | Pts: 310.7
+User: "juanma-rdz_92" | Team: "JS ELCANO" (js-elcano) | Pos: undefined | LB: top_wingers | PJ: 17 | Pts: 188.4
+User: "JVT-10K" | Team: "90min FC" (90min) | Pos: undefined | LB: top_cdm | PJ: 16 | Pts: 223.5
+User: "JVT-10K" | Team: "90min FC" (90min) | Pos: undefined | LB: top_cam | PJ: 16 | Pts: 189.5
+User: "kerko_87" | Team: "JAM ESPORTS" (JAM-ES) | Pos: undefined | LB: top_cb | PJ: 14 | Pts: 167.9
+User: "king_albersis" | Team: "SUZAKU ESPORTS" (SUZAKU-ESPORTS) | Pos: undefined | LB: top_cdm | PJ: 20 | Pts: 249.7
+User: "king_albersis" | Team: "SUZAKU ESPORTS" (SUZAKU-ESPORTS) | Pos: undefined | LB: top_cam | PJ: 20 | Pts: 219.7
+User: "kint782" | Team: "SUZAKU ESPORTS" (SUZAKU-ESPORTS) | Pos: undefined | LB: top_cdm | PJ: 18 | Pts: 251.5
+User: "ktdnrubo" | Team: "ZENTURIONS" (monta-esports-club) | Pos: undefined | LB: top_cdm | PJ: 20 | Pts: 244.4
+User: "ktdnrubo" | Team: "ZENTURIONS" (monta-esports-club) | Pos: undefined | LB: top_cam | PJ: 9 | Pts: 95.7
+User: "kuentinjr" | Team: "CE EUROPA ESPORTS" (ce-europa-esports) | Pos: undefined | LB: top_fb | PJ: 1 | Pts: 0
+User: "Lamuda1217" | Team: "Tempus Esports" (Tempus-Esports) | Pos: undefined | LB: top_strikers | PJ: 10 | Pts: 124.9
+User: "Loliwi08" | Team: "BANANO ESPORTS" (banano-esport) | Pos: undefined | LB: top_wingers | PJ: 14 | Pts: 132.5
+User: "luucaaas" | Team: "CRYZEN GAMING" (cryzen-gaming-weewklas) | Pos: undefined | LB: top_cdm | PJ: 20 | Pts: 247.8
+User: "luucaaas" | Team: "CRYZEN GAMING" (cryzen-gaming-weewklas) | Pos: undefined | LB: top_cam | PJ: 18 | Pts: 198
+User: "lykano" | Team: "GMK Villarreal CF" (Team-GMASK) | Pos: undefined | LB: top_cb | PJ: 20 | Pts: 270
+User: "M4rcKit0s7" | Team: "90min FC" (90min) | Pos: undefined | LB: top_cdm | PJ: 12 | Pts: 167.6
+User: "Makensii-_-" | Team: "JAM ESPORTS" (JAM-ES) | Pos: undefined | LB: top_cam | PJ: 10 | Pts: 86.1
+User: "marcosalcaide3" | Team: "LTK ESPORTS" (ltk-esports) | Pos: undefined | LB: top_cb | PJ: 20 | Pts: 225.9
+User: "MarioFresh" | Team: "LTK ESPORTS" (ltk-esports) | Pos: undefined | LB: top_cb | PJ: 20 | Pts: 231.3
+User: "mazael24" | Team: "VentuCorp" (VentuCorpEAFC) | Pos: undefined | LB: top_strikers | PJ: 10 | Pts: 113.3
+User: "mecvno" | Team: "CRYZEN GAMING" (cryzen-gaming-weewklas) | Pos: undefined | LB: top_cam | PJ: 8 | Pts: 83.8
+User: "Merino_11" | Team: "ALPHA WOLFS" (Alpha-WolfS) | Pos: undefined | LB: top_cb | PJ: 18 | Pts: 218.4
+User: "Migue_Madrile95" | Team: "JS ELCANO" (js-elcano) | Pos: undefined | LB: top_cdm | PJ: 14 | Pts: 161.4
+User: "Migue_Madrile95" | Team: "JS ELCANO" (js-elcano) | Pos: undefined | LB: top_cam | PJ: 9 | Pts: 87.4
+User: "mikelma29" | Team: "ZENTURIONS" (monta-esports-club) | Pos: undefined | LB: top_strikers | PJ: 18 | Pts: 240
+User: "mikivf" | Team: "CRYZEN GAMING" (cryzen-gaming-weewklas) | Pos: undefined | LB: top_cdm | PJ: 18 | Pts: 284.3
+User: "Mini_lvd11" | Team: "ZENTURIONS" (monta-esports-club) | Pos: undefined | LB: top_cdm | PJ: 14 | Pts: 171.3
+User: "Mini_lvd11" | Team: "ZENTURIONS" (monta-esports-club) | Pos: undefined | LB: top_cam | PJ: 14 | Pts: 155.3
+User: "misterigle" | Team: "LTK ESPORTS" (ltk-esports) | Pos: undefined | LB: top_cdm | PJ: 20 | Pts: 292.1
+User: "misterigle" | Team: "LTK ESPORTS" (ltk-esports) | Pos: undefined | LB: top_cam | PJ: 20 | Pts: 266.1
+User: "MKS IMPACT" | Team: "LTK ESPORTS" (ltk-esports) | Pos: undefined | LB: top_wingers | PJ: 10 | Pts: 105.6
+User: "molina73" | Team: "90min FC" (90min) | Pos: undefined | LB: top_wingers | PJ: 10 | Pts: 122.4
+User: "mrtaker22" | Team: "SUZAKU ESPORTS" (SUZAKU-ESPORTS) | Pos: undefined | LB: top_gk | PJ: 20 | Pts: 251.1
+User: "MxkiClxmps" | Team: "90min FC" (90min) | Pos: undefined | LB: top_cb | PJ: 14 | Pts: 211.3
+User: "Nacheete777" | Team: "AD CEUTA ESPORTS" (adceuta-esports) | Pos: undefined | LB: top_cdm | PJ: 18 | Pts: 268.1
+User: "Nacheete777" | Team: "AD CEUTA ESPORTS" (adceuta-esports) | Pos: undefined | LB: top_cam | PJ: 18 | Pts: 226.1
+User: "Nicoeff96" | Team: "ALPHA WOLFS" (Alpha-WolfS) | Pos: undefined | LB: top_cdm | PJ: 18 | Pts: 215.2
+User: "not_ven00m" | Team: "VentuCorp" (VentuCorpEAFC) | Pos: undefined | LB: top_gk | PJ: 4 | Pts: 41.8
+User: "noux1900" | Team: "JAM ESPORTS" (JAM-ES) | Pos: undefined | LB: top_gk | PJ: 20 | Pts: 237.3
+User: "Nus_tony" | Team: "CE EUROPA ESPORTS" (ce-europa-esports) | Pos: undefined | LB: top_fb | PJ: 3 | Pts: 37.8
+User: "Oskarrrr12" | Team: "SUZAKU ESPORTS" (SUZAKU-ESPORTS) | Pos: undefined | LB: top_wingers | PJ: 20 | Pts: 338.8
+User: "oxkronn" | Team: "LTK ESPORTS" (ltk-esports) | Pos: undefined | LB: top_gk | PJ: 18 | Pts: 182.8
+User: "pablito80181" | Team: "ALPHA WOLFS" (Alpha-WolfS) | Pos: undefined | LB: top_strikers | PJ: 14 | Pts: 241.7
+User: "PacooRuiz" | Team: "90min FC" (90min) | Pos: undefined | LB: top_wingers | PJ: 14 | Pts: 175.1
+User: "paquito" | Team: "BANANO ESPORTS" (banano-esport) | Pos: undefined | LB: top_cdm | PJ: 18 | Pts: 265.3
+User: "pingabailarina69" | Team: "CRYZEN GAMING" (cryzen-gaming-weewklas) | Pos: undefined | LB: top_strikers | PJ: 14 | Pts: 178.1
+User: "Ponxii_Twitch_7" | Team: "AD CEUTA ESPORTS" (adceuta-esports) | Pos: undefined | LB: top_cb | PJ: 15 | Pts: 163.6
+User: "PrinceMatute" | Team: "ALPHA WOLFS" (Alpha-WolfS) | Pos: undefined | LB: top_cdm | PJ: 12 | Pts: 180.1
+User: "PrinceMatute" | Team: "ALPHA WOLFS" (Alpha-WolfS) | Pos: undefined | LB: top_cam | PJ: 12 | Pts: 160.1
+User: "psychoz" | Team: "90min FC" (90min) | Pos: undefined | LB: top_cb | PJ: 20 | Pts: 333.7
+User: "raafagonzaa98" | Team: "CE EUROPA ESPORTS" (ce-europa-esports) | Pos: undefined | LB: top_gk | PJ: 12 | Pts: 103.4
+User: "Raaulux" | Team: "SUZAKU ESPORTS" (SUZAKU-ESPORTS) | Pos: undefined | LB: top_cb | PJ: 20 | Pts: 217.8
+User: "Raul Pro" | Team: "Tempus Esports" (Tempus-Esports) | Pos: undefined | LB: top_cb | PJ: 14 | Pts: 193.1
+User: "raultiity" | Team: "CRYZEN GAMING" (cryzen-gaming-weewklas) | Pos: undefined | LB: top_wingers | PJ: 12 | Pts: 123.7
+User: "ravenn8" | Team: "GMK Villarreal CF" (Team-GMASK) | Pos: undefined | LB: top_cdm | PJ: 20 | Pts: 275.2
+User: "ravenn8" | Team: "GMK Villarreal CF" (Team-GMASK) | Pos: undefined | LB: top_cam | PJ: 14 | Pts: 162.5
+User: "Retromoneybeatz" | Team: "BANANO ESPORTS" (banano-esport) | Pos: undefined | LB: top_strikers | PJ: 12 | Pts: 139.2
+User: "rubstore66" | Team: "ALPHA WOLFS" (Alpha-WolfS) | Pos: undefined | LB: top_cdm | PJ: 20 | Pts: 344.3
+User: "rubstore66" | Team: "ALPHA WOLFS" (Alpha-WolfS) | Pos: undefined | LB: top_cam | PJ: 20 | Pts: 300.3
+User: "rzponzio" | Team: "Tempus Esports" (Tempus-Esports) | Pos: undefined | LB: top_cdm | PJ: 18 | Pts: 277.2
+User: "S25D" | Team: "BANANO ESPORTS" (banano-esport) | Pos: undefined | LB: top_gk | PJ: 2 | Pts: 15
+User: "satitajr" | Team: "JAM ESPORTS" (JAM-ES) | Pos: undefined | LB: top_strikers | PJ: 20 | Pts: 319.3
+User: "sebasmoreno1998" | Team: "CRYZEN GAMING" (cryzen-gaming-weewklas) | Pos: undefined | LB: top_gk | PJ: 4 | Pts: 47.6
+User: "sergigimenez" | Team: "CE EUROPA ESPORTS" (ce-europa-esports) | Pos: undefined | LB: top_fb | PJ: 2 | Pts: 22
+User: "sergioness" | Team: "90min FC" (90min) | Pos: undefined | LB: top_wingers | PJ: 12 | Pts: 131
+User: "steph69enzo" | Team: "LTK ESPORTS" (ltk-esports) | Pos: undefined | LB: top_gk | PJ: 2 | Pts: 14.9
+User: "TanqueRoldan22" | Team: "JAM ESPORTS" (JAM-ES) | Pos: undefined | LB: top_cdm | PJ: 16 | Pts: 224.2
+User: "TeweletelaJR" | Team: "ALPHA WOLFS" (Alpha-WolfS) | Pos: undefined | LB: top_strikers | PJ: 20 | Pts: 417.5
+User: "tiburonvali l5l" | Team: "GMK Villarreal CF" (Team-GMASK) | Pos: undefined | LB: top_cdm | PJ: 10 | Pts: 161.3
+User: "tojor" | Team: "90min FC" (90min) | Pos: undefined | LB: top_strikers | PJ: 10 | Pts: 106.1
+User: "Trianapuerta" | Team: "AD CEUTA ESPORTS" (adceuta-esports) | Pos: undefined | LB: top_wingers | PJ: 10 | Pts: 139.4
+User: "Tw_didacssj" | Team: "AD CEUTA ESPORTS" (adceuta-esports) | Pos: undefined | LB: top_strikers | PJ: 12 | Pts: 140.1
+User: "TweetzJ" | Team: "CE EUROPA ESPORTS" (ce-europa-esports) | Pos: undefined | LB: top_fb | PJ: 5 | Pts: 0
+User: "txiki99" | Team: "ALPHA WOLFS" (Alpha-WolfS) | Pos: undefined | LB: top_wingers | PJ: 18 | Pts: 205.8
+User: "usamacancel_01" | Team: "SUZAKU ESPORTS" (SUZAKU-ESPORTS) | Pos: undefined | LB: top_strikers | PJ: 20 | Pts: 246.3
+User: "valdi_17" | Team: "GMK Villarreal CF" (Team-GMASK) | Pos: undefined | LB: top_cb | PJ: 20 | Pts: 307.4
+User: "Vargas7_x" | Team: "SUZAKU ESPORTS" (SUZAKU-ESPORTS) | Pos: undefined | LB: top_strikers | PJ: 20 | Pts: 246.7
+User: "ventura-4" | Team: "CRYZEN GAMING" (cryzen-gaming-weewklas) | Pos: undefined | LB: top_gk | PJ: 16 | Pts: 172
+User: "vicente_haz" | Team: "Tempus Esports" (Tempus-Esports) | Pos: undefined | LB: top_cdm | PJ: 20 | Pts: 372.5
+User: "vicente_haz" | Team: "Tempus Esports" (Tempus-Esports) | Pos: undefined | LB: top_cam | PJ: 14 | Pts: 193.7
+User: "Vicente4560" | Team: "BANANO ESPORTS" (banano-esport) | Pos: undefined | LB: top_cb | PJ: 20 | Pts: 210.2
+User: "victortacone" | Team: "BANANO ESPORTS" (banano-esport) | Pos: undefined | LB: top_cam | PJ: 20 | Pts: 245.8
+User: "Villapastor" | Team: "JAM ESPORTS" (JAM-ES) | Pos: undefined | LB: top_cb | PJ: 14 | Pts: 183.3
+User: "vitty17b" | Team: "JS ELCANO" (js-elcano) | Pos: undefined | LB: top_cam | PJ: 13 | Pts: 178.2
+User: "vlobato10" | Team: "CE EUROPA ESPORTS" (ce-europa-esports) | Pos: undefined | LB: top_fb | PJ: 10 | Pts: 101.6
+User: "Vpg_rapha" | Team: "CE EUROPA ESPORTS" (ce-europa-esports) | Pos: undefined | LB: top_gk | PJ: 4 | Pts: 50.5
+User: "VZskyzze " | Team: "LTK ESPORTS" (ltk-esports) | Pos: undefined | LB: top_cb | PJ: 14 | Pts: 151.5
+User: "waitinth3bush" | Team: "ZENTURIONS" (monta-esports-club) | Pos: undefined | LB: top_cb | PJ: 14 | Pts: 154.3
+User: "xElShaaraWy-7" | Team: "LTK ESPORTS" (ltk-esports) | Pos: undefined | LB: top_strikers | PJ: 20 | Pts: 280
+User: "xjgarcia02" | Team: "VentuCorp" (VentuCorpEAFC) | Pos: undefined | LB: top_cb | PJ: 14 | Pts: 202.8
+User: "xJzule" | Team: "LTK ESPORTS" (ltk-esports) | Pos: undefined | LB: top_wingers | PJ: 16 | Pts: 150.4
+User: "xNaanos" | Team: "ZENTURIONS" (monta-esports-club) | Pos: undefined | LB: top_cb | PJ: 18 | Pts: 203.4
+User: "xpetruu" | Team: "CE EUROPA ESPORTS" (ce-europa-esports) | Pos: undefined | LB: top_wingers | PJ: 12 | Pts: 140.3
+User: "xrayo_9" | Team: "GMK Villarreal CF" (Team-GMASK) | Pos: undefined | LB: top_strikers | PJ: 16 | Pts: 374.3
+User: "xsantijmzzx" | Team: "SUZAKU ESPORTS" (SUZAKU-ESPORTS) | Pos: undefined | LB: top_wingers | PJ: 10 | Pts: 142.2
+User: "XxDanielito98xX" | Team: "AD CEUTA ESPORTS" (adceuta-esports) | Pos: undefined | LB: top_cdm | PJ: 16 | Pts: 267.9
+User: "Xxelpadrino92xx" | Team: "Tempus Esports" (Tempus-Esports) | Pos: undefined | LB: top_strikers | PJ: 20 | Pts: 376.3
+User: "xYanfr1" | Team: "LTK ESPORTS" (ltk-esports) | Pos: undefined | LB: top_strikers | PJ: 12 | Pts: 121.8
+User: "yassingamerpro" | Team: "ZENTURIONS" (monta-esports-club) | Pos: undefined | LB: top_strikers | PJ: 8 | Pts: 132.6
+User: "Yyeraxxyy" | Team: "JAM ESPORTS" (JAM-ES) | Pos: undefined | LB: top_cb | PJ: 20 | Pts: 264.2
+User: "zgamingkalo" | Team: "VentuCorp" (VentuCorpEAFC) | Pos: undefined | LB: top_cb | PJ: 15 | Pts: 140.5
+User: "zWeeDMyScuF" | Team: "JS ELCANO" (js-elcano) | Pos: undefined | LB: top_strikers | PJ: 11 | Pts: 180.9
+User: "Zyeeyiitoo" | Team: "VentuCorp" (VentuCorpEAFC) | Pos: undefined | LB: top_gk | PJ: 11 | Pts: 119.2
