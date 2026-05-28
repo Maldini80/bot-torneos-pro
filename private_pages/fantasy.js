@@ -5892,13 +5892,35 @@ async function openPlayerStatsModalByName(playerName) {
                     if (history.length > 0) {
                         historyList.innerHTML = '';
                         historySection.style.display = 'block';
+
+                        // Group by calendar date string
+                        const grouped = [];
+                        const groupedMap = {};
+
+                        // Since server returns history sorted descending (newest first),
+                        // the first entry we encounter for a given date is the latest one.
                         history.forEach(item => {
                             const dateStr = new Date(item.date).toLocaleDateString('es-ES', {
                                 day: '2-digit',
                                 month: '2-digit',
                                 year: 'numeric'
                             });
-                            
+
+                            if (!groupedMap[dateStr]) {
+                                groupedMap[dateStr] = {
+                                    dateStr,
+                                    points: 0,
+                                    wasStarter: item.wasStarter,
+                                    teamName: item.teamName
+                                };
+                                grouped.push(groupedMap[dateStr]);
+                            }
+
+                            // Sum points earned in this day
+                            groupedMap[dateStr].points += item.points;
+                        });
+
+                        grouped.forEach(item => {
                             const alignBadge = item.wasStarter
                                 ? '<span style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); font-weight: 600;">Titular</span>'
                                 : '<span style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.2); font-weight: 600;">Suplente</span>';
@@ -5920,7 +5942,7 @@ async function openPlayerStatsModalByName(playerName) {
                             itemEl.innerHTML = `
                                 <div style="display: flex; flex-direction: column; gap: 3px;">
                                     <div style="font-weight: 600; color: #f8fafc; text-align: left;">${item.teamName}</div>
-                                    <div style="font-size: 0.7rem; color: #64748b; text-align: left;">${dateStr}</div>
+                                    <div style="font-size: 0.7rem; color: #64748b; text-align: left;">${item.dateStr}</div>
                                 </div>
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     ${alignBadge}
