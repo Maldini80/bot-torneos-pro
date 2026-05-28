@@ -1,19 +1,33 @@
-// scratch/check_clubs.js
-import { connectDb, getDb } from '../database.js';
+import { MongoClient } from 'mongodb';
 import 'dotenv/config';
 
-async function main() {
-    await connectDb();
-    const db = getDb();
-    
-    console.log('\n--- Sample club_profiles Documents ---');
-    const clubs = await db.collection('club_profiles').find({}).limit(5).toArray();
-    console.log(JSON.stringify(clubs, null, 2));
+async function run() {
+    const client = new MongoClient(process.env.DATABASE_URL);
+    try {
+        await client.connect();
+        const db = client.db('tournamentBotDb');
+        
+        console.log('--- BUSCANDO CLUB CON ID 2394386 ---');
+        const club1 = await db.collection('club_profiles').findOne({ eaClubId: "2394386" });
+        console.log(JSON.stringify(club1, null, 2));
 
-    process.exit(0);
+        console.log('\n--- BUSCANDO CLUB CON NOMBRE Bachateros FC ---');
+        const club2 = await db.collection('club_profiles').findOne({ eaClubName: "Bachateros FC" });
+        console.log(JSON.stringify(club2, null, 2));
+
+        console.log('\n--- BUSCANDO TODOS LOS COINCIDENTES EN club_profiles ---');
+        const allClubs = await db.collection('club_profiles').find({
+            $or: [
+                { eaClubId: "2394386" },
+                { eaClubId: "4884" },
+                { eaClubName: { $regex: 'bachateros', $options: 'i' } }
+            ]
+        }).toArray();
+        console.log(JSON.stringify(allClubs, null, 2));
+    } catch (e) {
+        console.error(e);
+    } finally {
+        await client.close();
+    }
 }
-
-main().catch(err => {
-    console.error(err);
-    process.exit(1);
-});
+run();
