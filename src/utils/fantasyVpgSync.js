@@ -928,6 +928,17 @@ export async function syncFantasyWithVpg() {
             if (starterCount < 11) {
                 if (starterCount > 0) {
                     console.log(`[VPG SYNC] El equipo ${fTeam.teamName} no tiene 11 titulares (${starterCount}/11). No puntúa esta jornada.`);
+                    
+                    // Registrar noticia explicativa en el feed de la liga
+                    try {
+                        const { logFantasyNews } = await import('./fantasyNewsLogger.js');
+                        await logFantasyNews(fTeam.leagueId, 'warning', 
+                            `⚠️ ${fTeam.teamName} no puntúa en esta jornada por no tener alineados los 11 titulares obligatorios (tiene ${starterCount}/11).`,
+                            { teamName: fTeam.teamName, discordId: fTeam.discordId, startersCount: starterCount }
+                        );
+                    } catch (newsErr) {
+                        console.error('[VPG SYNC] Error al registrar noticia de 11 titulares:', newsErr.message);
+                    }
                 }
                 continue;
             }
