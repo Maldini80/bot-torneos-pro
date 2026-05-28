@@ -867,12 +867,14 @@ export async function syncFantasyWithVpg() {
         // 4. Recalcular puntos de los equipos Fantasy de cada liga (incremental por alineación)
         updateRebuildStatus({ progress: 'Recalculando puntos de ligas y equipos de Fantasy...' });
         const leagues = await db.collection('fantasy_leagues').find({}, {
-            projection: { pointsMode: 1, basePoints: 1, name: 1 }
+            projection: { pointsMode: 1, basePoints: 1, name: 1, marketFreeAgents: 1 }
         }).toArray();
         const leaguesMap = {};
         leagues.forEach(l => {
             leaguesMap[l._id.toString()] = l;
         });
+
+        const startersByLeague = {}; // leagueId -> Set of player names (lowercase)
 
         const teamsCursor = db.collection('fantasy_teams').find({}, {
             projection: { leagueId: 1, lineup: 1, players: 1, discordId: 1, teamName: 1 }
@@ -883,14 +885,42 @@ export async function syncFantasyWithVpg() {
 
             let teamDeltaPoints = 0;
 
+            if (!startersByLeague[fTeam.leagueId]) {
+                startersByLeague[fTeam.leagueId] = new Set();
+            }
+
             // Determinar qué jugadores están en el once titular (lineup)
             const playerStartersStatus = {}; // playerNameLower -> boolean
             if (fTeam.lineup) {
                 const lineup = fTeam.lineup;
-                if (lineup.POR) playerStartersStatus[lineup.POR.toLowerCase()] = true;
-                if (Array.isArray(lineup.DFC)) lineup.DFC.forEach(p => p && (playerStartersStatus[p.toLowerCase()] = true));
-                if (Array.isArray(lineup.MC)) lineup.MC.forEach(p => p && (playerStartersStatus[p.toLowerCase()] = true));
-                if (Array.isArray(lineup.DC)) lineup.DC.forEach(p => p && (playerStartersStatus[p.toLowerCase()] = true));
+                if (lineup.POR) {
+                    playerStartersStatus[lineup.POR.toLowerCase()] = true;
+                    startersByLeague[fTeam.leagueId].add(lineup.POR.toLowerCase());
+                }
+                if (Array.isArray(lineup.DFC)) {
+                    lineup.DFC.forEach(p => {
+                        if (p) {
+                            playerStartersStatus[p.toLowerCase()] = true;
+                            startersByLeague[fTeam.leagueId].add(p.toLowerCase());
+                        }
+                    });
+                }
+                if (Array.isArray(lineup.MC)) {
+                    lineup.MC.forEach(p => {
+                        if (p) {
+                            playerStartersStatus[p.toLowerCase()] = true;
+                            startersByLeague[fTeam.leagueId].add(p.toLowerCase());
+                        }
+                    });
+                }
+                if (Array.isArray(lineup.DC)) {
+                    lineup.DC.forEach(p => {
+                        if (p) {
+                            playerStartersStatus[p.toLowerCase()] = true;
+                            startersByLeague[fTeam.leagueId].add(p.toLowerCase());
+                        }
+                    });
+                }
             }
 
             // Solo puntúan si tienen 11 titulares completos
@@ -924,6 +954,7 @@ export async function syncFantasyWithVpg() {
                         const buyout = unprocessedBuyouts.find(b => b.leagueId === fTeam.leagueId && b.eaPlayerName.toLowerCase() === override.eaPlayerName.toLowerCase());
                         if (buyout && buyout.wasStarter) {
                             playerStartersStatus[override.eaPlayerName.toLowerCase()] = true;
+                            startersByLeague[fTeam.leagueId].add(override.eaPlayerName.toLowerCase());
                         }
                     }
                 }
@@ -993,11 +1024,14 @@ export async function syncFantasyWithVpg() {
                         });
 
                         // 2. Sincronizar la base de puntos de la liga al total VPG de hoy para evitar arrastre de puntos
-                        await db.collection('fantasy_leagues').updateOne(
-                            { _id: league._id },
-                            { $set: { [`basePoints.${player.eaPlayerName}`]: newVpgPoints } }
-                        );
-                        league.basePoints[player.eaPlayerName] = newVpgPoints;
+                        // SOLO si NO es titular. Si es titular, conservamos su base inicial de la jornada para que acumule puntos visibles.
+                        if (!isStarter) {
+                            await db.collection('fantasy_leagues').updateOne(
+                                { _id: league._id },
+                                { $set: { [`basePoints.${player.eaPlayerName}`]: newVpgPoints } }
+                            );
+                            league.basePoints[player.eaPlayerName] = newVpgPoints;
+                        }
 
                         // 3. Solo sumamos los puntos al equipo si el jugador es Titular
                         if (isStarter) {
@@ -1035,6 +1069,58 @@ export async function syncFantasyWithVpg() {
                 } catch (newsErr) {
                     console.error('[VPG SYNC] Error al registrar noticia de reward:', newsErr.message);
                 }
+            }
+        }
+
+        // 4.B Barrido final para actualizar basePoints de no-titulares y agentes libres
+        if (process.env.USE_NEW_POINTS_LOGIC === 'true') {
+            console.log('[VPG SYNC] Iniciando barrido final para actualizar basePoints de no-titulares y agentes libres...');
+            try {
+                // Cargar todos los perfiles de jugadores para saber sus vpgPoints actuales
+                const players = await playerColl.find({}, { projection: { eaPlayerName: 1, "stats.vpgPoints": 1 } }).toArray();
+                const playerMap = new Map(players.map(p => [p.eaPlayerName.toLowerCase(), p]));
+
+                for (const league of leagues) {
+                    const leagueStarters = startersByLeague[league._id.toString()] || new Set();
+                    const playersToReset = new Set();
+
+                    if (league.basePoints) {
+                        Object.keys(league.basePoints).forEach(name => {
+                            if (!leagueStarters.has(name.toLowerCase())) {
+                                playersToReset.add(name);
+                            }
+                        });
+                    }
+
+                    if (Array.isArray(league.marketFreeAgents)) {
+                        league.marketFreeAgents.forEach(name => {
+                            if (!leagueStarters.has(name.toLowerCase())) {
+                                playersToReset.add(name);
+                            }
+                        });
+                    }
+
+                    console.log(`[VPG SYNC] Liga "${league.name}": Encontrados ${playersToReset.size} no-titulares/agentes libres para actualizar su base.`);
+
+                    const updates = {};
+                    for (const name of playersToReset) {
+                        const player = playerMap.get(name.toLowerCase());
+                        if (player) {
+                            const { points: rawPoints } = calculatePlayerPointsAndPrice(player);
+                            updates[`basePoints.${player.eaPlayerName}`] = rawPoints;
+                        }
+                    }
+
+                    if (Object.keys(updates).length > 0) {
+                        await db.collection('fantasy_leagues').updateOne(
+                            { _id: league._id },
+                            { $set: updates }
+                        );
+                        console.log(`[VPG SYNC] Liga "${league.name}": Actualizados basePoints para ${Object.keys(updates).length} no-titulares/agentes libres.`);
+                    }
+                }
+            } catch (sweepErr) {
+                console.error('[VPG SYNC] Error en el barrido final de basePoints:', sweepErr);
             }
         }
 
