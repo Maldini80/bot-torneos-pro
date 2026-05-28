@@ -4568,11 +4568,7 @@ function updateClauseLockStatusUI() {
     }
 
     if (!clauseLockScheduleConfig || !clauseLockScheduleConfig.active) {
-        indicator.style.display = 'flex';
-        indicator.style.background = 'rgba(56, 189, 248, 0.1)';
-        indicator.style.border = '1px solid rgba(56, 189, 248, 0.3)';
-        indicator.style.color = '#38bdf8';
-        indicator.innerHTML = '<i class="fa-solid fa-lock-open"></i> <span><strong>Bloqueo de Clausulazo:</strong> Desactivado por el administrador. Se permiten robos a cualquier hora.</span>';
+        indicator.style.display = 'none';
         return;
     }
 
@@ -4617,11 +4613,7 @@ function updateMarketLockStatusUI() {
     }
 
     if (!marketLockScheduleConfig || !marketLockScheduleConfig.active) {
-        indicator.style.display = 'flex';
-        indicator.style.background = 'rgba(56, 189, 248, 0.1)';
-        indicator.style.border = '1px solid rgba(56, 189, 248, 0.3)';
-        indicator.style.color = '#38bdf8';
-        indicator.innerHTML = '<i class="fa-solid fa-lock-open"></i> <span><strong>Bloqueo de Mercado:</strong> Desactivado por el administrador. Se permiten pujas y ofertas a cualquier hora.</span>';
+        indicator.style.display = 'none';
         return;
     }
 
