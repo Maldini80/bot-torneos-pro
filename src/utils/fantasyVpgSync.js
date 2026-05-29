@@ -187,7 +187,18 @@ export function computeUpdatedStats(existingPlayer, crawledStats, crawledTeamSlu
     const deltaLosses = Math.max(0, (parseInt(crawledStats.losses) || 0) - (parseInt(lastRaw.losses) || 0));
     const deltaTies = Math.max(0, (parseInt(crawledStats.ties) || 0) - (parseInt(lastRaw.ties) || 0));
 
-    const avgRating = (crawledStats.ratings && crawledStats.ratings.length > 0) ? crawledStats.ratings[0] : 6.0;
+    const currentAvg = (crawledStats.ratings && crawledStats.ratings.length > 0) ? crawledStats.ratings[0] : 6.0;
+    const oldRatings = existingPlayer.stats?.ratings || [];
+    const oldSum = oldRatings.reduce((acc, r) => acc + (parseFloat(r) || 0), 0);
+    const newMatches = parseInt(crawledStats.matchesPlayed) || 0;
+    const newRatingSum = newMatches * currentAvg;
+
+    let appendRating = currentAvg;
+    if (deltaMatches > 0) {
+        const deltaSum = newRatingSum - oldSum;
+        const deltaAvg = deltaSum / deltaMatches;
+        appendRating = Math.max(0, Math.min(10, deltaAvg));
+    }
 
     const newRawEntry = {
         matchesPlayed: parseInt(crawledStats.matchesPlayed) || 0,
@@ -227,7 +238,7 @@ export function computeUpdatedStats(existingPlayer, crawledStats, crawledTeamSlu
         mom: existingPlayer.stats?.mom || 0,
         cleanSheets: (existingPlayer.stats?.cleanSheets || 0) + deltaCleanSheets,
         goalsConceded: existingPlayer.stats?.goalsConceded || 0,
-        ratings: (existingPlayer.stats?.ratings || []).concat(Array(deltaMatches).fill(avgRating)),
+        ratings: (existingPlayer.stats?.ratings || []).concat(Array(deltaMatches).fill(appendRating)),
         wins: (existingPlayer.stats?.wins || 0) + deltaWins,
         losses: (existingPlayer.stats?.losses || 0) + deltaLosses,
         ties: (existingPlayer.stats?.ties || 0) + deltaTies,
