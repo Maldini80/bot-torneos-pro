@@ -7771,8 +7771,8 @@ export async function startVisualizerServer(discordClient) {
             if (syncLock && syncLock.locked) {
                 if (syncLock.maxExpiry && new Date() < new Date(syncLock.maxExpiry)) {
                     const reason = syncLock.reason === 'pre_sync'
-                        ? '⚡ El mercado se ha bloqueado temporalmente. La sincronización de puntos comenzará en breve.'
-                        : '⚡ El mercado está bloqueado temporalmente mientras se sincronizan los puntos con VPG. Se desbloqueará automáticamente al finalizar.';
+                        ? '⚡ El mercado se ha bloqueado temporalmente. La adjudicación de pujas comenzará en breve.'
+                        : '⚡ El mercado está bloqueado temporalmente mientras se procesan las pujas. Se desbloqueará automáticamente al finalizar.';
                     return reason;
                 } else {
                     // Safety: auto-clear expired lock

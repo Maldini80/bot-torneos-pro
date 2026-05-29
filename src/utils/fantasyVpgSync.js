@@ -252,18 +252,6 @@ export async function syncFantasyWithVpg() {
 
     try {
         const db = getDb();
-
-        // SYNC LOCK: Set lock in DB so market endpoints block during sync
-        try {
-            await db.collection('fantasy_config').updateOne(
-                { key: 'sync_lock' },
-                { $set: { locked: true, lockedAt: new Date(), reason: 'syncing', maxExpiry: new Date(Date.now() + 30 * 60 * 1000) } },
-                { upsert: true }
-            );
-            console.log('[VPG SYNC] Sync lock activado en base de datos.');
-        } catch (lockErr) {
-            console.error('[VPG SYNC] Error al activar sync lock:', lockErr.message);
-        }
         const testDb = getDb('test');
         const playerColl = db.collection('player_profiles');
         const clubColl = db.collection('club_profiles');
@@ -1160,16 +1148,7 @@ export async function syncFantasyWithVpg() {
             console.error('[VPG SYNC] Error al marcar clausulazos como procesados:', e);
         }
 
-        // SYNC LOCK: Release lock in DB
-        try {
-            await db.collection('fantasy_config').updateOne(
-                { key: 'sync_lock' },
-                { $set: { locked: false, unlockedAt: new Date(), reason: 'completed' } }
-            );
-            console.log('[VPG SYNC] Sync lock desactivado (completado).');
-        } catch (lockErr) {
-            console.error('[VPG SYNC] Error al desactivar sync lock:', lockErr.message);
-        }
+
 
         updateRebuildStatus({
             running: false,
@@ -1181,17 +1160,7 @@ export async function syncFantasyWithVpg() {
     } catch (err) {
         console.error('[VPG SYNC] Error en sincronización:', err);
 
-        // SYNC LOCK: Release lock in DB even on error
-        try {
-            const db = getDb();
-            await db.collection('fantasy_config').updateOne(
-                { key: 'sync_lock' },
-                { $set: { locked: false, unlockedAt: new Date(), reason: 'error' } }
-            );
-            console.log('[VPG SYNC] Sync lock desactivado (error).');
-        } catch (lockErr) {
-            console.error('[VPG SYNC] Error al desactivar sync lock tras error:', lockErr.message);
-        }
+
 
         updateRebuildStatus({
             running: false,
@@ -1953,6 +1922,18 @@ export async function runMarketAutomation() {
     console.log('[MARKET AUTOMATION] Iniciando procesamiento automatizado de mercado...');
     try {
         const db = getDb();
+
+        // SYNC LOCK: Bloquear mercado durante la adjudicación de pujas
+        try {
+            await db.collection('fantasy_config').updateOne(
+                { key: 'sync_lock' },
+                { $set: { locked: true, lockedAt: new Date(), reason: 'syncing', maxExpiry: new Date(Date.now() + 30 * 60 * 1000) } },
+                { upsert: true }
+            );
+            console.log('[MARKET AUTOMATION] Sync lock activado en base de datos.');
+        } catch (lockErr) {
+            console.error('[MARKET AUTOMATION] Error al activar sync lock:', lockErr.message);
+        }
         
         // Cargar todos los perfiles de jugadores para optimizar memoria y consultas BD
         console.log('[MARKET AUTOMATION] Cargando perfiles de jugadores para caché...');
@@ -2011,9 +1992,32 @@ export async function runMarketAutomation() {
             console.error('[MARKET AUTOMATION] Error al regenerar mercado de agentes libres:', e);
         }
 
+        // SYNC LOCK: Desbloquear mercado tras adjudicación exitosa
+        try {
+            await db.collection('fantasy_config').updateOne(
+                { key: 'sync_lock' },
+                { $set: { locked: false, unlockedAt: new Date(), reason: 'completed' } }
+            );
+            console.log('[MARKET AUTOMATION] Sync lock desactivado (completado).');
+        } catch (lockErr) {
+            console.error('[MARKET AUTOMATION] Error al desactivar sync lock:', lockErr.message);
+        }
+
         console.log('[MARKET AUTOMATION] Automatización de mercado completada con éxito.');
     } catch (err) {
         console.error('[MARKET AUTOMATION] Error fatal en la automatización del mercado:', err);
+
+        // SYNC LOCK: Desbloquear mercado incluso si hay error
+        try {
+            const db = getDb();
+            await db.collection('fantasy_config').updateOne(
+                { key: 'sync_lock' },
+                { $set: { locked: false, unlockedAt: new Date(), reason: 'error' } }
+            );
+            console.log('[MARKET AUTOMATION] Sync lock desactivado (error).');
+        } catch (lockErr) {
+            console.error('[MARKET AUTOMATION] Error al desactivar sync lock tras error:', lockErr.message);
+        }
     }
 }
 

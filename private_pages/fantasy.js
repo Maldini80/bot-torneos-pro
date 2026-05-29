@@ -4558,8 +4558,8 @@ function getMarketLockError() {
     // SYNC LOCK: Check sync lock first
     if (syncLockActive) {
         return syncLockReason === 'pre_sync'
-            ? '⚡ El mercado se ha bloqueado temporalmente. La sincronización de puntos comenzará en breve.'
-            : '⚡ Mercado bloqueado: sincronización de puntos en curso. Se desbloqueará automáticamente al finalizar.';
+            ? '⚡ El mercado se ha bloqueado temporalmente. La adjudicación de pujas comenzará en breve.'
+            : '⚡ Mercado bloqueado: adjudicación de pujas en curso. Se desbloqueará automáticamente al finalizar.';
     }
 
     const lockConfig = marketLockScheduleConfig || {
@@ -4684,8 +4684,8 @@ function updateMarketLockStatusUI() {
         indicator.style.border = '1px solid rgba(251, 191, 36, 0.4)';
         indicator.style.color = '#fbbf24';
         const syncMsg = syncLockReason === 'pre_sync'
-            ? '⚡ <strong>Mercado Bloqueado:</strong> La sincronización de puntos comenzará en breve. El mercado se desbloqueará automáticamente al finalizar.'
-            : '⚡ <strong>Sincronización en curso:</strong> El mercado está bloqueado mientras se sincronizan los puntos con VPG. Se desbloqueará automáticamente.';
+            ? '⚡ <strong>Mercado Bloqueado:</strong> La adjudicación de pujas comenzará en breve. El mercado se desbloqueará automáticamente al finalizar.'
+            : '⚡ <strong>Adjudicación en curso:</strong> El mercado está bloqueado mientras se procesan las pujas. Se desbloqueará automáticamente.';
         indicator.innerHTML = `<i class="fa-solid fa-bolt"></i> <span>${syncMsg}</span>`;
         return;
     }
