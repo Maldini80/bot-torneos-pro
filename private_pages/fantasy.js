@@ -2388,7 +2388,8 @@ function getCardTierClass(price) {
     if (prc < 35000000) return 'burgundy';
     if (prc < 55000000) return 'diamond';
     if (prc < 76000000) return 'prismatic';
-    return 'icon';
+    if (prc < 95000000) return 'icon';
+    return 'thunder';
 }
 
 function getTableCardHtml(p) {
@@ -2422,6 +2423,12 @@ function getTableCardHtml(p) {
         `<i class="fa-solid fa-shield-halved"></i>`;
     const posLabel = p.lastPosition ? p.lastPosition.split(' ')[0] : 'MC';
 
+    const thunderBoltsHtml = tierClass === 'thunder' ? `
+        <div class="thunder-bolt thunder-bolt-1"></div>
+        <div class="thunder-bolt thunder-bolt-2"></div>
+        <div class="thunder-flash-overlay"></div>
+    ` : '';
+
     return `
         <div class="table-player-card-wrapper">
             <div class="player-card-ut occupied ${tierClass} table-player-card">
@@ -2437,6 +2444,7 @@ function getTableCardHtml(p) {
                         ${avatarHtml}
                     </div>
                     <div class="player-card-ut-name" ${nameStyle}>${lastName}</div>
+                    ${thunderBoltsHtml}
                 </div>
             </div>
         </div>
@@ -2539,8 +2547,15 @@ function renderField() {
                     `<img src="${p.clubLogo}" alt="" class="player-club-logo-img">` : 
                     `<i class="fa-solid fa-shield-halved"></i>`;
 
+                const pitchTierClass = getCardTierClass(p ? p.price : 0);
+                const pitchThunderHtml = pitchTierClass === 'thunder' ? `
+                    <div class="thunder-bolt thunder-bolt-1"></div>
+                    <div class="thunder-bolt thunder-bolt-2"></div>
+                    <div class="thunder-flash-overlay"></div>
+                ` : '';
+
                 node.innerHTML = `
-                    <div class="player-card-ut occupied ${getCardTierClass(p ? p.price : 0)}">
+                    <div class="player-card-ut occupied ${pitchTierClass}">
                         <div class="player-card-ut-inner">
                             <div class="player-card-ut-rating-pos">
                                 <span class="player-card-ut-rating">${displayedPoints}</span>
@@ -2553,6 +2568,7 @@ function renderField() {
                                 ${avatarHtml}
                             </div>
                             <div class="player-card-ut-name" ${nameStyle}>${lastName}</div>
+                            ${pitchThunderHtml}
                         </div>
                     </div>
                 `;
@@ -2635,10 +2651,17 @@ function openPositionSelector(posKey, idx) {
         const avatarHtml = avatarUrl ? `<img src="${avatarUrl}" alt="" class="fut-card-player-avatar-img">` : `<i class="fa-solid fa-user-ninja"></i>`;
         const clubLogoHtml = p.clubLogo ? `<img src="${p.clubLogo}" alt="" class="fut-card-club-logo-img">` : `<i class="fa-solid fa-shield-halved"></i>`;
 
+        const modalTierClass = getCardTierClass(p ? p.price : 0);
+        const modalThunderHtml = modalTierClass === 'thunder' ? `
+            <div class="thunder-bolt thunder-bolt-1"></div>
+            <div class="thunder-bolt thunder-bolt-2"></div>
+            <div class="thunder-flash-overlay"></div>
+        ` : '';
+
         modalBody.innerHTML = `
             <div class="modal-split-layout">
                 <div class="modal-card-column">
-                    <div class="fut-card ${getCardTierClass(p ? p.price : 0)}">
+                    <div class="fut-card ${modalTierClass}">
                         <div class="fut-card-inner">
                             <div class="fut-card-top-section">
                                 <div class="fut-card-left-col">
@@ -2682,6 +2705,7 @@ function openPositionSelector(posKey, idx) {
                                     <span class="fut-card-stat-label">CLA</span>
                                 </div>
                             </div>
+                            ${modalThunderHtml}
                         </div>
                     </div>
                 </div>
@@ -3405,8 +3429,15 @@ async function showRivalTeam(discordId, teamName) {
                             `<img src="${p.clubLogo}" alt="" class="player-club-logo-img">` : 
                             `<i class="fa-solid fa-shield-halved"></i>`;
 
+                        const rivalPitchTierClass = getCardTierClass(p ? p.price : 0);
+                        const rivalThunderHtml = rivalPitchTierClass === 'thunder' ? `
+                            <div class="thunder-bolt thunder-bolt-1"></div>
+                            <div class="thunder-bolt thunder-bolt-2"></div>
+                            <div class="thunder-flash-overlay"></div>
+                        ` : '';
+
                         node.innerHTML = `
-                            <div class="player-card-ut occupied ${getCardTierClass(p ? p.price : 0)}" style="pointer-events: none;">
+                            <div class="player-card-ut occupied ${rivalPitchTierClass}" style="pointer-events: none;">
                                 <div class="player-card-ut-inner">
                                     <div class="player-card-ut-rating-pos">
                                         <span class="player-card-ut-rating">${displayedPoints}</span>
@@ -3419,6 +3450,7 @@ async function showRivalTeam(discordId, teamName) {
                                         ${avatarHtml}
                                     </div>
                                     <div class="player-card-ut-name" ${nameStyle}>${lastName}</div>
+                                    ${rivalThunderHtml}
                                 </div>
                             </div>
                         `;
@@ -5817,8 +5849,15 @@ async function openPlayerStatsModalByName(playerName) {
     const modalBody = document.getElementById('player-stats-modal-body');
     if (!modalBody) return;
 
+    const statsTierClass = getCardTierClass(p ? p.price : 0);
+    const statsThunderHtml = statsTierClass === 'thunder' ? `
+        <div class="thunder-bolt thunder-bolt-1"></div>
+        <div class="thunder-bolt thunder-bolt-2"></div>
+        <div class="thunder-flash-overlay"></div>
+    ` : '';
+
     modalBody.innerHTML = `
-        <div class="fut-card ${getCardTierClass(p ? p.price : 0)}" style="margin: 0 auto; transform: scale(1.15); transform-origin: center; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
+        <div class="fut-card ${statsTierClass}" style="margin: 0 auto; transform: scale(1.15); transform-origin: center; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
             <div class="fut-card-inner">
                 <div class="fut-card-top-section">
                     <div class="fut-card-left-col">
@@ -5862,6 +5901,7 @@ async function openPlayerStatsModalByName(playerName) {
                         <span class="fut-card-stat-label">CLA</span>
                     </div>
                 </div>
+                ${statsThunderHtml}
             </div>
         </div>
     `;

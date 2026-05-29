@@ -276,7 +276,7 @@ export async function migrateManualPrices() {
                 if (isGk) {
                     price *= 2;
                 }
-                price = Math.min(80000000, Math.max(2600000, price));
+                price = Math.min(100000000, Math.max(2600000, price));
                 price = Math.round(price / 50000) * 50000;
 
                 await playersCol.updateOne(
