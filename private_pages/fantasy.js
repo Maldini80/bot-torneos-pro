@@ -2426,6 +2426,8 @@ function getTableCardHtml(p) {
     const thunderBoltsHtml = tierClass === 'thunder' ? `
         <div class="thunder-bolt thunder-bolt-1"></div>
         <div class="thunder-bolt thunder-bolt-2"></div>
+        <div class="thunder-bolt-3"></div>
+        <div class="thunder-bolt-4"></div>
         <div class="thunder-flash-overlay"></div>
     ` : '';
 
@@ -2551,6 +2553,8 @@ function renderField() {
                 const pitchThunderHtml = pitchTierClass === 'thunder' ? `
                     <div class="thunder-bolt thunder-bolt-1"></div>
                     <div class="thunder-bolt thunder-bolt-2"></div>
+                    <div class="thunder-bolt-3"></div>
+                    <div class="thunder-bolt-4"></div>
                     <div class="thunder-flash-overlay"></div>
                 ` : '';
 
@@ -2655,6 +2659,8 @@ function openPositionSelector(posKey, idx) {
         const modalThunderHtml = modalTierClass === 'thunder' ? `
             <div class="thunder-bolt thunder-bolt-1"></div>
             <div class="thunder-bolt thunder-bolt-2"></div>
+            <div class="thunder-bolt-3"></div>
+            <div class="thunder-bolt-4"></div>
             <div class="thunder-flash-overlay"></div>
         ` : '';
 
@@ -3433,6 +3439,8 @@ async function showRivalTeam(discordId, teamName) {
                         const rivalThunderHtml = rivalPitchTierClass === 'thunder' ? `
                             <div class="thunder-bolt thunder-bolt-1"></div>
                             <div class="thunder-bolt thunder-bolt-2"></div>
+                            <div class="thunder-bolt-3"></div>
+                            <div class="thunder-bolt-4"></div>
                             <div class="thunder-flash-overlay"></div>
                         ` : '';
 
@@ -5853,6 +5861,8 @@ async function openPlayerStatsModalByName(playerName) {
     const statsThunderHtml = statsTierClass === 'thunder' ? `
         <div class="thunder-bolt thunder-bolt-1"></div>
         <div class="thunder-bolt thunder-bolt-2"></div>
+        <div class="thunder-bolt-3"></div>
+        <div class="thunder-bolt-4"></div>
         <div class="thunder-flash-overlay"></div>
     ` : '';
 
