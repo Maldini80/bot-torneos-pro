@@ -2311,7 +2311,7 @@ export async function autoResolveVpgPlayerMerges(db, ignoreLimit = false) {
 
     console.log(`[VPG SYNC] [MERGE] Encontrados ${optimizedPairs.length} pares potenciales optimizados (activo + inactivo) con similitud >= 70%.`);
 
-    const MAX_API_QUERIES = 15;
+    const MAX_API_QUERIES = 50;
     let apiQueriesCount = 0;
     let mergedCount = 0;
     
