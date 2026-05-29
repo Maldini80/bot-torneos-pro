@@ -1,6 +1,7 @@
 // --- INICIO DEL ARCHIVO visualizerServer.js (VERSIÓN FINAL Y COMPLETA) ---
 
 import express from 'express';
+import compression from 'compression';
 import http from 'http';
 import fs from 'fs';
 import path from 'path';
@@ -190,6 +191,8 @@ export async function getActiveFantasyTeams(db, customLeagues = null) {
 }
 
 const app = express();
+// OPTIMIZACIÓN: Compresión gzip para reducir tamaño de transferencia ~70%
+app.use(compression());
 // FIX: Middlewares esenciales para que funcione el body parser y archivos estáticos
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -351,7 +354,7 @@ app.get('/home.html', async (req, res) => {
     }
 });
 
-app.use(express.static('public'));
+app.use(express.static('public', { maxAge: '1d', etag: true }));
 
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
@@ -3319,8 +3322,7 @@ export async function startVisualizerServer(discordClient) {
             return done(err, null);
         }
     }));
-    app.use(express.json());
-    app.use(express.static('public'));
+    // (Middleware express.json y express.static ya registrados al inicio del servidor)
 
     app.get('/draft-data/:draftId', async (req, res) => {
         let data = draftStates.get(req.params.draftId);

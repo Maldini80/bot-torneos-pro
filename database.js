@@ -74,6 +74,15 @@ export async function ensureIndexes() {
         await db.collection('player_profiles').createIndex({ vpgLeagueSlug: 1 });
         await db.collection('club_profiles').createIndex({ eaClubId: 1 }, { unique: true });
 
+        // OPTIMIZACIÓN: Índices para colecciones Fantasy (acelera mercado, clasificación, pujas)
+        await db.collection('fantasy_teams').createIndex({ leagueId: 1, discordId: 1 });
+        await db.collection('fantasy_teams').createIndex({ leagueId: 1, approved: 1 });
+        await db.collection('fantasy_market_bids').createIndex({ leagueId: 1, status: 1 });
+        await db.collection('fantasy_market_bids').createIndex({ leagueId: 1, eaPlayerName: 1 });
+        await db.collection('fantasy_market_listings').createIndex({ leagueId: 1 });
+        await db.collection('fantasy_market_news').createIndex({ leagueId: 1, date: -1 });
+        await db.collection('news').createIndex({ published: 1, archived: 1, createdAt: -1 });
+
         console.log('[DATABASE] Índices creados/verificados correctamente');
     } catch (error) {
         // Los errores de índices duplicados son normales y se ignoran
