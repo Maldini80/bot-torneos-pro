@@ -5958,6 +5958,10 @@ export async function startVisualizerServer(discordClient) {
                 if (!schedules.marketLock) {
                     schedules.marketLock = { active: false, days: [1,2,3,4], startTime: "18:00", durationHours: 8 };
                 }
+                // Add sync lock status
+                const syncLock = await db.collection('fantasy_config').findOne({ key: 'sync_lock' });
+                const isSyncLocked = syncLock && syncLock.locked && syncLock.maxExpiry && new Date() < new Date(syncLock.maxExpiry);
+                schedules.syncLock = { locked: !!isSyncLocked, reason: isSyncLocked ? syncLock.reason : null };
                 res.json(schedules);
             } else {
                 // Fallback structure
@@ -5987,6 +5991,10 @@ export async function startVisualizerServer(discordClient) {
                 if (!schedules.marketLock) {
                     schedules.marketLock = { active: false, days: [1,2,3,4], startTime: "18:00", durationHours: 8 };
                 }
+                // Add sync lock status
+                const syncLock2 = await db.collection('fantasy_config').findOne({ key: 'sync_lock' });
+                const isSyncLocked2 = syncLock2 && syncLock2.locked && syncLock2.maxExpiry && new Date() < new Date(syncLock2.maxExpiry);
+                schedules.syncLock = { locked: !!isSyncLocked2, reason: isSyncLocked2 ? syncLock2.reason : null };
                 res.json(schedules);
             } else {
                 res.json({
@@ -7756,6 +7764,28 @@ export async function startVisualizerServer(discordClient) {
 
     async function getMarketLockError() {
         const db = getDb();
+
+        // SYNC LOCK: Check if market is locked due to VPG sync
+        try {
+            const syncLock = await db.collection('fantasy_config').findOne({ key: 'sync_lock' });
+            if (syncLock && syncLock.locked) {
+                if (syncLock.maxExpiry && new Date() < new Date(syncLock.maxExpiry)) {
+                    const reason = syncLock.reason === 'pre_sync'
+                        ? '⚡ El mercado se ha bloqueado temporalmente. La sincronización de puntos comenzará en breve.'
+                        : '⚡ El mercado está bloqueado temporalmente mientras se sincronizan los puntos con VPG. Se desbloqueará automáticamente al finalizar.';
+                    return reason;
+                } else {
+                    // Safety: auto-clear expired lock
+                    await db.collection('fantasy_config').updateOne(
+                        { key: 'sync_lock' },
+                        { $set: { locked: false, reason: 'expired', unlockedAt: new Date() } }
+                    );
+                }
+            }
+        } catch (syncLockErr) {
+            console.error('[MARKET LOCK] Error checking sync lock:', syncLockErr.message);
+        }
+
         const schedules = await db.collection('fantasy_config').findOne({ key: 'schedules' });
         const lockConfig = (schedules && schedules.marketLock) ? schedules.marketLock : {
             active: false,

@@ -262,6 +262,33 @@ async function startBot() {
             if (schedules.points && schedules.points.active) {
                 const pSched = schedules.points;
                 const activeDays = pSched.days || [0,1,2,3,4,5,6];
+
+                // PRE-LOCK: Bloquear mercado 4 minutos antes del sync
+                if (activeDays.includes(mTime.day) && pSched.time) {
+                    const [syncH, syncM] = pSched.time.split(':').map(Number);
+                    const syncMinutes = syncH * 60 + syncM;
+                    const currentMinutes = mTime.hours * 60 + mTime.minutes;
+                    const minutesBefore = syncMinutes - currentMinutes;
+
+                    if (minutesBefore > 0 && minutesBefore <= 4) {
+                        // Check if lock is already set
+                        const existingLock = await db.collection('fantasy_config').findOne({ key: 'sync_lock' });
+                        if (!existingLock || !existingLock.locked) {
+                            await db.collection('fantasy_config').updateOne(
+                                { key: 'sync_lock' },
+                                { $set: {
+                                    locked: true,
+                                    lockedAt: new Date(),
+                                    reason: 'pre_sync',
+                                    maxExpiry: new Date(Date.now() + 30 * 60 * 1000)
+                                }},
+                                { upsert: true }
+                            );
+                            console.log(`[SCHEDULER] Pre-lock del mercado activado (${minutesBefore} min antes del sync).`);
+                        }
+                    }
+                }
+
                 if (activeDays.includes(mTime.day) && pSched.time === hourMinStr) {
                     if (pSched.lastRun !== runKey) {
                         console.log(`[SCHEDULER] Iniciando Suma de Puntos programada a las ${hourMinStr} (Madrid)...`);

@@ -252,6 +252,18 @@ export async function syncFantasyWithVpg() {
 
     try {
         const db = getDb();
+
+        // SYNC LOCK: Set lock in DB so market endpoints block during sync
+        try {
+            await db.collection('fantasy_config').updateOne(
+                { key: 'sync_lock' },
+                { $set: { locked: true, lockedAt: new Date(), reason: 'syncing', maxExpiry: new Date(Date.now() + 30 * 60 * 1000) } },
+                { upsert: true }
+            );
+            console.log('[VPG SYNC] Sync lock activado en base de datos.');
+        } catch (lockErr) {
+            console.error('[VPG SYNC] Error al activar sync lock:', lockErr.message);
+        }
         const testDb = getDb('test');
         const playerColl = db.collection('player_profiles');
         const clubColl = db.collection('club_profiles');
@@ -1148,6 +1160,17 @@ export async function syncFantasyWithVpg() {
             console.error('[VPG SYNC] Error al marcar clausulazos como procesados:', e);
         }
 
+        // SYNC LOCK: Release lock in DB
+        try {
+            await db.collection('fantasy_config').updateOne(
+                { key: 'sync_lock' },
+                { $set: { locked: false, unlockedAt: new Date(), reason: 'completed' } }
+            );
+            console.log('[VPG SYNC] Sync lock desactivado (completado).');
+        } catch (lockErr) {
+            console.error('[VPG SYNC] Error al desactivar sync lock:', lockErr.message);
+        }
+
         updateRebuildStatus({
             running: false,
             progress: `✅ Completado: Sincronizados ${totalPlayersUpdated} jugadores y ${totalClubsUpdated} clubes en total de las ligas de VPG España.`,
@@ -1157,6 +1180,19 @@ export async function syncFantasyWithVpg() {
         console.log(`[VPG SYNC] Sincronización exitosa. ${rebuildStatus.progress}`);
     } catch (err) {
         console.error('[VPG SYNC] Error en sincronización:', err);
+
+        // SYNC LOCK: Release lock in DB even on error
+        try {
+            const db = getDb();
+            await db.collection('fantasy_config').updateOne(
+                { key: 'sync_lock' },
+                { $set: { locked: false, unlockedAt: new Date(), reason: 'error' } }
+            );
+            console.log('[VPG SYNC] Sync lock desactivado (error).');
+        } catch (lockErr) {
+            console.error('[VPG SYNC] Error al desactivar sync lock tras error:', lockErr.message);
+        }
+
         updateRebuildStatus({
             running: false,
             error: err.message,

@@ -287,6 +287,8 @@ let marketLockScheduleConfig = {
     startTime: "18:00",
     durationHours: 8
 };
+let syncLockActive = false;
+let syncLockReason = null;
 
 // DOM Elements - Dashboard View
 const activeLeagueName = document.getElementById('active-league-name');
@@ -4553,6 +4555,13 @@ function getBuyoutLockError() {
 }
 
 function getMarketLockError() {
+    // SYNC LOCK: Check sync lock first
+    if (syncLockActive) {
+        return syncLockReason === 'pre_sync'
+            ? '⚡ El mercado se ha bloqueado temporalmente. La sincronización de puntos comenzará en breve.'
+            : '⚡ Mercado bloqueado: sincronización de puntos en curso. Se desbloqueará automáticamente al finalizar.';
+    }
+
     const lockConfig = marketLockScheduleConfig || {
         active: false,
         days: [1, 2, 3, 4],
@@ -4665,6 +4674,19 @@ function updateMarketLockStatusUI() {
     // Solo mostrar el banner si el mercado de esta liga está abierto
     if (!activeLeague || activeLeague.marketOpen === false) {
         indicator.style.display = 'none';
+        return;
+    }
+
+    // SYNC LOCK: Show sync banner if active
+    if (syncLockActive) {
+        indicator.style.display = 'flex';
+        indicator.style.background = 'rgba(251, 191, 36, 0.15)';
+        indicator.style.border = '1px solid rgba(251, 191, 36, 0.4)';
+        indicator.style.color = '#fbbf24';
+        const syncMsg = syncLockReason === 'pre_sync'
+            ? '⚡ <strong>Mercado Bloqueado:</strong> La sincronización de puntos comenzará en breve. El mercado se desbloqueará automáticamente al finalizar.'
+            : '⚡ <strong>Sincronización en curso:</strong> El mercado está bloqueado mientras se sincronizan los puntos con VPG. Se desbloqueará automáticamente.';
+        indicator.innerHTML = `<i class="fa-solid fa-bolt"></i> <span>${syncMsg}</span>`;
         return;
     }
 
@@ -6154,6 +6176,13 @@ async function loadSchedulesConfig() {
             if (data.market) marketScheduleConfig = data.market;
             if (data.clauseLock) clauseLockScheduleConfig = data.clauseLock;
             if (data.marketLock) marketLockScheduleConfig = data.marketLock;
+            if (data.syncLock) {
+                syncLockActive = !!data.syncLock.locked;
+                syncLockReason = data.syncLock.reason || null;
+            } else {
+                syncLockActive = false;
+                syncLockReason = null;
+            }
             
             const form = document.getElementById('admin-schedules-form');
             if (form) {
