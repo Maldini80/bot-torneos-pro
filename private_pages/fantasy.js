@@ -2428,6 +2428,10 @@ function getTableCardHtml(p) {
         <div class="thunder-bolt thunder-bolt-2"></div>
         <div class="thunder-bolt-3"></div>
         <div class="thunder-bolt-4"></div>
+        <div class="thunder-bolt-5"></div>
+        <div class="thunder-bolt-6"></div>
+        <div class="thunder-bolt-7"></div>
+        <div class="thunder-bolt-8"></div>
         <div class="thunder-flash-overlay"></div>
     ` : '';
 
@@ -2555,6 +2559,10 @@ function renderField() {
                     <div class="thunder-bolt thunder-bolt-2"></div>
                     <div class="thunder-bolt-3"></div>
                     <div class="thunder-bolt-4"></div>
+                    <div class="thunder-bolt-5"></div>
+                    <div class="thunder-bolt-6"></div>
+                    <div class="thunder-bolt-7"></div>
+                    <div class="thunder-bolt-8"></div>
                     <div class="thunder-flash-overlay"></div>
                 ` : '';
 
@@ -2661,6 +2669,10 @@ function openPositionSelector(posKey, idx) {
             <div class="thunder-bolt thunder-bolt-2"></div>
             <div class="thunder-bolt-3"></div>
             <div class="thunder-bolt-4"></div>
+            <div class="thunder-bolt-5"></div>
+            <div class="thunder-bolt-6"></div>
+            <div class="thunder-bolt-7"></div>
+            <div class="thunder-bolt-8"></div>
             <div class="thunder-flash-overlay"></div>
         ` : '';
 
@@ -3441,6 +3453,10 @@ async function showRivalTeam(discordId, teamName) {
                             <div class="thunder-bolt thunder-bolt-2"></div>
                             <div class="thunder-bolt-3"></div>
                             <div class="thunder-bolt-4"></div>
+                            <div class="thunder-bolt-5"></div>
+                            <div class="thunder-bolt-6"></div>
+                            <div class="thunder-bolt-7"></div>
+                            <div class="thunder-bolt-8"></div>
                             <div class="thunder-flash-overlay"></div>
                         ` : '';
 
@@ -5863,6 +5879,10 @@ async function openPlayerStatsModalByName(playerName) {
         <div class="thunder-bolt thunder-bolt-2"></div>
         <div class="thunder-bolt-3"></div>
         <div class="thunder-bolt-4"></div>
+        <div class="thunder-bolt-5"></div>
+        <div class="thunder-bolt-6"></div>
+        <div class="thunder-bolt-7"></div>
+        <div class="thunder-bolt-8"></div>
         <div class="thunder-flash-overlay"></div>
     ` : '';
 
