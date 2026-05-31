@@ -7498,24 +7498,35 @@ export async function startVisualizerServer(discordClient) {
             const { leagueId } = req.query;
             const { playerName } = req.params;
 
-            if (!leagueId) {
-                return res.status(400).json({ error: 'Falta el parámetro leagueId.' });
-            }
-
             // Simple regex match for case-insensitive exact name comparison
             const escapedName = playerName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const query = {
-                playerName: { $regex: new RegExp("^" + escapedName + "$", "i") },
-                $or: [
-                    { leagueId: leagueId },
-                    { leagueId: new ObjectId(leagueId) }
-                ]
-            };
+            const nameFilter = { playerName: { $regex: new RegExp("^" + escapedName + "$", "i") } };
 
-            const historyDocs = await db.collection('fantasy_player_history')
-                .find(query)
-                .sort({ createdAt: -1 })
-                .toArray();
+            let historyDocs = [];
+
+            // Try league-specific first if leagueId provided
+            if (leagueId) {
+                const leagueQuery = {
+                    ...nameFilter,
+                    $or: [
+                        { leagueId: leagueId },
+                        ...(ObjectId.isValid(leagueId) ? [{ leagueId: new ObjectId(leagueId) }] : [])
+                    ]
+                };
+                historyDocs = await db.collection('fantasy_player_history')
+                    .find(leagueQuery)
+                    .sort({ createdAt: -1 })
+                    .toArray();
+            }
+
+            // Fallback: if no docs found for this league, fetch ALL history for this player
+            if (historyDocs.length === 0) {
+                historyDocs = await db.collection('fantasy_player_history')
+                    .find(nameFilter)
+                    .sort({ createdAt: -1 })
+                    .limit(200)
+                    .toArray();
+            }
 
             // Fetch team names for lookup
             const teamIds = [...new Set(historyDocs.map(h => h.teamId).filter(Boolean))];
