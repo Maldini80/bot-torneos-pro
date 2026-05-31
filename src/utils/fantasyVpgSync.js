@@ -1860,7 +1860,8 @@ export async function resolveFreeAgentBids(db, leagueDoc, playerLookupMap = null
             }
             const price = playerDoc ? calculatePlayerPointsAndPrice(playerDoc).price : winnerBid.bidAmount;
             const clauseMultiplier = leagueDoc.clauseMultiplier || 1.5;
-            const buyerInitialClause = Math.round(price * clauseMultiplier);
+            const normalClause = Math.round(price * clauseMultiplier);
+            const buyerInitialClause = winnerBid.bidAmount > normalClause ? Math.round(winnerBid.bidAmount * clauseMultiplier) : normalClause;
             const protectionExpiry = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // Protección de 2 días
 
             // Asignar jugador al ganador

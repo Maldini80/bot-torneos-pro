@@ -8958,7 +8958,8 @@ export async function startVisualizerServer(discordClient) {
 
             // 1. Add player to buyer, set initial clause with 2-day protection (buyer was already debited upfront)
             const clauseMultiplier = league.clauseMultiplier || 1.5;
-            const buyerInitialClause = Math.round(price * clauseMultiplier);
+            const normalClause = Math.round(price * clauseMultiplier);
+            const buyerInitialClause = bid.bidAmount > normalClause ? Math.round(bid.bidAmount * clauseMultiplier) : normalClause;
             const protectionExpiry = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000); // 2 days protection
 
             await db.collection('fantasy_teams').updateOne(
