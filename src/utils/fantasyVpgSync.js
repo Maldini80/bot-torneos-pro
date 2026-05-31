@@ -96,7 +96,9 @@ export function calculatePlayerPointsAndPrice(p) {
     const matchesPlayed = stats.matchesPlayed || 0;
     
     let avgRating = 6.0;
-    if (Array.isArray(stats.ratings) && stats.ratings.length > 0) {
+    if (stats.vpgAvgRating !== undefined && stats.vpgAvgRating !== null) {
+        avgRating = stats.vpgAvgRating;
+    } else if (Array.isArray(stats.ratings) && stats.ratings.length > 0) {
         const sum = stats.ratings.reduce((acc, r) => acc + (parseFloat(r) || 0), 0);
         avgRating = sum / stats.ratings.length;
     }
@@ -208,7 +210,8 @@ export function computeUpdatedStats(existingPlayer, crawledStats, crawledTeamSlu
         wins: parseInt(crawledStats.wins) || 0,
         losses: parseInt(crawledStats.losses) || 0,
         ties: parseInt(crawledStats.ties) || 0,
-        vpgPoints: parseFloat(crawledStats.vpgPoints) || 0
+        vpgPoints: parseFloat(crawledStats.vpgPoints) || 0,
+        vpgAvgRating: crawledStats.vpgAvgRating !== undefined ? crawledStats.vpgAvgRating : currentAvg
     };
 
     // Actualizar el mapa per-league con la nueva raw entry
@@ -222,6 +225,18 @@ export function computeUpdatedStats(existingPlayer, crawledStats, crawledTeamSlu
     if (finalRatings.length !== finalMatches) {
         finalRatings = Array(finalMatches).fill(currentAvg);
     }
+
+    // Calcular la media de valoración ponderada usando puramente datos de VPG
+    let totalVpgMatches = 0;
+    let totalVpgRatingSum = 0;
+    for (const leagueKey in updatedPerLeagueRaw) {
+        const entry = updatedPerLeagueRaw[leagueKey];
+        const m = entry.matchesPlayed || 0;
+        const r = entry.vpgAvgRating !== undefined ? entry.vpgAvgRating : 6.0;
+        totalVpgMatches += m;
+        totalVpgRatingSum += m * r;
+    }
+    const finalVpgAvgRating = totalVpgMatches > 0 ? Math.round((totalVpgRatingSum / totalVpgMatches) * 100) / 100 : 6.0;
 
     return {
         matchesPlayed: finalMatches,
@@ -241,6 +256,7 @@ export function computeUpdatedStats(existingPlayer, crawledStats, crawledTeamSlu
         cleanSheets: (existingPlayer.stats?.cleanSheets || 0) + deltaCleanSheets,
         goalsConceded: existingPlayer.stats?.goalsConceded || 0,
         ratings: finalRatings,
+        vpgAvgRating: finalVpgAvgRating,
         wins: (existingPlayer.stats?.wins || 0) + deltaWins,
         losses: (existingPlayer.stats?.losses || 0) + deltaLosses,
         ties: (existingPlayer.stats?.ties || 0) + deltaTies,
@@ -517,6 +533,7 @@ export async function syncFantasyWithVpg() {
                                         existingStats.cleanSheets = parseInt(player.clean_sheet) || 0;
                                         
                                         existingStats.ratings = Array(played).fill(avgRating);
+                                        existingStats.vpgAvgRating = avgRating;
 
                                         existingStats.wins = wins;
                                         existingStats.losses = losses;
@@ -548,6 +565,7 @@ export async function syncFantasyWithVpg() {
                                         cleanSheets: existingStats.cleanSheets + (parseInt(player.clean_sheet) || 0),
                                         goalsConceded: existingStats.goalsConceded,
                                         ratings: existingStats.ratings.concat(Array(played).fill(avgRating)),
+                                        vpgAvgRating: (existingStats.matchesPlayed + played) > 0 ? Math.round(((existingStats.matchesPlayed * (existingStats.vpgAvgRating || 6.0) + played * avgRating) / (existingStats.matchesPlayed + played)) * 100) / 100 : 6.0,
                                         wins: existingStats.wins + wins,
                                         losses: existingStats.losses + losses,
                                         ties: existingStats.ties + ties,
@@ -586,6 +604,7 @@ export async function syncFantasyWithVpg() {
                                     cleanSheets: parseInt(player.clean_sheet) || 0,
                                     goalsConceded: 0,
                                     ratings: Array(played).fill(avgRating),
+                                    vpgAvgRating: avgRating,
                                     wins: wins,
                                     losses: losses,
                                     ties: ties,

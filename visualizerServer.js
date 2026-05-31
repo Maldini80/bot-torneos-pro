@@ -73,7 +73,9 @@ export function calculatePlayerPointsAndPrice(p) {
     const matchesPlayed = stats.matchesPlayed || 0;
     
     let avgRating = 6.0;
-    if (Array.isArray(stats.ratings) && stats.ratings.length > 0) {
+    if (stats.vpgAvgRating !== undefined && stats.vpgAvgRating !== null) {
+        avgRating = stats.vpgAvgRating;
+    } else if (Array.isArray(stats.ratings) && stats.ratings.length > 0) {
         const sum = stats.ratings.reduce((acc, r) => acc + (parseFloat(r) || 0), 0);
         avgRating = sum / stats.ratings.length;
     }
