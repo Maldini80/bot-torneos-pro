@@ -7519,13 +7519,32 @@ export async function startVisualizerServer(discordClient) {
                     .toArray();
             }
 
-            // Fallback: if no docs found for this league, fetch ALL history for this player
+            // Fallback: if no docs found for this league, pick the league with most entries
             if (historyDocs.length === 0) {
-                historyDocs = await db.collection('fantasy_player_history')
+                const allDocs = await db.collection('fantasy_player_history')
                     .find(nameFilter)
                     .sort({ createdAt: -1 })
                     .limit(200)
                     .toArray();
+                
+                // Group by leagueId and pick the one with most entries
+                if (allDocs.length > 0) {
+                    const byLeague = {};
+                    allDocs.forEach(d => {
+                        const lid = String(d.leagueId);
+                        if (!byLeague[lid]) byLeague[lid] = [];
+                        byLeague[lid].push(d);
+                    });
+                    let bestLeague = null;
+                    let bestCount = 0;
+                    for (const lid in byLeague) {
+                        if (byLeague[lid].length > bestCount) {
+                            bestCount = byLeague[lid].length;
+                            bestLeague = lid;
+                        }
+                    }
+                    historyDocs = byLeague[bestLeague] || [];
+                }
             }
 
             // Fetch team names for lookup
