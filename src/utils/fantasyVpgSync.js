@@ -955,24 +955,26 @@ export async function syncFantasyWithVpg() {
                 }
             }
 
-            // Solo puntúan si tienen 11 titulares completos
+            // Penalización por no tener 11 titulares completos (antes no puntuaban, ahora restan -15 por hueco con mín 0)
             const starterCount = Object.keys(playerStartersStatus).length;
+            let emptySlotsPenalty = 0;
             if (starterCount < 11) {
+                const emptySlots = 11 - starterCount;
+                emptySlotsPenalty = emptySlots * -15;
                 if (starterCount > 0) {
-                    console.log(`[VPG SYNC] El equipo ${fTeam.teamName} no tiene 11 titulares (${starterCount}/11). No puntúa esta jornada.`);
+                    console.log(`[VPG SYNC] El equipo ${fTeam.teamName} tiene ${starterCount}/11 titulares. Penalización: ${emptySlotsPenalty} puntos.`);
                     
                     // Registrar noticia explicativa en el feed de la liga
                     try {
                         const { logFantasyNews } = await import('./fantasyNewsLogger.js');
                         await logFantasyNews(fTeam.leagueId, 'warning', 
-                            `⚠️ ${fTeam.teamName} no puntúa en esta jornada por no tener alineados los 11 titulares obligatorios (tiene ${starterCount}/11).`,
-                            { teamName: fTeam.teamName, discordId: fTeam.discordId, startersCount: starterCount }
+                            `⚠️ ${fTeam.teamName} tiene una penalización de ${emptySlotsPenalty} puntos por alinear solo a ${starterCount}/11 titulares.`,
+                            { teamName: fTeam.teamName, discordId: fTeam.discordId, startersCount: starterCount, penalty: emptySlotsPenalty }
                         );
                     } catch (newsErr) {
                         console.error('[VPG SYNC] Error al registrar noticia de 11 titulares:', newsErr.message);
                     }
                 }
-                continue;
             }
 
             // Construir lista efectiva de jugadores aplicando reatribución por robo
@@ -1087,7 +1089,12 @@ export async function syncFantasyWithVpg() {
                 }
             }
 
-            teamDeltaPoints = Math.round(teamDeltaPoints * 10) / 10;
+            // Aplicar penalización por huecos vacíos
+            if (emptySlotsPenalty < 0) {
+                teamDeltaPoints += emptySlotsPenalty;
+            }
+
+            teamDeltaPoints = Math.max(0, Math.round(teamDeltaPoints * 10) / 10);
 
             if (teamDeltaPoints > 0) {
                 const rewardAmount = teamDeltaPoints * 80000;
