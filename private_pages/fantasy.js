@@ -6126,7 +6126,7 @@ function buildPlayerHistoryChart(displayData) {
 
     // Determine the starting jornada number based on total data length vs display slice
     const startJ = 1; // We always label from J1 relative to what we show
-    const labels = displayData.map((g, i) => `J${i + 1}`);
+    const labels = displayData.map((g, i) => `D${i + 1}`);
     const dataPoints = displayData.map(g => Math.round(g.points * 10) / 10);
     const bgColors = displayData.map(g => {
         if (g.isEstimated) return 'rgba(56, 189, 248, 0.2)';  // light blue for estimated
@@ -6168,8 +6168,8 @@ function buildPlayerHistoryChart(displayData) {
                         title: function(items) {
                             const idx = items[0].dataIndex;
                             const entry = displayData[idx];
-                            if (entry.isEstimated) return `Jornada ${idx + 1} — Media estimada`;
-                            return `Jornada ${idx + 1} — ${entry.shortDate || ''}`;
+                            if (entry.isEstimated) return `D${idx + 1} — Media estimada`;
+                            return `D${idx + 1} — ${entry.shortDate || ''}`;
                         },
                         label: function(item) {
                             const idx = item.dataIndex;
