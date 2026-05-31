@@ -6035,8 +6035,8 @@ async function openPlayerStatsModalByName(playerName) {
         combinedData.push({ ...g, isEstimated: false });
     });
 
-    // Cap display to last 20 bars, but always at least 5
-    const maxBars = 20;
+    // Cap display to last 5 bars
+    const maxBars = 5;
     const displayData = combinedData.length > maxBars ? combinedData.slice(-maxBars) : combinedData;
 
     if (totalMatches > 0) {
