@@ -955,10 +955,10 @@ export function createClassificationEmbed(tournament) {
     for (const groupName of sortedGroups) {
         const grupo = tournament.structure.grupos[groupName];
         const equiposOrdenados = [...grupo.equipos].sort((a, b) => sortTeams(a, b, groupName));
-        const nameWidth = 16;
+        const nameWidth = 12;
         const header = isSwiss
-            ? "EQUIPO/TEAM".padEnd(nameWidth) + "PJ  V  PTS  BH  GF  GC   DG"
-            : "EQUIPO/TEAM".padEnd(nameWidth) + "PJ  V  PTS  GF  GC   DG";
+            ? "EQUIPO/TEAM PJ V PTS BH GF GC  DG"
+            : "EQUIPO/TEAM PJ V PTS GF GC  DG";
 
         let currentFieldText = "";
         let part = 1;
@@ -968,18 +968,18 @@ export function createClassificationEmbed(tournament) {
             const pj = (e.stats.pj || 0).toString().padStart(2);
             const pg = (e.stats.pg || 0).toString().padStart(1);
             const pts = (e.stats.pts || 0).toString().padStart(3);
-            const gf = (e.stats.gf || 0).toString().padStart(3);
-            const gc = (e.stats.gc || 0).toString().padStart(3);
+            const gf = (e.stats.gf || 0).toString().padStart(2);
+            const gc = (e.stats.gc || 0).toString().padStart(2);
             const dgVal = (e.stats.dg || 0);
             const dg = (dgVal >= 0 ? '+' : '') + dgVal.toString();
-            const paddedDg = dg.padStart(4);
+            const paddedDg = dg.padStart(3);
 
             let row;
             if (isSwiss) {
-                const bh = (e.stats.buchholz || 0).toString().padStart(3);
-                row = `${teamName}${pj}  ${pg}  ${pts}  ${bh}  ${gf}  ${gc}  ${paddedDg}\n`;
+                const bh = (e.stats.buchholz || 0).toString().padStart(2);
+                row = `${teamName}${pj} ${pg} ${pts} ${bh} ${gf} ${gc} ${paddedDg}\n`;
             } else {
-                row = `${teamName}${pj}  ${pg}  ${pts}  ${gf}  ${gc}  ${paddedDg}\n`;
+                row = `${teamName}${pj} ${pg} ${pts} ${gf} ${gc} ${paddedDg}\n`;
             }
 
             if (currentFieldText.length + row.length > 900) {
@@ -1074,7 +1074,7 @@ export function createCalendarEmbed(tournament) {
             // 2. Variables para controlar la paginación
             let currentFieldText = '';
             let part = 1;
-            const nameWidth = 15, centerWidth = 6;
+            const nameWidth = 12, centerWidth = 6;
 
             const roundNumbers = Object.keys(partidosPorJornada).sort((a, b) => a - b);
 
@@ -1154,7 +1154,7 @@ export function createCalendarEmbed(tournament) {
             const matches = Array.isArray(stageMatches) ? stageMatches : [stageMatches];
 
             let stageScheduleText = '';
-            const nameWidth = 15, centerWidth = 6;
+            const nameWidth = 12, centerWidth = 6;
 
             for (const partido of matches) {
                 if (!partido.equipoA || !partido.equipoB) continue;
