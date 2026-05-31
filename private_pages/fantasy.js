@@ -6208,10 +6208,11 @@ function buildPlayerHistoryChart(displayData) {
                 c.textAlign = 'center';
                 c.textBaseline = 'bottom';
                 data.datasets[0].data.forEach((val, i) => {
-                    if (val > 0) {
+                    const entry = displayData[i];
+                    // Show label for all bars: real entries always, estimated only if > 0
+                    if (val > 0 || !entry.isEstimated) {
                         const xPos = x.getPixelForValue(i);
-                        const yPos = y.getPixelForValue(val);
-                        const entry = displayData[i];
+                        const yPos = y.getPixelForValue(Math.max(val, 0));
                         c.fillStyle = entry.isEstimated ? 'rgba(56, 189, 248, 0.7)' : '#f8fafc';
                         c.fillText(val, xPos, yPos - 4);
                     }
