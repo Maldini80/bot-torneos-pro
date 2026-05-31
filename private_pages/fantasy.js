@@ -2611,8 +2611,8 @@ function renderField() {
             }
 
             node.addEventListener('click', () => openPositionSelector(groupKey, idx));
-            if (p) {
-                node.addEventListener('dblclick', (e) => { e.stopPropagation(); openPlayerStatsModalByName(p.eaPlayerName); });
+            if (alignedPlayer) {
+                node.addEventListener('dblclick', (e) => { e.stopPropagation(); openPlayerStatsModalByName(alignedPlayer); });
             }
             soccerField.appendChild(node);
         });
