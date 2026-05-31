@@ -1219,7 +1219,7 @@
 
     <!-- MODAL 8: Visualizar Estadísticas Detalladas del Jugador -->
     <div class="modal-overlay" id="player-stats-modal">
-        <div class="modal-content" style="max-width: 420px; background: radial-gradient(circle at top, #1e293b, #0f172a); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column;">
+        <div class="modal-content" id="player-stats-modal-content" style="max-width: 420px; background: radial-gradient(circle at top, #1e293b, #0f172a); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; transition: max-width 0.3s ease;">
             <div class="modal-header" style="border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 10px; margin-bottom: 15px;">
                 <h3 style="font-size: 1.15rem; font-weight: 700; color: #f8fafc;"><i class="fa-solid fa-address-card text-blue"></i> Ficha de Estadísticas</h3>
                 <button class="modal-close" id="player-stats-modal-close-btn" style="color: #64748b; background: transparent; border: none; font-size: 1.5rem; cursor: pointer; transition: color 0.2s;">&times;</button>
@@ -1228,11 +1228,24 @@
                 <div id="player-stats-modal-body" style="display: flex; justify-content: center; align-items: center; padding-bottom: 15px; width: 100%;">
                     <!-- FUT Card injected here dynamically -->
                 </div>
+                <!-- Toggle History Button -->
+                <button id="btn-toggle-player-history" style="display: none; width: 100%; padding: 10px 16px; border: 1px solid rgba(56, 189, 248, 0.25); background: rgba(56, 189, 248, 0.08); color: #38bdf8; border-radius: 10px; font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-bottom: 5px;">
+                    <i class="fa-solid fa-chart-column"></i> Ver Historial de Puntos
+                </button>
+                <!-- History Section (hidden by default, shown on button click) -->
                 <div id="player-history-section" style="width: 100%; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 15px; margin-top: 5px; display: none; box-sizing: border-box;">
-                    <h4 style="font-size: 0.9rem; color: #94a3b8; margin: 0 0 10px 0; display: flex; align-items: center; gap: 6px; font-weight: 600;">
-                        <i class="fa-solid fa-chart-line text-blue"></i> Historial de Jornadas
+                    <h4 style="font-size: 0.9rem; color: #94a3b8; margin: 0 0 12px 0; display: flex; align-items: center; gap: 6px; font-weight: 600;">
+                        <i class="fa-solid fa-chart-column text-blue"></i> Puntos por Jornada
                     </h4>
-                    <div id="player-history-list" style="max-height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                    <!-- Chart Canvas -->
+                    <div id="player-history-chart-container" style="width: 100%; height: 220px; margin-bottom: 12px; position: relative;">
+                        <canvas id="player-history-chart"></canvas>
+                    </div>
+                    <!-- Detail List (collapsible) -->
+                    <button id="btn-toggle-history-detail" style="width: 100%; padding: 6px 10px; border: 1px solid rgba(255,255,255,0.06); background: rgba(30,41,59,0.5); color: #94a3b8; border-radius: 6px; font-size: 0.75rem; font-weight: 500; cursor: pointer; margin-bottom: 8px; transition: all 0.2s;">
+                        <i class="fa-solid fa-list"></i> Ver detalle por fecha
+                    </button>
+                    <div id="player-history-list" style="max-height: 180px; overflow-y: auto; display: none; flex-direction: column; gap: 8px; width: 100%;">
                         <!-- History items here -->
                     </div>
                 </div>
@@ -1296,6 +1309,8 @@
         </div>
     </div>
 
+    <!-- Chart.js for player history graphs -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <!-- Client-side script -->
     <script src="/private_pages/fantasy.js"></script>
 </body>

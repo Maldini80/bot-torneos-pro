@@ -434,6 +434,7 @@ const bidModalCloseBtn = document.getElementById('bid-modal-close-btn');
 
 const playerStatsModal = document.getElementById('player-stats-modal');
 const playerStatsModalCloseBtn = document.getElementById('player-stats-modal-close-btn');
+let playerHistoryChart = null;
 
 let pendingJoinLeagueId = null;
 
@@ -844,7 +845,12 @@ function setupEventHandlers() {
     clauseModalCloseBtn.addEventListener('click', () => clauseModal.classList.remove('open'));
     listMarketModalCloseBtn.addEventListener('click', () => listMarketModal.classList.remove('open'));
     bidModalCloseBtn.addEventListener('click', () => bidModal.classList.remove('open'));
-    playerStatsModalCloseBtn.addEventListener('click', () => playerStatsModal.classList.remove('open'));
+    playerStatsModalCloseBtn.addEventListener('click', () => {
+        playerStatsModal.classList.remove('open');
+        if (playerHistoryChart) { playerHistoryChart.destroy(); playerHistoryChart = null; }
+        const modalContent = document.getElementById('player-stats-modal-content');
+        if (modalContent) modalContent.style.maxWidth = '420px';
+    });
     
     window.addEventListener('click', (e) => {
         if (e.target === positionModal) positionModal.classList.remove('open');
@@ -853,7 +859,12 @@ function setupEventHandlers() {
         if (e.target === clauseModal) clauseModal.classList.remove('open');
         if (e.target === listMarketModal) listMarketModal.classList.remove('open');
         if (e.target === bidModal) bidModal.classList.remove('open');
-        if (e.target === playerStatsModal) playerStatsModal.classList.remove('open');
+        if (e.target === playerStatsModal) {
+            playerStatsModal.classList.remove('open');
+            if (playerHistoryChart) { playerHistoryChart.destroy(); playerHistoryChart = null; }
+            const modalContent = document.getElementById('player-stats-modal-content');
+            if (modalContent) modalContent.style.maxWidth = '420px';
+        }
     });
 
     // Clause cost calculator is now handled dynamically in applyNumericMask below
@@ -5960,69 +5971,89 @@ async function openPlayerStatsModalByName(playerName) {
 
     playerStatsModal.classList.add('open');
 
-    // Fetch and display player points history
+    // Reset history UI state
     const historySection = document.getElementById('player-history-section');
     const historyList = document.getElementById('player-history-list');
-    if (historySection && historyList) {
-        historySection.style.display = 'none'; // hide by default
-        historyList.innerHTML = '<div style="text-align: center; color: #64748b; font-size: 0.8rem; padding: 10px;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando historial...</div>';
+    const toggleHistoryBtn = document.getElementById('btn-toggle-player-history');
+    const toggleDetailBtn = document.getElementById('btn-toggle-history-detail');
+    const modalContent = document.getElementById('player-stats-modal-content');
+    if (playerHistoryChart) { playerHistoryChart.destroy(); playerHistoryChart = null; }
+    if (historySection) historySection.style.display = 'none';
+    if (historyList) { historyList.style.display = 'none'; historyList.innerHTML = ''; }
+    if (toggleHistoryBtn) toggleHistoryBtn.style.display = 'none';
+    if (modalContent) modalContent.style.maxWidth = '420px';
 
-        if (currentLeagueId) {
-            try {
-                const res = await fetch(`/api/fantasy/players/${encodeURIComponent(p.eaPlayerName)}/history?leagueId=${currentLeagueId}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    const history = data.history || [];
-                    if (history.length > 0) {
-                        historyList.innerHTML = '';
-                        historySection.style.display = 'block';
+    // Fetch history data
+    if (currentLeagueId) {
+        try {
+            const res = await fetch(`/api/fantasy/players/${encodeURIComponent(p.eaPlayerName)}/history?leagueId=${currentLeagueId}`);
+            if (res.ok) {
+                const data = await res.json();
+                const history = data.history || [];
+                if (history.length > 0) {
+                    // Group by calendar date
+                    const groupedMap = {};
+                    const grouped = [];
+                    history.forEach(item => {
+                        const d = new Date(item.date);
+                        const dateStr = d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                        const shortDate = d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' });
+                        if (!groupedMap[dateStr]) {
+                            groupedMap[dateStr] = { dateStr, shortDate, points: 0, wasStarter: item.wasStarter, teamName: item.teamName };
+                            grouped.push(groupedMap[dateStr]);
+                        }
+                        groupedMap[dateStr].points += item.points;
+                    });
 
-                        // Group by calendar date string
-                        const grouped = [];
-                        const groupedMap = {};
+                    // Reverse so oldest is first (history comes desc)
+                    grouped.reverse();
 
-                        // Since server returns history sorted descending (newest first),
-                        // the first entry we encounter for a given date is the latest one.
-                        history.forEach(item => {
-                            const dateStr = new Date(item.date).toLocaleDateString('es-ES', {
-                                day: '2-digit',
-                                month: '2-digit',
-                                year: 'numeric'
-                            });
-
-                            if (!groupedMap[dateStr]) {
-                                groupedMap[dateStr] = {
-                                    dateStr,
-                                    points: 0,
-                                    wasStarter: item.wasStarter,
-                                    teamName: item.teamName
-                                };
-                                grouped.push(groupedMap[dateStr]);
+                    // Show toggle button
+                    if (toggleHistoryBtn) {
+                        toggleHistoryBtn.style.display = 'block';
+                        let historyVisible = false;
+                        // Remove old listeners by cloning
+                        const newToggleBtn = toggleHistoryBtn.cloneNode(true);
+                        toggleHistoryBtn.replaceWith(newToggleBtn);
+                        newToggleBtn.addEventListener('click', () => {
+                            historyVisible = !historyVisible;
+                            if (historyVisible) {
+                                historySection.style.display = 'block';
+                                if (modalContent) modalContent.style.maxWidth = '550px';
+                                newToggleBtn.innerHTML = '<i class="fa-solid fa-chevron-up"></i> Ocultar Historial';
+                                newToggleBtn.style.background = 'rgba(56, 189, 248, 0.15)';
+                                // Build chart
+                                buildPlayerHistoryChart(grouped);
+                            } else {
+                                historySection.style.display = 'none';
+                                if (modalContent) modalContent.style.maxWidth = '420px';
+                                newToggleBtn.innerHTML = '<i class="fa-solid fa-chart-column"></i> Ver Historial de Puntos';
+                                newToggleBtn.style.background = 'rgba(56, 189, 248, 0.08)';
+                                if (playerHistoryChart) { playerHistoryChart.destroy(); playerHistoryChart = null; }
                             }
+                        });
+                    }
 
-                            // Sum points earned in this day
-                            groupedMap[dateStr].points += item.points;
+                    // Build detail list
+                    if (historyList && toggleDetailBtn) {
+                        historyList.innerHTML = '';
+                        historyList.style.display = 'none';
+                        const newDetailBtn = toggleDetailBtn.cloneNode(true);
+                        toggleDetailBtn.replaceWith(newDetailBtn);
+                        newDetailBtn.addEventListener('click', () => {
+                            const isHidden = historyList.style.display === 'none';
+                            historyList.style.display = isHidden ? 'flex' : 'none';
+                            newDetailBtn.innerHTML = isHidden
+                                ? '<i class="fa-solid fa-chevron-up"></i> Ocultar detalle'
+                                : '<i class="fa-solid fa-list"></i> Ver detalle por fecha';
                         });
 
                         grouped.forEach(item => {
                             const alignBadge = item.wasStarter
                                 ? '<span style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); font-weight: 600;">Titular</span>'
                                 : '<span style="font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: rgba(148, 163, 184, 0.15); color: #cbd5e1; border: 1px solid rgba(148, 163, 184, 0.2); font-weight: 600;">Suplente</span>';
-
                             const itemEl = document.createElement('div');
-                            itemEl.style.cssText = `
-                                display: flex;
-                                justify-content: space-between;
-                                align-items: center;
-                                padding: 8px 10px;
-                                background: rgba(30, 41, 59, 0.5);
-                                border: 1px solid rgba(255,255,255,0.03);
-                                border-radius: 8px;
-                                font-size: 0.8rem;
-                                width: 100%;
-                                box-sizing: border-box;
-                            `;
-                            
+                            itemEl.style.cssText = 'display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: rgba(30, 41, 59, 0.5); border: 1px solid rgba(255,255,255,0.03); border-radius: 8px; font-size: 0.8rem; width: 100%; box-sizing: border-box;';
                             itemEl.innerHTML = `
                                 <div style="display: flex; flex-direction: column; gap: 3px;">
                                     <div style="font-weight: 600; color: #f8fafc; text-align: left;">${item.teamName}</div>
@@ -6035,19 +6066,113 @@ async function openPlayerStatsModalByName(playerName) {
                             `;
                             historyList.appendChild(itemEl);
                         });
-                    } else {
-                        historyList.innerHTML = '<div style="text-align: center; color: #64748b; font-size: 0.8rem; padding: 10px;">Sin historial de jornadas en esta liga.</div>';
-                        historySection.style.display = 'block';
                     }
                 } else {
-                    historySection.style.display = 'none';
+                    // No history — show button disabled
+                    if (toggleHistoryBtn) {
+                        toggleHistoryBtn.style.display = 'block';
+                        toggleHistoryBtn.innerHTML = '<i class="fa-solid fa-chart-column"></i> Sin historial de jornadas';
+                        toggleHistoryBtn.style.opacity = '0.5';
+                        toggleHistoryBtn.style.cursor = 'default';
+                        toggleHistoryBtn.style.pointerEvents = 'none';
+                    }
                 }
-            } catch (err) {
-                console.error('Error fetching player history:', err);
-                historySection.style.display = 'none';
             }
+        } catch (err) {
+            console.error('Error fetching player history:', err);
         }
     }
+}
+
+function buildPlayerHistoryChart(grouped) {
+    if (playerHistoryChart) { playerHistoryChart.destroy(); playerHistoryChart = null; }
+    const canvas = document.getElementById('player-history-chart');
+    if (!canvas || typeof Chart === 'undefined') return;
+    const ctx = canvas.getContext('2d');
+
+    const labels = grouped.map((g, i) => `J${i + 1}`);
+    const dataPoints = grouped.map(g => Math.round(g.points * 10) / 10);
+    const bgColors = grouped.map(g => g.wasStarter ? 'rgba(34, 197, 94, 0.7)' : 'rgba(148, 163, 184, 0.4)');
+    const borderColors = grouped.map(g => g.wasStarter ? 'rgba(34, 197, 94, 1)' : 'rgba(148, 163, 184, 0.6)');
+
+    playerHistoryChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: dataPoints,
+                backgroundColor: bgColors,
+                borderColor: borderColors,
+                borderWidth: 1,
+                borderRadius: 4,
+                maxBarThickness: 32
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    titleColor: '#f8fafc',
+                    bodyColor: '#94a3b8',
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    padding: 10,
+                    callbacks: {
+                        title: function(items) {
+                            const idx = items[0].dataIndex;
+                            return `${grouped[idx].shortDate} — ${grouped[idx].teamName}`;
+                        },
+                        label: function(item) {
+                            const idx = item.dataIndex;
+                            const starter = grouped[idx].wasStarter ? '⚽ Titular' : '🪑 Suplente';
+                            return `${item.raw} pts  (${starter})`;
+                        }
+                    }
+                },
+                // Datalabels plugin not loaded, so we use a custom plugin
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#64748b', font: { size: 10, weight: '600' } },
+                    grid: { display: false },
+                    border: { display: false }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: { color: '#475569', font: { size: 10 }, stepSize: 5 },
+                    grid: { color: 'rgba(255,255,255,0.03)' },
+                    border: { display: false }
+                }
+            },
+            animation: {
+                duration: 600,
+                easing: 'easeOutQuart'
+            }
+        },
+        plugins: [{
+            id: 'valueLabels',
+            afterDatasetsDraw(chart) {
+                const { ctx: c, data, scales: { x, y } } = chart;
+                c.save();
+                c.font = 'bold 10px Outfit, sans-serif';
+                c.textAlign = 'center';
+                c.textBaseline = 'bottom';
+                data.datasets[0].data.forEach((val, i) => {
+                    if (val > 0) {
+                        const xPos = x.getPixelForValue(i);
+                        const yPos = y.getPixelForValue(val);
+                        c.fillStyle = '#f8fafc';
+                        c.fillText(val, xPos, yPos - 4);
+                    }
+                });
+                c.restore();
+            }
+        }]
+    });
 }
 
 window.openPlayerStatsModalByName = openPlayerStatsModalByName;
