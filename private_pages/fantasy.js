@@ -2611,6 +2611,9 @@ function renderField() {
             }
 
             node.addEventListener('click', () => openPositionSelector(groupKey, idx));
+            if (p) {
+                node.addEventListener('dblclick', (e) => { e.stopPropagation(); openPlayerStatsModalByName(p.eaPlayerName); });
+            }
             soccerField.appendChild(node);
         });
     }
@@ -6606,8 +6609,10 @@ function showPlayerContextMenu(event, player, ownerTeamName, ownerDiscordId, cla
         clauseTitle = 'Clausulazos bloqueados temporalmente';
     }
     
-    // Add custom buttons
     menu.innerHTML = `
+        <button class="player-context-item btn-stats">
+            <i class="fa-solid fa-address-card"></i> Ver Ficha
+        </button>
         <button class="player-context-item btn-bid" ${isMyOwn || isSpectator ? 'disabled' : ''} title="${isSpectator ? 'No puedes pujar en modo lectura' : ''}">
             <i class="fa-solid fa-gavel"></i> Pujar
         </button>
@@ -6621,7 +6626,15 @@ function showPlayerContextMenu(event, player, ownerTeamName, ownerDiscordId, cla
     menu.style.top = `${window.scrollY + rect.bottom + 5}px`;
     menu.style.left = `${window.scrollX + rect.left}px`;
     
-    // Bind action listeners
+    // Bind stats button
+    const statsBtn = menu.querySelector('.btn-stats');
+    if (statsBtn) {
+        statsBtn.addEventListener('click', () => {
+            menu.classList.remove('open');
+            openPlayerStatsModalByName(player.eaPlayerName);
+        });
+    }
+
     const bidBtn = menu.querySelector('.btn-bid');
     if (bidBtn && !bidBtn.disabled) {
         bidBtn.addEventListener('click', () => {
