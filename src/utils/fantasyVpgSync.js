@@ -217,8 +217,14 @@ export function computeUpdatedStats(existingPlayer, crawledStats, crawledTeamSlu
         updatedPerLeagueRaw[crawledLeagueSlug] = newRawEntry;
     }
 
+    const finalMatches = (existingPlayer.stats?.matchesPlayed || 0) + deltaMatches;
+    let finalRatings = (existingPlayer.stats?.ratings || []).concat(Array(deltaMatches).fill(appendRating));
+    if (finalRatings.length !== finalMatches) {
+        finalRatings = Array(finalMatches).fill(currentAvg);
+    }
+
     return {
-        matchesPlayed: (existingPlayer.stats?.matchesPlayed || 0) + deltaMatches,
+        matchesPlayed: finalMatches,
         goals: (existingPlayer.stats?.goals || 0) + deltaGoals,
         assists: (existingPlayer.stats?.assists || 0) + deltaAssists,
         passesMade: existingPlayer.stats?.passesMade || 0,
@@ -234,7 +240,7 @@ export function computeUpdatedStats(existingPlayer, crawledStats, crawledTeamSlu
         mom: existingPlayer.stats?.mom || 0,
         cleanSheets: (existingPlayer.stats?.cleanSheets || 0) + deltaCleanSheets,
         goalsConceded: existingPlayer.stats?.goalsConceded || 0,
-        ratings: (existingPlayer.stats?.ratings || []).concat(Array(deltaMatches).fill(appendRating)),
+        ratings: finalRatings,
         wins: (existingPlayer.stats?.wins || 0) + deltaWins,
         losses: (existingPlayer.stats?.losses || 0) + deltaLosses,
         ties: (existingPlayer.stats?.ties || 0) + deltaTies,
