@@ -1596,6 +1596,15 @@ function renderLeaguesList(filterText = '') {
             vpgHtml = `<div style="margin-top: 8px; margin-bottom: 12px; font-size: 0.75rem; color: #64748b;"><i class="fa-solid fa-link" style="font-size: 0.7rem; color: #64748b;"></i> <strong>VPG:</strong> Sin ligas VPG vinculadas</div>`;
         }
 
+        let adminDeleteBtnHtml = '';
+        if (currentUser && currentUser.isAdmin) {
+            adminDeleteBtnHtml = `
+                <button class="btn btn-danger btn-block btn-admin-delete-league-direct" data-id="${league._id}" style="margin-top: 8px;">
+                    <i class="fa-solid fa-trash"></i> Eliminar Liga (Admin)
+                </button>
+            `;
+        }
+
         card.innerHTML = `
             <div class="league-card-header">
                 <h3>${league.name}${lockIcon}</h3>
@@ -1612,6 +1621,7 @@ function renderLeaguesList(filterText = '') {
             </div>
             ${vpgHtml}
             ${buttonsHtml}
+            ${adminDeleteBtnHtml}
         `;
         
         const enterBtn = card.querySelector('.btn-enter-league');
@@ -1632,6 +1642,14 @@ function renderLeaguesList(filterText = '') {
         if (joinBtn) {
             joinBtn.addEventListener('click', () => {
                 enterLeague(league._id, false, null, true);
+            });
+        }
+
+        const adminDeleteBtn = card.querySelector('.btn-admin-delete-league-direct');
+        if (adminDeleteBtn) {
+            adminDeleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleDirectAdminDeleteLeague(league._id, league.name);
             });
         }
         
@@ -4204,6 +4222,29 @@ async function handleAdminDeleteLeague() {
         sessionStorage.removeItem('selected_league_id');
         currentLeagueId = null;
         activeLeague = null;
+        showLeagueSelector();
+    } catch (e) {
+        console.error(e);
+        showToast(e.message, 'error');
+    }
+}
+
+// Direct Admin Delete League from selector list
+async function handleDirectAdminDeleteLeague(leagueId, leagueName) {
+    const confirmText = prompt(`ADVERTENCIA: Esta acción es irreversible. Se eliminará de forma permanente la liga "${leagueName}" y todos sus equipos asociados.\n\nEscribe "ELIMINAR" para confirmar:`);
+    if (confirmText !== 'ELIMINAR') {
+        showToast('Eliminación cancelada.', 'success');
+        return;
+    }
+    
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${leagueId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Error al eliminar liga.');
+        
+        showToast(data.message || 'Liga eliminada correctamente.', 'success');
+        
+        // Refresh list
         showLeagueSelector();
     } catch (e) {
         console.error(e);
