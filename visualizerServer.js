@@ -7506,7 +7506,7 @@ export async function startVisualizerServer(discordClient) {
                     price,
                     points,
                     basePoints: basePointsValue,
-                    lastDayPoints: lastPointsMap[nameLower] !== undefined ? lastPointsMap[nameLower] : 0,
+                    lastDayPoints: lastPointsMap[nameLower],
                     owner: ownerMap[p.eaPlayerName] || null,
                     ownerDiscordId: ownerDiscordIdMap[p.eaPlayerName] || null,
                     clause: clauseMap[p.eaPlayerName] || null,
