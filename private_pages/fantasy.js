@@ -2426,7 +2426,7 @@ function getCardTierClass(price) {
 function getTableCardHtml(p) {
     if (!p) return '';
     const tierClass = getCardTierClass(p.price);
-    const displayedPoints = Math.round(p.points * 10) / 10;
+    const displayedPoints = Math.round((p.lastDayPoints !== undefined ? p.lastDayPoints : p.points) * 10) / 10;
     const lastName = p.eaPlayerName.trim().split(' ').pop();
     
     // Dynamic sizing for long names to avoid truncation
@@ -2554,7 +2554,7 @@ function renderField() {
 
             if (alignedPlayer) {
                 const p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === alignedPlayer.toLowerCase());
-                const displayedPoints = p ? Math.round(p.points * 10) / 10 : 0;
+                const displayedPoints = p ? Math.round((p.lastDayPoints !== undefined ? p.lastDayPoints : p.points) * 10) / 10 : 0;
                 const tierPoints = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
                 const lastName = alignedPlayer.trim().split(' ').pop();
 
@@ -2681,7 +2681,7 @@ function openPositionSelector(posKey, idx) {
     if (alignedPlayer && alignedPlayerProfile) {
         const p = alignedPlayerProfile;
         const clauseVal = Math.max(myTeam.clauses?.[alignedPlayer] || 0, Math.round(p.price * (activeLeague?.clauseMultiplier || 1.5)));
-        const displayedPoints = p ? Math.round(p.points * 10) / 10 : 0;
+        const displayedPoints = p ? Math.round((p.lastDayPoints !== undefined ? p.lastDayPoints : p.points) * 10) / 10 : 0;
         const tierPoints = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
 
         // Dynamic rating font scaling
@@ -3451,7 +3451,7 @@ async function showRivalTeam(discordId, teamName) {
 
                     if (alignedPlayer) {
                         const p = allPlayers.find(x => x.eaPlayerName && x.eaPlayerName.toLowerCase() === alignedPlayer.toLowerCase());
-                        const displayedPoints = p ? Math.round(p.points * 10) / 10 : 0;
+                        const displayedPoints = p ? Math.round((p.lastDayPoints !== undefined ? p.lastDayPoints : p.points) * 10) / 10 : 0;
                         const tierPoints = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
                         const lastName = alignedPlayer.trim().split(' ').pop();
 
@@ -5930,7 +5930,7 @@ async function openPlayerStatsModalByName(playerName) {
         }
     }
 
-    const displayedPoints = p ? Math.round(p.points * 10) / 10 : 0;
+    const displayedPoints = p ? Math.round((p.lastDayPoints !== undefined ? p.lastDayPoints : p.points) * 10) / 10 : 0;
     const tierPoints = p ? Math.round((p.points + (p.basePoints || 0)) * 10) / 10 : 0;
 
     // Dynamic rating font scaling

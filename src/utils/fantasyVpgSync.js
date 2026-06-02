@@ -668,7 +668,7 @@ export async function syncFantasyWithVpg() {
                             if (contractRes.ok) {
                                 const contracts = await contractRes.json();
                                 if (Array.isArray(contracts)) {
-                                    const activeContracts = contracts.filter(c => c.status === 'active');
+                                    const activeContracts = contracts.filter(c => c.status === 'active' && c.community_id === 483);
                                     if (activeContracts.length > 0) {
                                         const matchesActiveContract = activeContracts.some(c => 
                                             String(c.team_slug || '').toLowerCase().trim() === String(pData.vpgTeamSlug || '').toLowerCase().trim()

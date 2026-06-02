@@ -5018,20 +5018,31 @@ export async function startVisualizerServer(discordClient) {
             const communityId = 483;
 
             const filteredContracts = [];
+            const includedUsernames = new Set();
+
+            // First pass: add direct community matches
+            for (const c of rawContracts) {
+                if (c.community_id === communityId && c.username) {
+                    filteredContracts.push(c);
+                    includedUsernames.add(c.username.toLowerCase());
+                }
+            }
+
+            // Second pass: resolve non-direct matches with API check
             await Promise.all(
                 rawContracts.map(async (c) => {
-                    if (c.community_id === communityId) {
-                        filteredContracts.push(c);
-                        return;
-                    }
+                    if (c.community_id === communityId) return;
+                    if (!c.username || includedUsernames.has(c.username.toLowerCase())) return;
+
                     const userContracts = await fetchUserContracts(c.username);
-                    const playsElsewhere = userContracts.some(uc => 
+                    const hasActiveSpanishContractInTeam = userContracts.some(uc => 
                         uc.status === 'active' && 
                         uc.community_id === communityId && 
-                        uc.team_id !== c.team_id
+                        uc.team_id === c.team_id
                     );
-                    if (!playsElsewhere) {
+                    if (hasActiveSpanishContractInTeam) {
                         filteredContracts.push(c);
+                        includedUsernames.add(c.username.toLowerCase());
                     }
                 })
             );
@@ -5155,21 +5166,31 @@ export async function startVisualizerServer(discordClient) {
             // Filter contracts: keep target community (e.g. 483). For other communities (global 479, esports 701, etc.),
             // include them unless the user has an active contract in the target community with a different team.
             const filteredContracts = [];
+            const includedUsernames = new Set();
+
+            // First pass: add direct community matches
+            for (const c of rawContracts) {
+                if (c.community_id === communityId && c.username) {
+                    filteredContracts.push(c);
+                    includedUsernames.add(c.username.toLowerCase());
+                }
+            }
+
+            // Second pass: resolve non-direct matches with API check
             await Promise.all(
                 rawContracts.map(async (c) => {
-                    if (c.community_id === communityId) {
-                        filteredContracts.push(c);
-                        return;
-                    }
-                    // For any other community contract of our team, verify they don't play elsewhere in the target community
+                    if (c.community_id === communityId) return;
+                    if (!c.username || includedUsernames.has(c.username.toLowerCase())) return;
+
                     const userContracts = await fetchUserContracts(c.username);
-                    const playsElsewhere = userContracts.some(uc => 
+                    const hasActiveSpanishContractInTeam = userContracts.some(uc => 
                         uc.status === 'active' && 
                         uc.community_id === communityId && 
-                        uc.team_id !== c.team_id
+                        uc.team_id === c.team_id
                     );
-                    if (!playsElsewhere) {
+                    if (hasActiveSpanishContractInTeam) {
                         filteredContracts.push(c);
+                        includedUsernames.add(c.username.toLowerCase());
                     }
                 })
             );
@@ -7416,6 +7437,29 @@ export async function startVisualizerServer(discordClient) {
                 });
             }
 
+            // Enrich with lastDayPoints (points from the latest sync run/gameweek)
+            const lastPointsMap = {};
+            if (leagueId) {
+                const latestDoc = await db.collection('fantasy_player_history')
+                    .findOne({ leagueId }, { sort: { createdAt: -1 } });
+                if (latestDoc) {
+                    const latestDate = latestDoc.createdAt;
+                    // Find all history records from the same sync run (within 2 minutes of the latest one)
+                    const rangeStart = new Date(latestDate.getTime() - 2 * 60 * 1000);
+                    const rangeEnd = new Date(latestDate.getTime() + 2 * 60 * 1000);
+                    const latestRunDocs = await db.collection('fantasy_player_history')
+                        .find({ 
+                            leagueId, 
+                            createdAt: { $gte: rangeStart, $lte: rangeEnd } 
+                        }).toArray();
+                    latestRunDocs.forEach(doc => {
+                        if (doc.playerName) {
+                            lastPointsMap[doc.playerName.toLowerCase()] = doc.points || 0;
+                        }
+                    });
+                }
+            }
+
             const processedPlayers = rawPlayers.map(p => {
                 const { price, points: rawPoints, avgRating } = calculatePlayerPointsAndPrice(p);
                 let points = rawPoints;
@@ -7462,6 +7506,7 @@ export async function startVisualizerServer(discordClient) {
                     price,
                     points,
                     basePoints: basePointsValue,
+                    lastDayPoints: lastPointsMap[nameLower] !== undefined ? lastPointsMap[nameLower] : 0,
                     owner: ownerMap[p.eaPlayerName] || null,
                     ownerDiscordId: ownerDiscordIdMap[p.eaPlayerName] || null,
                     clause: clauseMap[p.eaPlayerName] || null,
