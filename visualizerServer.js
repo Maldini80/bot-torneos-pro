@@ -7444,9 +7444,9 @@ export async function startVisualizerServer(discordClient) {
                     .findOne({ leagueId }, { sort: { createdAt: -1 } });
                 if (latestDoc) {
                     const latestDate = latestDoc.createdAt;
-                    // Find all history records from the same sync run (within 2 minutes of the latest one)
-                    const rangeStart = new Date(latestDate.getTime() - 2 * 60 * 1000);
-                    const rangeEnd = new Date(latestDate.getTime() + 2 * 60 * 1000);
+                    // Find all history records from the same sync run (within 15 minutes of the latest one)
+                    const rangeStart = new Date(latestDate.getTime() - 15 * 60 * 1000);
+                    const rangeEnd = new Date(latestDate.getTime() + 15 * 60 * 1000);
                     const latestRunDocs = await db.collection('fantasy_player_history')
                         .find({ 
                             leagueId, 
