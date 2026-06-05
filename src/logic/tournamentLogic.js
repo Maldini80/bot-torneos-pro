@@ -620,6 +620,7 @@ async function fullCleanupDraft(client, draft) {
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.notificationsThreadId);
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.casterTextChannelId);
     await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.warRoomVoiceChannelId);
+    await deleteResourceSafe(client.channels.fetch.bind(client.channels), discordMessageIds.captainSelectionVoiceChannelId);
 
     try {
         const globalChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_STATUS);
@@ -920,7 +921,8 @@ export async function createNewDraft(client, guild, name, shortId, config) {
                 turnOrderMessageId: null, notificationsThreadId: null,
                 captainControlPanelMessageId: null,
                 casterTextChannelId: null,
-                warRoomVoiceChannelId: null
+                warRoomVoiceChannelId: null,
+                captainSelectionVoiceChannelId: null
             }
         };
 
@@ -966,6 +968,19 @@ export async function createNewDraft(client, guild, name, shortId, config) {
             permissionOverwrites: basePermissions
         });
         newDraft.discordMessageIds.casterTextChannelId = casterTextChannel.id;
+
+        const selectionVoicePermissions = [
+            { id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak] },
+            { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect] }
+        ];
+
+        const captainSelectionVoiceChannel = await guild.channels.create({
+            name: `🎙️ Elección de Capitanes: ${name.slice(0, 40)}`,
+            type: ChannelType.GuildVoice,
+            parent: CHANNELS.CASTER_DRAFT_CATEGORY_ID,
+            permissionOverwrites: selectionVoicePermissions
+        });
+        newDraft.discordMessageIds.captainSelectionVoiceChannelId = captainSelectionVoiceChannel.id;
 
         await db.collection('drafts').insertOne(newDraft);
 
@@ -1048,6 +1063,15 @@ export async function startDraftSelection(client, guild, draftShortId) {
             { id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak] },
             { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect] }
         ];
+
+        if (draft.discordMessageIds && draft.discordMessageIds.captainSelectionVoiceChannelId) {
+            try {
+                const preSelectChan = await guild.channels.fetch(draft.discordMessageIds.captainSelectionVoiceChannelId).catch(() => null);
+                if (preSelectChan) await preSelectChan.delete().catch(() => null);
+            } catch (err) {
+                console.error("No se pudo borrar el canal de voz pre-selección:", err);
+            }
+        }
 
         const warRoomVoiceChannel = await guild.channels.create({
             name: `🎙️ War Room Draft: ${draft.name}`,
