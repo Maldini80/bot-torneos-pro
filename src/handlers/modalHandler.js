@@ -1545,8 +1545,15 @@ export async function handleModal(interaction) {
                     { name: 'Equipo EAFC', value: captainData.eafcTeamName, inline: false }, { name: 'Canal Transmisión', value: captainData.streamChannel, inline: false },
                     { name: 'Twitter', value: captainData.twitter || 'No proporcionado', inline: false }
                 );
-            const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
-            await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
+            const adminButtons = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+            );
+            const adminMgmtButtons = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`draft_list_approved_captains:${draftShortId}`).setLabel('📋 Lista de capitanes aprobados').setStyle(ButtonStyle.Primary),
+                new ButtonBuilder().setCustomId(`draft_close_captains_flow_start:${draftShortId}`).setLabel('🏁 Finalizar elección de capitanes').setStyle(ButtonStyle.Danger)
+            );
+            await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons, adminMgmtButtons] });
         } catch (e) {
             console.error("Failed to send captain application to admin channel:", e);
         }
@@ -2011,8 +2018,15 @@ export async function handleModal(interaction) {
                         { name: 'Canal Transmisión', value: captainData.streamChannel, inline: false },
                         { name: 'Twitter', value: captainData.twitter || 'No proporcionado', inline: false }
                     );
-                const adminButtons = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger));
-                await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons] });
+                const adminButtons = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId(`draft_approve_captain:${draftShortId}:${userId}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
+                    new ButtonBuilder().setCustomId(`draft_reject_captain:${draftShortId}:${userId}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+                );
+                const adminMgmtButtons = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId(`draft_list_approved_captains:${draftShortId}`).setLabel('📋 Lista de capitanes aprobados').setStyle(ButtonStyle.Primary),
+                    new ButtonBuilder().setCustomId(`draft_close_captains_flow_start:${draftShortId}`).setLabel('🏁 Finalizar elección de capitanes').setStyle(ButtonStyle.Danger)
+                );
+                await approvalChannel.send({ embeds: [adminEmbed], components: [adminButtons, adminMgmtButtons] });
                 await interaction.editReply('✅ ¡Tu solicitud para ser capitán ha sido recibida! Un administrador la revisará pronto.');
 
             } else {

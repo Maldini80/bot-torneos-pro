@@ -1883,6 +1883,196 @@ export async function handleButton(interaction) {
         return;
     }
 
+    if (action === 'draft_list_approved_captains') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) {
+            return interaction.editReply({ content: '❌ Draft no encontrado.' });
+        }
+
+        const captains = draft.captains || [];
+        if (captains.length === 0) {
+            return interaction.editReply({ content: 'ℹ️ Aún no hay capitanes aprobados en este draft.' });
+        }
+
+        let description = `Actualmente hay **${captains.length}** capitanes aprobados:\n\n`;
+        captains.forEach((cap, idx) => {
+            description += `**${idx + 1}. ${cap.teamName}**\n• Discord: <@${cap.userId}> (${cap.userName})\n• PSN: \`${cap.psnId}\`\n• WhatsApp: \`${cap.whatsapp}\`\n\n`;
+        });
+
+        if (description.length > 4000) {
+            description = description.substring(0, 3990) + '\n...(y más)...';
+        }
+
+        const embed = new EmbedBuilder()
+            .setColor('#3498db')
+            .setTitle(`📋 Capitanes Aprobados: ${draft.name}`)
+            .setDescription(description)
+            .setTimestamp();
+
+        return interaction.editReply({ embeds: [embed] });
+    }
+
+    if (action === 'draft_close_captains_flow_start') {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+        const [draftShortId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) {
+            return interaction.editReply({ content: '❌ Draft no encontrado.' });
+        }
+
+        const captains = draft.captains || [];
+        const pendingCaptainsCount = draft.pendingCaptains ? Object.keys(draft.pendingCaptains).length : 0;
+
+        let captainsList = captains.map((cap, idx) => `• **${cap.teamName}** - <@${cap.userId}> (${cap.userName})`).join('\n') || '*Ninguno*';
+        if (captainsList.length > 2000) captainsList = captainsList.substring(0, 1990) + '\n...';
+
+        const embed = new EmbedBuilder()
+            .setColor('#e74c3c')
+            .setTitle(`🏁 Finalizar Elección de Capitanes`)
+            .setDescription(`¿Estás seguro de que deseas finalizar la fase de selección de capitanes?\n\n**Capitanes Aprobados (${captains.length}):**\n${captainsList}\n\n**Candidatos Pendientes a Convertir en Agentes Libres:** **${pendingCaptainsCount}**\n\n⚠️ **Acciones que se realizarán:**\n1. Se deshabilitarán las inscripciones de capitanes.\n2. Los **${pendingCaptainsCount}** candidatos de capitán pendientes se convertirán **directamente en Agentes Libres** en el Draft (inscritos y auto-verificados).\n3. Se les enviará un DM informándoles de la conversión.\n4. Se limpiará la lista de solicitudes pendientes.`)
+            .setTimestamp();
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`draft_confirm_close_captains:${draftShortId}`).setLabel('Confirmar y Cerrar').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId(`draft_cancel_close_captains`).setLabel('Cancelar').setStyle(ButtonStyle.Danger)
+        );
+
+        return interaction.editReply({ embeds: [embed], components: [row] });
+    }
+
+    if (action === 'draft_cancel_close_captains') {
+        return interaction.update({ content: '❌ Operación cancelada por el administrador.', embeds: [], components: [] });
+    }
+
+    if (action === 'draft_confirm_close_captains') {
+        await interaction.deferUpdate();
+        const [draftShortId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) {
+            return interaction.followUp({ content: '❌ Draft no encontrado.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const pendingCaptainsMap = draft.pendingCaptains || {};
+        const candidates = Object.values(pendingCaptainsMap);
+
+        const playersToAdd = [];
+        const verifiedUsersToUpsert = [];
+
+        for (const candidate of candidates) {
+            const playerData = {
+                userId: candidate.userId,
+                userName: candidate.userName,
+                psnId: candidate.psnId,
+                twitter: candidate.twitter || 'No proporcionado',
+                whatsapp: candidate.whatsapp,
+                primaryPosition: candidate.position || 'POR',
+                secondaryPosition: 'NONE',
+                currentTeam: 'Libre',
+                isCaptain: false,
+                captainId: null
+            };
+            playersToAdd.push(playerData);
+
+            verifiedUsersToUpsert.push({
+                discordId: candidate.userId,
+                discordTag: candidate.userName,
+                gameId: candidate.psnId,
+                whatsapp: candidate.whatsapp,
+                twitter: candidate.twitter,
+                position: candidate.position || 'POR',
+                secondaryPosition: 'NONE',
+                verifiedAt: new Date()
+            });
+        }
+
+        // Pull existing registrations in database and insert new free agent records
+        for (const player of playersToAdd) {
+            await db.collection('drafts').updateOne(
+                { _id: draft._id },
+                { $pull: { players: { userId: player.userId } } }
+            );
+            await db.collection('drafts').updateOne(
+                { _id: draft._id },
+                { $pull: { players: { psnId: player.psnId } } }
+            );
+            await db.collection('drafts').updateOne(
+                { _id: draft._id },
+                { $push: { players: player } }
+            );
+
+            // Sync verification data
+            const verifiedProfile = verifiedUsersToUpsert.find(v => v.discordId === player.userId);
+            if (verifiedProfile) {
+                await db.collection('verified_users').updateOne(
+                    { discordId: player.userId },
+                    { $set: verifiedProfile },
+                    { upsert: true }
+                );
+            }
+        }
+
+        // Reset pending lists
+        await db.collection('drafts').updateOne(
+            { _id: draft._id },
+            { $set: { pendingCaptains: {}, pendingPlayers: {} } }
+        );
+
+        // Notify and assign roles in Discord asynchronously
+        const verifiedRole = await guild.roles.fetch(VERIFIED_ROLE_ID).catch(() => null);
+        await Promise.allSettled(playersToAdd.map(async (player) => {
+            if (verifiedRole) {
+                try {
+                    const member = await guild.members.fetch(player.userId).catch(() => null);
+                    if (member) {
+                        await member.roles.add(verifiedRole).catch(() => null);
+                    }
+                } catch (err) {
+                    console.warn(`No se pudo asignar rol verificado a ${player.userId}:`, err);
+                }
+            }
+
+            try {
+                const discordUser = await client.users.fetch(player.userId).catch(() => null);
+                if (discordUser) {
+                    await discordUser.send(`ℹ️ Tu solicitud de capitán para el draft **${draft.name}** no ha obtenido plaza, pero has sido registrado directamente como **Jugador Libre** (Agente Libre).\n\n🎮 **PSN ID:** \`${player.psnId}\`\n📞 **WhatsApp:** \`${player.whatsapp}\`\n⚽ **Posición:** \`${player.primaryPosition}\``);
+                }
+            } catch (dmErr) {
+                console.warn(`No se pudo enviar DM de agente libre al usuario ${player.userId}:`, dmErr);
+            }
+        }));
+
+        // Notify draft channels and update visualizers
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        const { updatePublicMessages, notifyVisualizer } = await import('../logic/tournamentLogic.js');
+        if (typeof updatePublicMessages === 'function') {
+            await updatePublicMessages(client, updatedDraft).catch(() => {});
+        }
+        updateDraftMainInterface(client, updatedDraft.shortId);
+        notifyVisualizer(updatedDraft);
+
+        try {
+            const notificationChannel = await client.channels.fetch(draft.discordMessageIds.notificationsThreadId);
+            if (notificationChannel) {
+                const closureEmbed = new EmbedBuilder()
+                    .setColor('#2ecc71')
+                    .setTitle(`🏁 Elección de Capitanes Finalizada`)
+                    .setDescription(`La fase de elección de capitanes del draft **${draft.name}** ha finalizado.\n\n- **Capitanes Aprobados:** ${updatedDraft.captains ? updatedDraft.captains.length : 0}\n- **Nuevos Jugadores Libres (candidatos no seleccionados):** ${playersToAdd.length}\n\nTodos los candidatos no seleccionados han sido inscritos como Agentes Libres en el draft de manera automática.`)
+                    .setTimestamp();
+                await notificationChannel.send({ embeds: [closureEmbed] });
+            }
+        } catch (err) {
+            console.error("No se pudo enviar notificación de finalización de capitanes al canal:", err);
+        }
+
+        return interaction.editReply({
+            content: `✅ **Elección de capitanes finalizada con éxito.**\n\n- Capitanes aprobados: **${updatedDraft.captains ? updatedDraft.captains.length : 0}**\n- Candidatos convertidos a libres: **${playersToAdd.length}**\n\nEl canal y la web han sido actualizados.`,
+            embeds: [],
+            components: []
+        });
+    }
+
     if (action === 'admin_approve_reg_upd' || action === 'admin_reject_reg_upd') {
         await interaction.deferUpdate();
         const [tournamentShortId, targetUserId] = params;
