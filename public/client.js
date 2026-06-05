@@ -1787,7 +1787,32 @@ function initializeDraftView(draftId) {
         // IDs de capitanes para excluirlos de "disponibles"
         const captainUserIds = new Set((draft.captains || []).map(c => c.userId));
 
-        let availablePlayers = draft.players.filter(p => (p.captainId === null || p.captainId === undefined) && p.isCaptain === false && !captainUserIds.has(p.userId));
+        const pendingCaptainsMap = draft.pendingCaptains || {};
+        const pendingCaptainsList = Object.values(pendingCaptainsMap).map(c => ({
+            userId: c.userId,
+            userName: c.userName,
+            psnId: c.psnId,
+            twitter: c.twitter || 'No proporcionado',
+            whatsapp: c.whatsapp,
+            primaryPosition: c.position || 'POR',
+            secondaryPosition: 'NONE',
+            currentTeam: 'Libre',
+            isCaptain: false,
+            captainId: null,
+            isPendingCaptain: true
+        }));
+
+        const allPlayers = [...draft.players];
+        pendingCaptainsList.forEach(pc => {
+            if (!allPlayers.some(p => p.userId === pc.userId)) {
+                allPlayers.push(pc);
+            } else {
+                const existing = allPlayers.find(p => p.userId === pc.userId);
+                existing.isPendingCaptain = true;
+            }
+        });
+
+        let availablePlayers = allPlayers.filter(p => (p.captainId === null || p.captainId === undefined) && p.isCaptain === false && !captainUserIds.has(p.userId));
 
         availablePlayers.sort(sortPlayersAdvanced);
 
@@ -1843,10 +1868,11 @@ function initializeDraftView(draftId) {
                     </span>
                 </td>`;
             }
+            const displayName = player.isPendingCaptain ? `👑 Ⓒ ${player.psnId}` : player.psnId;
 
             const innerHTML = `
                 <td data-label="Strikes"><span class="player-data">${player.strikes || 0}</span></td>
-                <td data-label="NOMBRE"><span class="player-data">${player.psnId}</span></td>
+                <td data-label="NOMBRE"><span class="player-data">${displayName}</span></td>
                 ${whatsappCell}
                 <td data-label="Pos. Primaria" class="col-primary"><span class="player-data">${player.primaryPosition}</span></td>
                 <td data-label="Pos. Secundaria" class="col-secondary"><span class="player-data">${secPos}</span></td>
