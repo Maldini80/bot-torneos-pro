@@ -1816,8 +1816,10 @@ function initializeDraftView(draftId) {
                     actionButtonsHTML = `<button class="admin-finalize-replace-btn" data-new-player-id="${player.userId}" data-new-player-psn="${player.psnId}" style="background-color:#E62429; color:white; padding:5px; border-radius:5px; border:none; cursor:pointer; font-weight:bold;">Sustituir</button>`;
                 } else {
                     actionButtonsHTML = `
-                        <button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}" style="background-color:#3498db; color:white; padding:5px 10px; border-radius:5px; border:none; cursor:pointer; font-weight:bold;">Elegir</button>
-                        <button class="kick-btn" data-player-id="${player.userId}" data-player-psn="${player.psnId}" style="background-color:#e74c3c; color:white; padding:5px 10px; border-radius:5px; border:none; cursor:pointer; font-weight:bold; margin-left: 5px;">Expulsar</button>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}" style="background-color:#3498db; color:white; padding:6px 12px; border-radius:5px; border:none; cursor:pointer; font-weight:bold; font-size:0.85rem;">Elegir</button>
+                            <button class="kick-btn" data-player-id="${player.userId}" data-player-psn="${player.psnId}" style="background-color:#e74c3c; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold; width:28px; height:28px; padding:0; display:flex; align-items:center; justify-content:center; font-size:0.85rem;" title="Expulsar Jugador">✖️</button>
+                        </div>
                     `;
                 }
             } else if (window.captainSubstituteMode) {
@@ -2188,17 +2190,20 @@ function initializeDraftView(draftId) {
     }
 
     function setupFilters() {
+        const searchContainer = document.getElementById('table-search-container');
+        if (searchContainer && searchContainer.innerHTML === '') {
+            searchContainer.innerHTML = `
+                <select id="filter-column-select" style="padding: 6px 12px; border-radius: 6px; border: 1.5px solid rgba(255,255,255,0.2); background: rgba(0,0,0,0.4); color: white; font-size: 0.85rem; outline: none;"><option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option></select>
+                <input type="text" id="player-search-input" placeholder="🔍 Buscar jugador..." style="padding: 6px 12px; border-radius: 6px; border: 1.5px solid var(--neon-cyan); background: rgba(0, 0, 0, 0.4); color: white; font-size: 0.85rem; width: 180px; outline: none; box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);">
+            `;
+            const select = document.getElementById('filter-column-select');
+            select.addEventListener('change', applyTableFilters);
+
+            const searchInput = document.getElementById('player-search-input');
+            searchInput.addEventListener('input', applyTableFilters);
+        }
+
         if (positionFiltersEl.innerHTML !== '') return;
-        positionFiltersEl.innerHTML = `
-            <select id="filter-column-select"><option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option></select>
-            <input type="text" id="player-search-input" placeholder="🔍 Buscar jugador..." style="padding: 6px 12px; border-radius: 6px; border: 1.5px solid var(--neon-cyan); background: rgba(0, 0, 0, 0.4); color: white; margin-left: 10px; font-size: 0.85rem; width: 150px; outline: none; box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);">
-        `;
-        const select = document.getElementById('filter-column-select');
-        select.addEventListener('change', applyTableFilters);
-
-        const searchInput = document.getElementById('player-search-input');
-        searchInput.addEventListener('input', applyTableFilters);
-
         const allPositions = ['Todos', 'GK', 'DFC', 'CARR', 'Medios', 'DC'];
         allPositions.forEach(pos => {
             const btn = document.createElement('button');
