@@ -233,9 +233,10 @@
                     </div>
                 </div>
                 <div class="draft-header-session">
-                    <div id="auth-controls">
-                        <div id="user-session" class="hidden">
-                            <span id="user-greeting"></span>
+                    <div id="auth-controls" style="display: flex; align-items: center; gap: 8px;">
+                        <button id="admin-gear-btn" class="auth-btn login" onclick="openAdminControlModal()" style="display: none; background: rgba(0, 240, 255, 0.1); border-color: var(--neon-cyan); color: var(--neon-cyan); padding: 7px 10px; cursor: pointer;" title="Panel de Control Admin">⚙️</button>
+                        <div id="user-session" class="hidden" style="display: flex; align-items: center; gap: 8px;">
+                            <span id="user-greeting" style="margin: 0; white-space: nowrap;"></span>
                             <a href="/logout" class="auth-btn logout">Cerrar Sesión</a>
                         </div>
                         <div id="login-control">
@@ -304,6 +305,76 @@
             <h3 id="modal-player-name"></h3>
             <div id="modal-player-details-content">
                 <!-- Los detalles del jugador se insertarán aquí con JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Panel Admin Directo -->
+    <div id="admin-control-modal" class="modal hidden" style="z-index: 2050;">
+        <div class="modal-content" style="max-width: 500px; background-color: #0c0c18; border: 1.5px solid var(--neon-cyan); border-radius: 12px; padding: 25px; box-shadow: 0 0 20px rgba(10, 132, 255, 0.3); position: relative;">
+            <span class="close-button" onclick="document.getElementById('admin-control-modal').classList.add('hidden')" style="cursor: pointer; float: right; font-size: 1.5rem; color: var(--text-secondary);">&times;</span>
+            <h2 style="margin-top: 0; font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--neon-cyan); letter-spacing: 1.5px; text-transform: uppercase;">⚙️ Panel Admin / Árbitro</h2>
+            
+            <!-- Volver atrás en los picks (Deshacer pick) -->
+            <div style="margin-top: 20px; padding: 15px; background: rgba(231, 76, 60, 0.1); border: 1px solid rgba(231, 76, 60, 0.3); border-radius: 8px;">
+                <h3 style="margin-top: 0; font-size: 1.1rem; color: #e74c3c; font-family: 'Bebas Neue', sans-serif;">Deshacer Último Pick</h3>
+                <p style="font-size: 0.85rem; color: #a8a8a8; margin-bottom: 10px;">Retrocede el turno del draft y devuelve al último jugador elegido a la lista de disponibles.</p>
+                <button onclick="adminUndoPickFromModal()" style="background-color: #e74c3c; color: white; border: none; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s;">⏪ Deshacer Pick</button>
+            </div>
+
+            <!-- Añadir jugador a Libres -->
+            <div style="margin-top: 20px; padding: 15px; background: rgba(10, 132, 255, 0.05); border: 1px solid rgba(10, 132, 255, 0.2); border-radius: 8px;">
+                <h3 style="margin-top: 0; font-size: 1.1rem; color: var(--neon-cyan); font-family: 'Bebas Neue', sans-serif;">Añadir Jugador Libre</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div style="display: flex; gap: 10px;">
+                        <div style="flex: 1;">
+                            <label style="display: block; font-size: 0.8rem; color: #a8a8a8; margin-bottom: 4px;">ID Discord (o único):</label>
+                            <input type="text" id="admin-add-player-id" placeholder="Ej: 139350..." style="width: 100%; padding: 8px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white; box-sizing: border-box;">
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="display: block; font-size: 0.8rem; color: #a8a8a8; margin-bottom: 4px;">PSN ID / Nombre (Opcional):</label>
+                            <input type="text" id="admin-add-player-psn" placeholder="Ej: Pedro123" style="width: 100%; padding: 8px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white; box-sizing: border-box;">
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px;">
+                        <div style="flex: 1;">
+                            <label style="display: block; font-size: 0.8rem; color: #a8a8a8; margin-bottom: 4px;">Pos. Principal:</label>
+                            <select id="admin-add-player-primary-pos" style="width: 100%; padding: 8px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white; box-sizing: border-box;">
+                                <option value="GK">GK</option>
+                                <option value="DFC">DFC</option>
+                                <option value="CARR">CARR</option>
+                                <option value="MC">MC</option>
+                                <option value="DC" selected>DC</option>
+                            </select>
+                        </div>
+                        <div style="flex: 1;">
+                            <label style="display: block; font-size: 0.8rem; color: #a8a8a8; margin-bottom: 4px;">Pos. Secundaria:</label>
+                            <select id="admin-add-player-secondary-pos" style="width: 100%; padding: 8px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white; box-sizing: border-box;">
+                                <option value="NONE" selected>Ninguna</option>
+                                <option value="GK">GK</option>
+                                <option value="DFC">DFC</option>
+                                <option value="CARR">CARR</option>
+                                <option value="MC">MC</option>
+                                <option value="DC">DC</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button onclick="adminAddPlayerFromModal()" style="background: linear-gradient(135deg, #00f0ff, #0284c7); color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer; margin-top: 5px;">⚡ Añadir a la lista de Libres</button>
+                </div>
+            </div>
+
+            <!-- Expulsar jugador -->
+            <div style="margin-top: 20px; padding: 15px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 8px;">
+                <h3 style="margin-top: 0; font-size: 1.1rem; color: #e74c3c; font-family: 'Bebas Neue', sans-serif;">Expulsar Jugador del Draft</h3>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; color: #a8a8a8; margin-bottom: 4px;">Buscar Jugador:</label>
+                        <input type="text" id="admin-kick-search-input" placeholder="Escribe el nombre del jugador..." onkeyup="adminFilterKickPlayers()" style="width: 100%; padding: 8px; border-radius: 6px; background: #0f0f1a; border: 1px solid #444; color: white; box-sizing: border-box;">
+                    </div>
+                    <div id="admin-kick-results-container" style="max-height: 150px; overflow-y: auto; border: 1px solid rgba(255,255,255,0.05); border-radius: 6px; background: #080810; padding: 5px; display: none; flex-direction: column; gap: 4px;">
+                        <!-- Resultados de búsqueda -->
+                    </div>
+                </div>
             </div>
         </div>
     </div>

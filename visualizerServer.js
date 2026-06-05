@@ -11,7 +11,7 @@ import MongoStore from 'connect-mongo';
 import passport from 'passport';
 import { Strategy as DiscordStrategy } from 'passport-discord';
 // IMPORTAMOS LAS NUEVAS FUNCIONES DE GESTIÓN
-import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb, handleRouletteSpinResult, undoLastPick, forcePickFromWeb, adminKickPlayerFromWeb, adminAddPlayerFromWeb, sendRegistrationRequest, sendPaymentApprovalRequest, adminReplacePickFromWeb, approveExternalDraftCaptain } from './src/logic/tournamentLogic.js';
+import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb, handleRouletteSpinResult, undoLastPick, forcePickFromWeb, adminKickPlayerFromWeb, adminAddPlayerFromWeb, adminAddFreeAgentFromWeb, sendRegistrationRequest, sendPaymentApprovalRequest, adminReplacePickFromWeb, approveExternalDraftCaptain } from './src/logic/tournamentLogic.js';
 import { getDb } from './database.js';
 import { fetchVpgSpainLeagues } from './src/utils/vpgCrawler.js';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
@@ -4274,6 +4274,14 @@ export async function startVisualizerServer(discordClient) {
         try {
             const { draftId, teamId, playerId } = req.body;
             await adminAddPlayerFromWeb(client, draftId, teamId, playerId, req.user.username);
+            res.json({ success: true });
+        } catch (e) { res.status(400).json({ error: e.message }); }
+    });
+
+    app.post('/api/admin/add-free-agent', isAdmin, async (req, res) => {
+        try {
+            const { draftId, playerId, psnId, primaryPosition, secondaryPosition } = req.body;
+            await adminAddFreeAgentFromWeb(client, draftId, playerId, psnId, primaryPosition, secondaryPosition, req.user.username);
             res.json({ success: true });
         } catch (e) { res.status(400).json({ error: e.message }); }
     });

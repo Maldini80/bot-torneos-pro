@@ -948,6 +948,7 @@ function initializeDraftView(draftId) {
     async function initialize() {
         await checkUserSession();
         await checkUserRoleInEvent(draftId);
+        updateAdminControlsVisibility();
         connectWebSocket();
         fetchInitialData();
         setupEventListeners();
@@ -986,6 +987,23 @@ function initializeDraftView(draftId) {
         }
     }
 
+    function updateAdminControlsVisibility() {
+        const gearBtn = document.getElementById('admin-gear-btn');
+        if (!gearBtn) return;
+        
+        const isUserAdminOrReferee = currentUser && (
+            currentUser.isAdmin || 
+            currentUser.isReferee || 
+            (userRoleData && (userRoleData.isAdmin || userRoleData.role === 'admin'))
+        );
+        
+        if (isUserAdminOrReferee) {
+            gearBtn.style.display = 'inline-block';
+        } else {
+            gearBtn.style.display = 'none';
+        }
+    }
+
     async function checkUserSession() {
         try {
             const response = await fetch('/api/user');
@@ -997,14 +1015,151 @@ function initializeDraftView(draftId) {
                 document.getElementById('user-greeting').textContent = `Hola, ${currentUser.username}`;
                 userSessionEl.classList.remove('hidden');
                 if (loginControlEl) loginControlEl.classList.add('hidden');
+                updateAdminControlsVisibility();
             } else {
                 userSessionEl.classList.add('hidden');
                 if (loginControlEl) loginControlEl.classList.remove('hidden');
+                const gearBtn = document.getElementById('admin-gear-btn');
+                if (gearBtn) gearBtn.style.display = 'none';
             }
         } catch (e) {
             console.error("Error al verificar la sesión:", e);
         }
     }
+
+    window.openAdminControlModal = function() {
+        const modal = document.getElementById('admin-control-modal');
+        if (!modal || !currentDraftState) return;
+
+        document.getElementById('admin-add-player-id').value = '';
+        document.getElementById('admin-add-player-psn').value = '';
+        document.getElementById('admin-kick-search-input').value = '';
+        document.getElementById('admin-kick-results-container').style.display = 'none';
+        document.getElementById('admin-kick-results-container').innerHTML = '';
+
+        modal.classList.remove('hidden');
+    };
+
+    window.adminUndoPickFromModal = function() {
+        if (!currentDraftState) return;
+        if (confirm('¿Seguro que quieres deshacer el último pick? El turno retrocederá y el jugador volverá a la lista de Libres.')) {
+            socket.send(JSON.stringify({ type: 'admin_undo_pick', draftId: currentDraftState.shortId }));
+            document.getElementById('admin-control-modal').classList.add('hidden');
+        }
+    };
+
+    window.adminAddPlayerFromModal = async function() {
+        const playerId = document.getElementById('admin-add-player-id').value.trim();
+        const psnId = document.getElementById('admin-add-player-psn').value.trim();
+        const primaryPosition = document.getElementById('admin-add-player-primary-pos').value;
+        const secondaryPosition = document.getElementById('admin-add-player-secondary-pos').value;
+
+        if (!psnId) {
+            alert('Por favor, introduce el PSN ID / Nombre del jugador (es obligatorio).');
+            return;
+        }
+
+        if (!confirm(`¿Añadir al jugador ${psnId} a la lista de Libres?`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/admin/add-free-agent', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    draftId: currentDraftState.shortId,
+                    playerId,
+                    psnId: psnId || null,
+                    primaryPosition,
+                    secondaryPosition
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Jugador añadido como Agente Libre.');
+                document.getElementById('admin-add-player-id').value = '';
+                document.getElementById('admin-add-player-psn').value = '';
+                document.getElementById('admin-control-modal').classList.add('hidden');
+            } else {
+                alert('Error: ' + data.error);
+            }
+        } catch (e) {
+            alert('Error al añadir jugador: ' + e.message);
+        }
+    };
+
+    window.adminFilterKickPlayers = function() {
+        const query = document.getElementById('admin-kick-search-input').value.toLowerCase().trim();
+        const container = document.getElementById('admin-kick-results-container');
+        if (!container) return;
+
+        if (!query || !currentDraftState) {
+            container.style.display = 'none';
+            container.innerHTML = '';
+            return;
+        }
+
+        const matches = currentDraftState.players.filter(p => {
+            const name = (p.psnId || p.userName || '').toLowerCase();
+            return name.includes(query);
+        });
+
+        if (matches.length === 0) {
+            container.innerHTML = '<div style="color: #64748b; font-style: italic; padding: 5px; font-size: 0.85rem;">Ningún jugador coincide</div>';
+            container.style.display = 'flex';
+            return;
+        }
+
+        container.style.display = 'flex';
+        container.innerHTML = matches.map(p => {
+            let statusText = 'Libre';
+            let teamId = null;
+            if (p.captainId) {
+                const team = currentDraftState.captains.find(c => c.userId === p.captainId);
+                statusText = team ? `En equipo: ${team.teamName}` : 'En equipo';
+                teamId = p.captainId;
+            } else if (p.isCaptain) {
+                statusText = 'Capitán';
+                teamId = p.userId;
+            }
+
+            return `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 4px; font-size: 0.85rem; margin-bottom: 2px;">
+                    <div style="flex-grow: 1; min-width: 0; text-align: left;">
+                        <span style="font-weight: bold; color: #fff; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${p.psnId}</span>
+                        <span style="font-size: 0.75rem; color: #64748b;">(${statusText})</span>
+                    </div>
+                    <button onclick="adminKickFromModal('${p.userId}', '${teamId || ''}', '${p.psnId.replace(/'/g, "\\'")}')" style="background-color: #e74c3c; color: white; border: none; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; font-weight: bold; flex-shrink: 0; margin-left: 10px;">Expulsar</button>
+                </div>
+            `;
+        }).join('');
+    };
+
+    window.adminKickFromModal = async function(playerId, teamId, playerName) {
+        if (!confirm(`¿Seguro que quieres expulsar a ${playerName} del draft por completo?`)) {
+            return;
+        }
+
+        try {
+            const res = await fetch('/api/admin/kick-player', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ draftId: currentDraftState.shortId, teamId: teamId || null, playerId })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`¡${playerName} expulsado con éxito!`);
+                document.getElementById('admin-kick-search-input').value = '';
+                adminFilterKickPlayers();
+                document.getElementById('admin-control-modal').classList.add('hidden');
+            } else {
+                alert('Error: ' + data.error);
+            }
+        } catch (e) {
+            alert('Error al expulsar jugador: ' + e.message);
+        }
+    };
 
     function connectWebSocket() {
         if (socket) {
@@ -1663,7 +1818,10 @@ function initializeDraftView(draftId) {
                 if (window.adminReplaceMode) {
                     actionButtonsHTML = `<button class="admin-finalize-replace-btn" data-new-player-id="${player.userId}" data-new-player-psn="${player.psnId}" style="background-color:#E62429; color:white; padding:5px; border-radius:5px; border:none; cursor:pointer; font-weight:bold;">Sustituir</button>`;
                 } else {
-                    actionButtonsHTML = `<button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}" style="background-color:#3498db; color:white; padding:5px 10px; border-radius:5px; border:none; cursor:pointer; font-weight:bold;">Elegir</button>`;
+                    actionButtonsHTML = `
+                        <button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}" style="background-color:#3498db; color:white; padding:5px 10px; border-radius:5px; border:none; cursor:pointer; font-weight:bold;">Elegir</button>
+                        <button class="kick-btn" data-player-id="${player.userId}" data-player-psn="${player.psnId}" style="background-color:#e74c3c; color:white; padding:5px 10px; border-radius:5px; border:none; cursor:pointer; font-weight:bold; margin-left: 5px;">Expulsar</button>
+                    `;
                 }
             } else if (window.captainSubstituteMode) {
                 actionButtonsHTML = `<button class="captain-substitute-select-btn" data-player-id="${player.userId}" data-player-psn="${player.psnId}" data-draft-id="${draft.shortId}" style="background:linear-gradient(135deg, #2196F3, #1565C0); color:white; padding:6px 12px; border-radius:6px; border:none; cursor:pointer; font-weight:bold; font-size:0.85rem;">🔄 Sustituir</button> <button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}" style="margin-left:4px;">🪪 Ficha</button>`;
@@ -1793,6 +1951,31 @@ function initializeDraftView(draftId) {
         }));
 
         playersTableBodyEl.addEventListener('click', (event) => {
+            // ADMIN: Kick player from available table
+            if (event.target.classList.contains('kick-btn')) {
+                const playerId = event.target.dataset.playerId;
+                const playerPsn = event.target.dataset.playerPsn;
+                if (confirm(`¿Seguro que quieres expulsar a ${playerPsn} del draft por completo?`)) {
+                    fetch('/api/admin/kick-player', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ draftId, teamId: null, playerId })
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert(`¡${playerPsn} expulsado con éxito!`);
+                        } else {
+                            alert('Error: ' + data.error);
+                        }
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        alert('Error al expulsar: ' + err.message);
+                    });
+                }
+            }
+
             if (event.target.classList.contains('pick-btn')) {
                 const playerId = event.target.dataset.playerId;
                 let activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos;

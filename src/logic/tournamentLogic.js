@@ -334,20 +334,25 @@ export async function handlePlayerSelectionFromWeb(client, draftShortId, captain
         const lastPickInfo = { pickNumber: draft.selection.currentPick, playerPsnId: player.psnId, captainTeamName: captain.teamName, captainId: captainId, playerId: selectedPlayerId, position: pickedForPosition };
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { "selection.lastPick": lastPickInfo } });
 
+        // Enviar DMs y Anuncios asíncronamente en segundo plano sin bloquear el flujo web
         if (/^\d+$/.test(selectedPlayerId)) {
-            try {
-                const playerUser = await client.users.fetch(selectedPlayerId);
-                const embed = new EmbedBuilder().setColor('#2ecc71').setTitle(`¡Has sido seleccionado en el Draft!`).setDescription(`¡Enhorabuena! Has sido elegido por el equipo **${captain.teamName}** (Capitán: ${captain.userName}) en el draft **${draft.name}**.`);
-                await playerUser.send({ embeds: [embed] });
-            } catch (e) { console.warn(`No se pudo notificar al jugador seleccionado ${selectedPlayerId}`); }
+            client.users.fetch(selectedPlayerId)
+                .then(playerUser => {
+                    const embed = new EmbedBuilder().setColor('#2ecc71').setTitle(`¡Has sido seleccionado en el Draft!`).setDescription(`¡Enhorabuena! Has sido elegido por el equipo **${captain.teamName}** (Capitán: ${captain.userName}) en el draft **${draft.name}**.`);
+                    return playerUser.send({ embeds: [embed] });
+                })
+                .catch(e => console.warn(`No se pudo notificar al jugador seleccionado ${selectedPlayerId}: ${e.message}`));
         }
 
-        try {
-            const draftChannel = await client.channels.fetch(draft.discordChannelId);
-            const announcementEmbed = new EmbedBuilder().setColor('#3498db').setDescription(`**Pick #${draft.selection.currentPick}**: El equipo **${captain.teamName}** ha seleccionado a **${player.psnId}**`);
-            const announcementMessage = await draftChannel.send({ embeds: [announcementEmbed] });
-            setTimeout(() => announcementMessage.delete().catch(() => { }), 60000);
-        } catch (e) { console.error("No se pudo enviar el anuncio de pick:", e); }
+        client.channels.fetch(draft.discordChannelId)
+            .then(draftChannel => {
+                const announcementEmbed = new EmbedBuilder().setColor('#3498db').setDescription(`**Pick #${draft.selection.currentPick}**: El equipo **${captain.teamName}** ha seleccionado a **${player.psnId}**`);
+                return draftChannel.send({ embeds: [announcementEmbed] });
+            })
+            .then(announcementMessage => {
+                setTimeout(() => announcementMessage.delete().catch(() => { }), 60000);
+            })
+            .catch(e => console.error("No se pudo enviar el anuncio de pick:", e));
 
     } catch (error) {
         console.error(`[PICK WEB] Fallo en el pick del capitán ${captainId}: ${error.message}`);
@@ -1123,19 +1128,23 @@ export async function advanceDraftTurn(client, draftShortId) {
         await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { status: 'finalizado', "selection.isPicking": false, "selection.activeInteractionId": null } });
         const finalDraftState = await db.collection('drafts').findOne({ _id: draft._id });
 
-        await updateDraftManagementPanel(client, finalDraftState);
-        await updateDraftMainInterface(client, finalDraftState.shortId);
-        await updatePublicMessages(client, finalDraftState);
-        await updateCaptainControlPanel(client, finalDraftState);
-        await notifyVisualizer(finalDraftState); // FIX: Notificar a la web para que renderice el pick 11 y muestre estado finalizado
+        // Notificar visualizador web de forma inmediata
+        await notifyVisualizer(finalDraftState); 
 
-        // FIX: Enviar mensaje de finalización al canal de Discord
-        try {
-            const draftChannel = await client.channels.fetch(finalDraftState.discordChannelId);
-            if (draftChannel) {
-                await draftChannel.send('**✅ ¡LA FASE DE SELECCIÓN HA SIDO COMPLETADA! Ya se puede proceder a crear el torneo.**');
-            }
-        } catch (e) { console.warn('[DRAFT] No se pudo enviar mensaje de finalización:', e.message); }
+        // Actualizar interfaces de Discord en segundo plano
+        updateDraftManagementPanel(client, finalDraftState).catch(e => console.error("Error al actualizar panel management:", e));
+        updateDraftMainInterface(client, finalDraftState.shortId).catch(e => console.error("Error al actualizar interfaz main:", e));
+        updatePublicMessages(client, finalDraftState).catch(e => console.error("Error al actualizar mensajes públicos:", e));
+        updateCaptainControlPanel(client, finalDraftState).catch(e => console.error("Error al actualizar panel capitán:", e));
+
+        // Enviar mensaje de finalización al canal de Discord de forma asíncrona
+        client.channels.fetch(finalDraftState.discordChannelId)
+            .then(draftChannel => {
+                if (draftChannel) {
+                    return draftChannel.send('**✅ ¡LA FASE DE SELECCIÓN HA SIDO COMPLETADA! Ya se puede proceder a crear el torneo.**');
+                }
+            })
+            .catch(e => console.warn('[DRAFT] No se pudo enviar mensaje de finalización:', e.message));
 
         return;
     }
@@ -1158,9 +1167,13 @@ export async function advanceDraftTurn(client, draftShortId) {
     );
 
     const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    
+    // Notificar visualizador web inmediatamente para picks súper rápidos
     await notifyVisualizer(updatedDraft);
-    await updateDraftMainInterface(client, updatedDraft.shortId);
-    await updateCaptainControlPanel(client, updatedDraft);
+
+    // Actualizar paneles de Discord en segundo plano
+    updateDraftMainInterface(client, updatedDraft.shortId).catch(e => console.error("Error al actualizar interfaz main:", e));
+    updateCaptainControlPanel(client, updatedDraft).catch(e => console.error("Error al actualizar panel capitán:", e));
 }
 
 // --- REEMPLAZA LA FUNCIÓN createNewTournament ENTERA CON ESTA VERSIÓN ---
@@ -5309,6 +5322,67 @@ export async function adminAddPlayerFromWeb(client, draftShortId, teamId, player
     await notifyVisualizer(updatedDraft);
 
     console.log(`[ADMIN] Jugador ${player.psnId} añadido a ${team.name} por ${adminName} desde web.`);
+}
+
+export async function adminAddFreeAgentFromWeb(client, draftShortId, playerId, psnId, primaryPosition, secondaryPosition, adminName) {
+    if (!draftShortId || !psnId || !primaryPosition) {
+        throw new Error('Faltan campos obligatorios (PSN ID / Nombre y Posición Principal).');
+    }
+
+    const db = getDb();
+    const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+    if (!draft) throw new Error('Draft no encontrado.');
+
+    let resolvedPlayerId = playerId ? playerId.trim() : '';
+    if (!resolvedPlayerId) {
+        resolvedPlayerId = `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+    }
+
+    // Verificar si el jugador ya existe por ID
+    const exists = draft.players.some(p => p.userId === resolvedPlayerId);
+    if (exists) throw new Error('El jugador con este ID ya está registrado en este draft.');
+
+    let finalName = psnId.trim();
+    let discordUsername = 'N/A';
+
+    // Intentar buscar el usuario en Discord si hay ID
+    if (playerId && /^\d+$/.test(playerId.trim())) {
+        try {
+            const user = await client.users.fetch(playerId.trim());
+            discordUsername = user.globalName || user.username;
+        } catch (e) {
+            console.warn(`No se pudo obtener el usuario de Discord ${playerId}: ${e.message}`);
+        }
+    }
+
+    const newPlayer = {
+        userId: resolvedPlayerId,
+        psnId: finalName,
+        userName: finalName,
+        whatsapp: 'N/A',
+        discordUsername: discordUsername,
+        primaryPosition: primaryPosition,
+        secondaryPosition: secondaryPosition || 'NONE',
+        strikes: 0,
+        currentTeam: 'Libre',
+        captainId: null,
+        pickedForPosition: null
+    };
+
+    await db.collection('drafts').updateOne(
+        { _id: draft._id },
+        { $push: { players: newPlayer } }
+    );
+
+    // Update interfaces y notificar en segundo plano
+    const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+    
+    updateDraftMainInterface(client, updatedDraft.shortId).catch(e => console.error("Error en updateDraftMainInterface:", e));
+    updatePublicMessages(client, updatedDraft).catch(e => console.error("Error en updatePublicMessages:", e));
+    updateDraftManagementPanel(client, updatedDraft).catch(e => console.error("Error en updateDraftManagementPanel:", e));
+    await notifyVisualizer(updatedDraft);
+
+    console.log(`[ADMIN] Agente Libre ${finalName} (${resolvedPlayerId}) añadido al draft ${draftShortId} por ${adminName} desde web.`);
 }
 
 export async function swapTeamsDataOnly(client, tournamentShortId, teamIdA, teamIdB) {
