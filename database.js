@@ -107,7 +107,8 @@ export async function migrateEloFields() {
             { elo: { $exists: false } },
             {
                 $set: {
-                    elo: 1000,
+                    elo: 650,
+                    league: 'BRONZE',
                     eloHistory: [],
                     historicalStats: {
                         tournamentsPlayed: 0,
@@ -130,7 +131,7 @@ export async function migrateEloFields() {
         await teamsCol.createIndex({ elo: -1 }).catch(() => {});
 
         if (result.modifiedCount > 0) {
-            console.log(`[ELO MIGRATION] ${result.modifiedCount} equipos migrados con campos ELO iniciales (1000 pts).`);
+            console.log(`[ELO MIGRATION] ${result.modifiedCount} equipos migrados con campos ELO iniciales (650 pts - BRONZE).`);
         } else {
             console.log('[ELO MIGRATION] Todos los equipos ya tienen campos ELO. Sin cambios.');
         }

@@ -2301,13 +2301,14 @@ export async function endTournament(client, tournament) {
         await notifyTournamentVisualizer(finalTournamentState);
         await updateTournamentManagementThread(client, finalTournamentState);
 
+        // ELO ya no se modifica al finalizar torneos (sistema VPG clasificación)
         // --- ELO: Distribución por clasificación final de torneo (Ligas o manual) ---
-        try {
-            const { distributeTournamentElo } = await import('./eloLogic.js');
-            await distributeTournamentElo(client, finalTournamentState);
-        } catch (eloError) {
-            console.error(`[ELO] Error al aplicar ELO de torneo en endTournament ${tournament.shortId}:`, eloError.message);
-        }
+        // try {
+        //     const { distributeTournamentElo } = await import('./eloLogic.js');
+        //     await distributeTournamentElo(client, finalTournamentState);
+        // } catch (eloError) {
+        //     console.error(`[ELO] Error al aplicar ELO de torneo en endTournament ${tournament.shortId}:`, eloError.message);
+        // }
         // --- FIN ELO ---
 
         // --- INICIO DE LA NUEVA LÓGICA DE RECOMPENSAS ---
@@ -4460,13 +4461,14 @@ export async function startNextKnockoutRound(client, guild, tournament) {
                 await updateTournamentManagementThread(client, updatedTournament);
                 console.log(`[FINISH] El torneo ${currentTournament.shortId} ha finalizado (última ronda: ${rondaActual}).`);
 
+                // ELO ya no se modifica al finalizar torneos (sistema VPG clasificación)
                 // Distribución de ELO
-                try {
-                    const { distributeTournamentElo } = await import('./eloLogic.js');
-                    await distributeTournamentElo(client, updatedTournament);
-                } catch (eloError) {
-                    console.error(`[ELO] Error al aplicar ELO de torneo ${currentTournament.shortId}:`, eloError.message);
-                }
+                // try {
+                //     const { distributeTournamentElo } = await import('./eloLogic.js');
+                //     await distributeTournamentElo(client, updatedTournament);
+                // } catch (eloError) {
+                //     console.error(`[ELO] Error al aplicar ELO de torneo ${currentTournament.shortId}:`, eloError.message);
+                // }
             }
         }
         return;
@@ -4891,13 +4893,14 @@ export async function handleFinalResult(client, guild, tournament) {
     await updateTournamentManagementThread(client, updatedTournament);
     console.log(`[FINISH] El torneo ${tournament.shortId} ha finalizado.`);
 
+    // ELO ya no se modifica al finalizar torneos (sistema VPG clasificación)
     // --- ELO: Distribución por clasificación final de torneo ---
-    try {
-        const { distributeTournamentElo } = await import('./eloLogic.js');
-        await distributeTournamentElo(client, updatedTournament);
-    } catch (eloError) {
-        console.error(`[ELO] Error al aplicar ELO de torneo ${tournament.shortId}:`, eloError.message);
-    }
+    // try {
+    //     const { distributeTournamentElo } = await import('./eloLogic.js');
+    //     await distributeTournamentElo(client, updatedTournament);
+    // } catch (eloError) {
+    //     console.error(`[ELO] Error al aplicar ELO de torneo ${tournament.shortId}:`, eloError.message);
+    // }
     // --- FIN ELO ---
 }
 

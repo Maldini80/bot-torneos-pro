@@ -286,11 +286,16 @@ export async function handleCommand(interaction) {
 
         await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
         try {
-            const count = await migrateEloFields();
-            await interaction.editReply(`✅ Migración completada. Se añadieron campos ELO a **${count}** equipos.`);
+            const { recalculateAllEloFromVpg } = await import('../logic/eloLogic.js');
+            const result = await recalculateAllEloFromVpg();
+            if (result.success) {
+                await interaction.editReply(`✅ Recalculación ELO completada. Se actualizaron **${result.updated}** equipos según la clasificación VPG.`);
+            } else {
+                await interaction.editReply(`❌ Error: ${result.message || 'Error desconocido'}`);
+            }
         } catch (error) {
             console.error('[COMMAND] Error en migrar-elo:', error);
-            await interaction.editReply('❌ Ocurrió un error en la migración. Revisa los logs.');
+            await interaction.editReply('❌ Ocurrió un error en la recalculación. Revisa los logs.');
         }
     }
     if (commandName === 'probar-mejor11') {

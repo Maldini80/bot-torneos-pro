@@ -1558,11 +1558,12 @@ class DashboardApp {
                 let streakHtml = '-';
                 if (stats.currentWinStreak > 0) streakHtml = `<span class="streak-fire">🔥 W${stats.currentWinStreak}</span>`;
                 else if (stats.currentLossStreak > 0) streakHtml = `<span class="streak-ice">❄️ L${stats.currentLossStreak}</span>`;
-                const currentElo = team.elo || 1000;
+                const currentElo = team.elo || 650;
+                const teamLeague = team.league || 'BRONZE';
                 let leagueBadge = '';
-                if (currentElo >= 1550) leagueBadge = '<span style="background:linear-gradient(45deg,#00d2ff,#3a7bd5);color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-left:8px;">DIAMOND</span>';
-                else if (currentElo >= 1300) leagueBadge = '<span style="background:#FFD700;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-left:8px;">GOLD</span>';
-                else if (currentElo >= 1000) leagueBadge = '<span style="background:#C0C0C0;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-left:8px;">SILVER</span>';
+                if (teamLeague === 'DIAMOND') leagueBadge = '<span style="background:linear-gradient(45deg,#00d2ff,#3a7bd5);color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-left:8px;">DIAMOND</span>';
+                else if (teamLeague === 'GOLD') leagueBadge = '<span style="background:#FFD700;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-left:8px;">GOLD</span>';
+                else if (teamLeague === 'SILVER') leagueBadge = '<span style="background:#C0C0C0;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-left:8px;">SILVER</span>';
                 else leagueBadge = '<span style="background:#CD7F32;color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-left:8px;">BRONZE</span>';
                 const escapedName = team.name.replace(/'/g, "\\'");
                 const escapedLogo = (team.logoUrl || 'https://i.imgur.com/X2YIZh4.png').replace(/'/g, "\\'");

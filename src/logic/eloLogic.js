@@ -1,9 +1,11 @@
 // src/logic/eloLogic.js
-// Módulo de cálculo y gestión de ELO masivo al finalizar torneos.
+// Módulo de cálculo y gestión de ELO basado en clasificación VPG.
 
 import { getBotSettings, getDb } from '../../database.js';
+import { fetchVpgSpainLeagues } from '../utils/vpgCrawler.js';
 
-const ELO_MIN = 0;
+const SUPERLIGA_SLUGS = ['superliga-spain-a', 'superliga-spain-b'];
+const DIAMOND_CUTOFF = 6; // Top 6 posiciones son DIAMOND
 
 // Emojis y orden de las ligas
 export const LEAGUE_EMOJIS = {
@@ -15,29 +17,27 @@ export const LEAGUE_EMOJIS = {
 
 export const LEAGUE_ORDER = ['DIAMOND', 'GOLD', 'SILVER', 'BRONZE'];
 
-// Recompensas para Playoffs (Defaults)
-const DEFAULT_PLAYOFF_VALS = {
-    champion: 150,
-    runner_up: 80,
-    semifinalist: 40,
-    quarterfinalist: 15,
-    round_of_16: -20, // octavos
-    groups_top_half: -30, // eliminados en grupos, mitad alta
-    groups_bottom_half: -50 // eliminados en grupos, mitad baja
-};
+// Orden de prioridad para el tier SILVER (de mayor a menor)
+const SILVER_DIVISION_ORDER = [
+    'segunda-division-a-spain',
+    'segunda-division-b-spain',
+    'tercera-division-a-spain',
+    'tercera-division-b-spain',
+    'cuarta-division-a-spain',
+    'cuarta-division-b-spain',
+    'quinta-division-a-spain',
+    'quinta-division-b-spain',
+    'quinta-division-c',
+    'quinta-division-d',
+];
 
-// Recompensas para Liga (Defaults)
-const DEFAULT_LEAGUE_VALS = {
-    first: 120,
-    second: 75,
-    third: 40,
-    top_half: 15, // 4º hasta la mitad
-    bottom_half: -35, // Desde la mitad hasta el penúltimo
-    last: -60
+const HEADERS = {
+    'User-Agent': 'VPG/1.0.0 (iPhone; iOS 15.0; Scale/3.00)',
+    'Accept': 'application/json',
 };
 
 /**
- * Recalcula masivamente la liga de un equipo según su ELO actual
+ * Devuelve la liga correspondiente según el ELO actual
  */
 export function getLeagueByElo(elo) {
     if (elo >= 1550) return 'DIAMOND';
@@ -47,269 +47,226 @@ export function getLeagueByElo(elo) {
 }
 
 /**
- * Función principal que se llama cuando un torneo finaliza
+ * Obtiene la clasificación de una liga VPG desde la API pública.
+ * @param {string} slug - Slug de la liga (ej. 'superliga-spain-a')
+ * @returns {Promise<Array>} Array de equipos ordenados por posición
  */
-export async function distributeTournamentElo(client, tournamentState) {
-    if (tournamentState.config?.isPaid) {
-        console.log(`[ELO] Torneo de pago ${tournamentState.shortId} omitido para ELO.`);
-        return { success: true, message: 'Torneo de pago omitido' };
+async function fetchVpgTable(slug) {
+    const url = `https://api.virtualprogaming.com/public/leagues/${slug}/table/`;
+    try {
+        console.log(`[ELO-VPG] Fetching table: ${url}`);
+        const res = await fetch(url, { headers: HEADERS, redirect: 'follow' });
+        if (!res.ok) {
+            console.warn(`[ELO-VPG] Non-OK response for ${slug}: ${res.status}`);
+            return [];
+        }
+        const data = await res.json();
+        return Array.isArray(data) ? data : (Array.isArray(data?.results) ? data.results : []);
+    } catch (e) {
+        console.error(`[ELO-VPG] Error fetching table for ${slug}: ${e.message}`);
+        return [];
     }
-    if (tournamentState.shortId?.startsWith('draft-')) {
-        console.log(`[ELO] Torneo Draft ${tournamentState.shortId} omitido para ELO.`);
-        return { success: true, message: 'Torneo draft omitido' };
-    }
-    if (tournamentState.eloDistributed) {
-        console.log(`[ELO] ELO ya fue distribuido previamente para ${tournamentState.shortId}`);
-        return { success: true, message: 'ELO ya distribuido' };
+}
+
+/**
+ * Calcula un ELO equidistante dentro de un rango para N equipos.
+ * El equipo en index 0 recibe maxElo, el último recibe minElo.
+ */
+function equidistantElo(index, total, maxElo, minElo) {
+    if (total <= 1) return maxElo;
+    return Math.round(maxElo - (index * (maxElo - minElo) / Math.max(total - 1, 1)));
+}
+
+/**
+ * Recalcula el ELO de todos los equipos a partir de la clasificación VPG.
+ * Clasifica en tiers DIAMOND/GOLD/SILVER/BRONZE y distribuye ELO equidistante.
+ * @returns {Promise<{success: boolean, updated: number, summary: Array}>}
+ */
+export async function recalculateAllEloFromVpg() {
+    console.log('[ELO-VPG] Iniciando recálculo masivo de ELO desde VPG...');
+
+    // 1. Obtener la lista de ligas de VPG España
+    const leagues = await fetchVpgSpainLeagues();
+
+    // 2. Descargar clasificaciones de todas las ligas
+    const standingsBySlug = {};
+    for (const league of leagues) {
+        standingsBySlug[league.slug] = await fetchVpgTable(league.slug);
     }
 
+    // 3. Clasificar equipos en tiers
+    const diamond = []; // { team_slug, team_name, leagueSlug, position }
+    const gold = [];
+    const silver = [];
+
+    for (const league of leagues) {
+        const slug = league.slug;
+        const standings = standingsBySlug[slug] || [];
+        const isSuperliga = SUPERLIGA_SLUGS.includes(slug);
+
+        standings.forEach((entry, index) => {
+            const position = index + 1;
+            const item = {
+                team_slug: entry.team_slug,
+                team_name: entry.team_name,
+                leagueSlug: slug,
+                position,
+            };
+
+            if (isSuperliga) {
+                if (position <= DIAMOND_CUTOFF) {
+                    diamond.push(item);
+                } else {
+                    gold.push(item);
+                }
+            } else {
+                silver.push(item);
+            }
+        });
+    }
+
+    // 4. Ordenar cada tier
+
+    // DIAMOND: superliga-a primero, luego superliga-b, cada uno por posición
+    diamond.sort((a, b) => {
+        const slugOrder = SUPERLIGA_SLUGS.indexOf(a.leagueSlug) - SUPERLIGA_SLUGS.indexOf(b.leagueSlug);
+        if (slugOrder !== 0) return slugOrder;
+        return a.position - b.position;
+    });
+
+    // GOLD: misma lógica que DIAMOND
+    gold.sort((a, b) => {
+        const slugOrder = SUPERLIGA_SLUGS.indexOf(a.leagueSlug) - SUPERLIGA_SLUGS.indexOf(b.leagueSlug);
+        if (slugOrder !== 0) return slugOrder;
+        return a.position - b.position;
+    });
+
+    // SILVER: ordenado por prioridad de división, luego por posición
+    silver.sort((a, b) => {
+        const divOrderA = SILVER_DIVISION_ORDER.indexOf(a.leagueSlug);
+        const divOrderB = SILVER_DIVISION_ORDER.indexOf(b.leagueSlug);
+        const effectiveA = divOrderA === -1 ? SILVER_DIVISION_ORDER.length : divOrderA;
+        const effectiveB = divOrderB === -1 ? SILVER_DIVISION_ORDER.length : divOrderB;
+        if (effectiveA !== effectiveB) return effectiveA - effectiveB;
+        return a.position - b.position;
+    });
+
+    // 5. Asignar ELO equidistante
+    const diamondElos = diamond.map((item, i) => ({
+        ...item,
+        elo: equidistantElo(i, diamond.length, 2000, 1550),
+        league: 'DIAMOND',
+    }));
+
+    const goldElos = gold.map((item, i) => ({
+        ...item,
+        elo: equidistantElo(i, gold.length, 1549, 1300),
+        league: 'GOLD',
+    }));
+
+    const silverElos = silver.map((item, i) => ({
+        ...item,
+        elo: equidistantElo(i, silver.length, 1299, 1000),
+        league: 'SILVER',
+    }));
+
+    // Crear un mapa de team_slug -> { elo, league } para búsqueda rápida
+    const vpgEloMap = new Map();
+    for (const item of [...diamondElos, ...goldElos, ...silverElos]) {
+        vpgEloMap.set(item.team_slug, { elo: item.elo, league: item.league, team_name: item.team_name });
+    }
+
+    // Crear un mapa de leagueSlug -> tier para equipos que no matcheen por team_slug
+    // pero sí tengan vpgLeagueSlug asignado en la DB
+    const leagueSlugToTier = new Map();
+    for (const league of leagues) {
+        if (SUPERLIGA_SLUGS.includes(league.slug)) {
+            // No podemos saber la posición sin match exacto, asignar GOLD como fallback
+            leagueSlugToTier.set(league.slug, 'SUPERLIGA');
+        } else {
+            leagueSlugToTier.set(league.slug, 'SILVER');
+        }
+    }
+
+    // 6. Actualizar la base de datos
     const testDb = getDb('test');
-    console.log(`[ELO] Calculando recompensas de final de torneo: ${tournamentState.shortId}...`);
+    const allTeams = await testDb.collection('teams').find({}).toArray();
 
-    let eloUpdates = {};
-    let eloSummary = []; // Array para la tabla de Discord
+    let updated = 0;
+    const summary = [];
 
-    const settings = await getBotSettings();
-    const configPlayoff = settings?.eloConfig?.playoff || DEFAULT_PLAYOFF_VALS;
-    const configLeague = settings?.eloConfig?.league || DEFAULT_LEAGUE_VALS;
+    for (const team of allTeams) {
+        let newElo;
+        let newLeague;
+        let matched = false;
 
-    const hasPlayoffs = !!(tournamentState.structure?.eliminatorias && Object.keys(tournamentState.structure.eliminatorias).length > 0 && tournamentState.structure.eliminatorias.final);
+        // Intentar matchear por vpgTeamSlug
+        if (team.vpgTeamSlug && vpgEloMap.has(team.vpgTeamSlug)) {
+            const vpgData = vpgEloMap.get(team.vpgTeamSlug);
+            newElo = vpgData.elo;
+            newLeague = vpgData.league;
+            matched = true;
+        }
 
-    if (hasPlayoffs) {
-        eloUpdates = calculatePlayoffElo(tournamentState, configPlayoff);
-    } else {
-        eloUpdates = calculateLeagueElo(tournamentState, configLeague);
-    }
+        // Si no matcheó por team_slug, intentar por vpgLeagueSlug (fallback genérico)
+        if (!matched && team.vpgLeagueSlug) {
+            const tier = leagueSlugToTier.get(team.vpgLeagueSlug);
+            if (tier === 'SUPERLIGA') {
+                // Está en superliga pero no lo encontramos en standings → GOLD mínimo
+                newElo = 1300;
+                newLeague = 'GOLD';
+            } else if (tier === 'SILVER') {
+                // Está en divisiones inferiores pero no lo encontramos → SILVER medio
+                newElo = 1150;
+                newLeague = 'SILVER';
+            } else {
+                // vpgLeagueSlug no reconocido → BRONZE
+                newElo = 650;
+                newLeague = 'BRONZE';
+            }
+            matched = true;
+        }
 
-    if (Object.keys(eloUpdates).length === 0) {
-        console.log(`[ELO] Sin equipos válidos para actualizar en ${tournamentState.shortId}.`);
-        return { success: false, message: 'Sin equipos válidos' };
-    }
-
-    // Aplicar los cambios a la DB de forma masiva
-    let modified = 0;
-    for (const [capitanId, eloDelta] of Object.entries(eloUpdates)) {
-        if (!capitanId || capitanId === 'ghost') continue;
-
-        const team = await testDb.collection('teams').findOne({ managerId: capitanId });
-        if (!team) continue;
+        // Sin vpgLeagueSlug → BRONZE
+        if (!matched) {
+            newElo = 650;
+            newLeague = 'BRONZE';
+        }
 
         const oldElo = team.elo || 1000;
-        const newEloRaw = oldElo + eloDelta;
-        const finalElo = Math.max(ELO_MIN, newEloRaw);
-        const newLeague = getLeagueByElo(finalElo);
+        const delta = newElo - oldElo;
 
         await testDb.collection('teams').updateOne(
             { _id: team._id },
-            { 
-                $set: { elo: finalElo, league: newLeague },
-                $push: { 
-                    eloHistory: { 
+            {
+                $set: { elo: newElo, league: newLeague },
+                $push: {
+                    eloHistory: {
                         $each: [{
                             date: new Date(),
                             oldElo,
-                            newElo: finalElo,
-                            delta: eloDelta,
-                            reason: 'tournament_end',
-                            tournamentShortId: tournamentState.shortId
-                        }], 
-                        $slice: -100 
-                    } 
-                }
+                            newElo,
+                            delta,
+                            reason: 'vpg_classification',
+                        }],
+                        $slice: -100,
+                    },
+                },
             }
         );
-        
-        eloSummary.push({ 
-            name: team.name || team.nombre || `Team ${capitanId.substring(0,4)}`, 
-            delta: eloDelta, 
-            newElo: finalElo, 
-            newLeague 
+
+        summary.push({
+            name: team.name || team.nombre || 'Equipo desconocido',
+            oldElo,
+            newElo,
+            delta,
+            league: newLeague,
         });
-        modified++;
+        updated++;
     }
 
-    // Marcar el torneo para no repetir el pago
-    await testDb.collection('tournaments').updateOne(
-        { _id: tournamentState._id },
-        { $set: { eloDistributed: true } }
-    );
-
-    // Enviar notificación a Discord con la tabla de cambios
-    if (modified > 0 && client) {
-        try {
-            const { EmbedBuilder } = await import('discord.js');
-            const { CHANNELS } = await import('../../config.js');
-            
-            // Ordenar de mayor ganancia a mayor pérdida
-            eloSummary.sort((a, b) => b.delta - a.delta);
-
-            const embed = new EmbedBuilder()
-                .setTitle(`📊 Reparto ELO: ${tournamentState.nombre || 'Torneo'}`)
-                .setColor('#00f6ff')
-                .setFooter({ text: 'El ELO global ha sido actualizado.' })
-                .setTimestamp();
-
-            let tableString = '```\nEQUIPO                | PUNTOS  | NUEVA LIGA\n';
-            tableString += '----------------------|---------|-----------\n';
-            
-            for (const t of eloSummary) {
-                const deltaStr = t.delta > 0 ? `+${t.delta}` : `${t.delta}`;
-                const namePad = t.name.padEnd(21).substring(0, 21);
-                const deltaPad = deltaStr.padStart(7);
-                tableString += `${namePad} | ${deltaPad} | ${t.newLeague}\n`;
-            }
-            tableString += '```';
-            
-            embed.setDescription(`Al finalizar este evento, el sistema ha repartido los puntos según el rendimiento de cada equipo:\n\n${tableString}`);
-
-            const channel = await client.channels.fetch(CHANNELS.TOURNAMENTS_STATUS).catch(() => null);
-            if (channel) {
-                await channel.send({ embeds: [embed] });
-            }
-        } catch (e) {
-            console.error('[ELO] Error al enviar notificación pública de ELO:', e.message);
-        }
-    }
-
-    console.log(`[ELO] Se actualizó el ELO de ${modified} equipos para el torneo ${tournamentState.shortId}.`);
-    return { success: true, teamsUpdated: modified };
-}
-
-/**
- * Calcula puntos ELO según la ronda máxima alcanzada.
- */
-function calculatePlayoffElo(tournamentState, playoffVals) {
-    let teamsRounds = {}; // { capitanId: 'final' | 'semifinales' | ... }
-    
-    // Rondas en orden de importancia (de menor a mayor)
-    const rondas = ['dieciseisavos', 'octavos', 'cuartos', 'semifinales', 'final'];
-
-    // 1. Recolectar todos los equipos de la fase de grupos (si existe)
-    if (tournamentState.structure?.grupos) {
-        for (const gName in tournamentState.structure.grupos) {
-            const equipos = tournamentState.structure.grupos[gName].equipos || [];
-            for (const eq of equipos) {
-                if (eq.id && eq.id !== 'ghost') {
-                    teamsRounds[eq.id] = 'grupos'; // Nivel base
-                }
-            }
-        }
-    }
-
-    // 2. Escanear las eliminatorias para ver hasta donde llegó cada uno
-    const elims = tournamentState.structure.eliminatorias;
-    for (const ronda of rondas) {
-        if (!elims[ronda]) continue;
-        const matches = Array.isArray(elims[ronda]) ? elims[ronda] : [elims[ronda]];
-        for (const m of matches) {
-            if (!m || !m.equipoA || !m.equipoB) continue;
-            
-            const idA = m.equipoA.id || m.equipoA._id;
-            const idB = m.equipoB.id || m.equipoB._id;
-            
-            if (idA && idA !== 'ghost') teamsRounds[idA] = ronda;
-            if (idB && idB !== 'ghost') teamsRounds[idB] = ronda;
-
-            // Extraer campeón si es la final
-            if (ronda === 'final' && m.resultado) {
-                const [gA, gB] = m.resultado.split('-').map(Number);
-                if (!isNaN(gA) && !isNaN(gB)) {
-                    if (gA > gB) {
-                        teamsRounds[idA] = 'campeon';
-                    } else if (gB > gA) {
-                        teamsRounds[idB] = 'campeon';
-                    }
-                }
-            }
-        }
-    }
-
-    // Obtener y clasificar a los equipos de grupos para ver quiénes están en el top half y bottom half de los eliminados
-    let gruposRanking = [];
-    if (tournamentState.structure?.grupos) {
-        for (const gName in tournamentState.structure.grupos) {
-            gruposRanking = gruposRanking.concat(tournamentState.structure.grupos[gName].equipos || []);
-        }
-        // Limpiar ghosts y ordenar de mejor a peor usando la misma lógica que la liga
-        gruposRanking = gruposRanking.filter(t => t.id && t.id !== 'ghost');
-        gruposRanking.sort((a, b) => sortTeamsForRanking(a, b, tournamentState));
-    }
-
-    const totalEliminados = gruposRanking.filter(t => teamsRounds[t.id] === 'grupos');
-    const mitadEliminados = Math.ceil(totalEliminados.length / 2);
-
-    // 3. Traducir rondas a puntos ELO
-    let eloUpdates = {};
-    for (const [id, maxRonda] of Object.entries(teamsRounds)) {
-        let delta = 0;
-        switch (maxRonda) {
-            case 'campeon': delta = playoffVals.champion; break;
-            case 'final': delta = playoffVals.runner_up; break;
-            case 'semifinales': delta = playoffVals.semifinalist; break;
-            case 'cuartos': delta = playoffVals.quarterfinalist; break;
-            case 'octavos': delta = playoffVals.round_of_16; break;
-            case 'dieciseisavos': 
-            case 'grupos':
-            default:
-                // Buscar si están en la mitad alta o baja de los eliminados
-                const objTeam = totalEliminados.find(t => t.id === id);
-                if (objTeam) {
-                    const idx = totalEliminados.indexOf(objTeam);
-                    delta = (idx < mitadEliminados) ? playoffVals.groups_top_half : playoffVals.groups_bottom_half;
-                } else {
-                    delta = playoffVals.groups_bottom_half; // Default
-                }
-                break;
-        }
-        eloUpdates[id] = delta;
-    }
-    
-    return eloUpdates;
-}
-
-/**
- * Calcula puntos ELO según la posición final en Liga Pura.
- */
-function calculateLeagueElo(tournamentState, leagueVals) {
-    let eloUpdates = {};
-
-    let allTeams = [];
-    if (tournamentState.structure?.grupos) {
-        for (const gName in tournamentState.structure.grupos) {
-            allTeams = allTeams.concat(tournamentState.structure.grupos[gName].equipos || []);
-        }
-    }
-    
-    allTeams = allTeams.filter(t => t.id !== 'ghost');
-    if (allTeams.length === 0) return eloUpdates;
-
-    // Ordenar por puntos (desc), dif goles (desc), goles favor (desc)
-    allTeams.sort((a, b) => sortTeamsForRanking(a, b, tournamentState));
-
-    const total = allTeams.length;
-    allTeams.forEach((team, index) => {
-        const id = team.id;
-        const rank = index + 1;
-        let delta = 0;
-
-        if (rank === 1) {
-            delta = leagueVals.first;
-        } else if (rank === 2) {
-            delta = leagueVals.second;
-        } else if (rank === 3) {
-            delta = leagueVals.third;
-        } else if (rank === total && total > 3) {
-            delta = leagueVals.last;
-        } else if (rank <= Math.ceil(total / 2)) {
-            delta = leagueVals.top_half; // Mitad superior
-        } else {
-            delta = leagueVals.bottom_half; // Mitad inferior
-        }
-
-        eloUpdates[id] = delta;
-    });
-
-    return eloUpdates;
+    console.log(`[ELO-VPG] Recálculo completado. ${updated} equipos actualizados.`);
+    return { success: true, updated, summary };
 }
 
 /**

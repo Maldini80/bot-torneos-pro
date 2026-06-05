@@ -425,7 +425,7 @@
             <button class="tab-btn active" onclick="switchTab('ranking')">🏆 Ranking Global</button>
             <button class="tab-btn" onclick="switchTab('hof')">⭐ Hall Of Fame</button>
             <button class="tab-btn" id="adminBackfillBtn" style="display: none; border-color: #ff0055;" onclick="triggerBackfill()">🛠️ Recalcular Stats (Admin)</button>
-            <button class="tab-btn" id="adminRefreshLeaguesBtn" style="display: none; border-color: #00e5ff;" onclick="triggerLeagueRefresh()">🛡️ Recalcular Ligas (Admin)</button>
+            <button class="tab-btn" id="adminRefreshLeaguesBtn" style="display: none; border-color: #00e5ff;" onclick="triggerLeagueRefresh()">🛡️ Recalcular ELO (VPG)</button>
         </div>
 
         <div id="ranking" class="content-section active">
@@ -496,7 +496,7 @@
         }
 
         async function triggerLeagueRefresh() {
-            if (!confirm("⚠️ ¿Estás seguro de recalcular de forma masiva las ligas de TODOS los equipos en base a su ELO actual?")) return;
+            if (!confirm("⚠️ ¿Estás seguro de recalcular el ELO de TODOS los equipos según la clasificación actual de VPG España?")) return;
             const btn = document.getElementById('adminRefreshLeaguesBtn');
             const originalText = btn.innerText;
             btn.innerText = "⏳ Recalculando...";
@@ -624,13 +624,14 @@
                         streakHtml = `<span class="streak-ice"><i class="fas fa-snowflake"></i> L${stats.currentLossStreak}</span>`;
                     }
 
-                    const currentElo = team.elo || 1000;
+                    const currentElo = team.elo || 650;
+                    const teamLeague = team.league || 'BRONZE';
                     let leagueBadge = '';
-                    if (currentElo >= 1550) {
+                    if (teamLeague === 'DIAMOND') {
                         leagueBadge = '<span style="background:linear-gradient(45deg, #00d2ff, #3a7bd5); color:#fff; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold; margin-left:8px; vertical-align:middle; text-shadow: 0 1px 2px rgba(0,0,0,0.4);">DIAMOND</span>';
-                    } else if (currentElo >= 1300) {
+                    } else if (teamLeague === 'GOLD') {
                         leagueBadge = '<span style="background:var(--gold); color:#000; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold; margin-left:8px; vertical-align:middle;">GOLD</span>';
-                    } else if (currentElo >= 1000) {
+                    } else if (teamLeague === 'SILVER') {
                         leagueBadge = '<span style="background:var(--silver); color:#000; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold; margin-left:8px; vertical-align:middle;">SILVER</span>';
                     } else {
                         leagueBadge = '<span style="background:var(--bronze); color:#fff; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold; margin-left:8px; vertical-align:middle;">BRONZE</span>';

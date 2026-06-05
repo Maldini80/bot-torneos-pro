@@ -733,31 +733,18 @@ app.post('/api/admin/recalculate-leagues', async (req, res) => {
     }
 
     try {
-        const testDb = getDb('test'); 
-        console.log('[LEAGUES] Inciando migración masiva de Ligas según ELO...');
-
-        const teams = await testDb.collection('teams').find({}).toArray();
-        let modifiedCount = 0;
-
-        for (const team of teams) {
-            const elo = team.elo || 1000;
-            let newLeague = 'BRONZE';
-            if (elo >= 1550) newLeague = 'DIAMOND';
-            else if (elo >= 1300) newLeague = 'GOLD';
-            else if (elo >= 1000) newLeague = 'SILVER';
-            
-            if (team.league !== newLeague) {
-                await testDb.collection('teams').updateOne(
-                    { _id: team._id },
-                    { $set: { league: newLeague } }
-                );
-                modifiedCount++;
-            }
+        console.log('[LEAGUES] Iniciando recalculación de ELO según clasificación VPG...');
+        const { recalculateAllEloFromVpg } = await import('./src/logic/eloLogic.js');
+        const result = await recalculateAllEloFromVpg();
+        
+        if (result.success) {
+            console.log(`[LEAGUES] Recalculación completada. Actualizados ${result.updated} equipos.`);
+            res.json({ success: true, message: `Recalculación VPG completada. Actualizados ${result.updated} equipos.` });
+        } else {
+            res.status(500).json({ error: result.message || 'Error en recalculación' });
         }
-        console.log(`[LEAGUES] Migración completada. Modificados ${modifiedCount} equipos.`);
-        res.json({ success: true, message: `Migración completada. Modificados ${modifiedCount} equipos.` });
     } catch (e) {
-        console.error('Error en migración de ligas:', e);
+        console.error('Error en recalculación de ligas VPG:', e);
         res.status(500).json({ error: 'Error del servidor' });
     }
 });
