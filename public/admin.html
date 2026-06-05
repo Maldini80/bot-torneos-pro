@@ -337,6 +337,19 @@
         }
 
         function renderDraft() {
+            if (!currentDraft) return;
+            if (!currentDraft.teams) {
+                currentDraft.teams = currentDraft.captains.map(c => ({
+                    id: c.userId,
+                    name: c.teamName,
+                    captainName: c.userName,
+                    players: currentDraft.players.filter(p => p.captainId === c.userId).map(p => ({
+                        psnId: p.psnId,
+                        position: p.pickedForPosition || p.primaryPosition
+                    }))
+                }));
+            }
+            
             document.getElementById('draft-status').innerText = currentDraft.status;
             
             // Current Turn
