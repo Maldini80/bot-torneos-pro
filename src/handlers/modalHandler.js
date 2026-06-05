@@ -1746,6 +1746,173 @@ export async function handleModal(interaction) {
         return;
     }
 
+    if (action === 'register_verified_player_modal') {
+        const [draftShortId, ticketChannelId] = params;
+        const isFromTicket = ticketChannelId && ticketChannelId !== 'no-ticket';
+
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) return interaction.editReply('❌ Este draft ya no existe.');
+        if (draft.status !== 'inscripcion') return interaction.editReply('❌ Las inscripciones para este draft están cerradas.');
+
+        const userId = interaction.user.id;
+        const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) ||
+            (draft.pendingCaptains && draft.pendingCaptains[userId]) ||
+            draft.players.some(p => p.userId === userId) ||
+            (draft.pendingPayments && draft.pendingPayments[userId]);
+
+        if (isAlreadyRegistered) return interaction.editReply('❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.');
+
+        // Obtener campos de texto del modal
+        const psnId = interaction.fields.getTextInputValue('psn_id_input').trim();
+        const whatsapp = interaction.fields.getTextInputValue('whatsapp_input').trim();
+        const rawPrimaryPos = interaction.fields.getTextInputValue('primary_pos_input').trim().toUpperCase();
+        const rawSecondaryPos = interaction.fields.getTextInputValue('secondary_pos_input').trim().toUpperCase();
+        const twitter = interaction.fields.getTextInputValue('twitter_input').trim();
+
+        // Normalizar posiciones
+        const normalizePosition = (pos) => {
+            if (pos.includes('POR') || pos.includes('GK')) return 'GK';
+            if (pos.includes('DFC') || pos.includes('DEF') || pos.includes('CEN')) return 'DFC';
+            if (pos.includes('CARR') || pos.includes('LTD') || pos.includes('LTI') || pos.includes('LAT')) return 'CARR';
+            if (pos.includes('MC') || pos.includes('MED') || pos.includes('MCO') || pos.includes('MCD')) return 'MC';
+            if (pos.includes('DC') || pos.includes('DEL') || pos.includes('EXT') || pos.includes('EI') || pos.includes('ED')) return 'DC';
+            return null;
+        };
+
+        const primaryPosition = normalizePosition(rawPrimaryPos);
+        let secondaryPosition = normalizePosition(rawSecondaryPos);
+        if (rawSecondaryPos === 'NONE' || rawSecondaryPos === 'NO' || rawSecondaryPos === 'NINGUNA' || !secondaryPosition) {
+            secondaryPosition = 'NONE';
+        }
+
+        if (!primaryPosition) {
+            return interaction.editReply('❌ Posición primaria inválida. Introduce un valor válido (GK, DFC, CARR, MC o DC).');
+        }
+
+        const normalizedWA = whatsapp.replace(/[\s\-\(\)\.]/g, '').replace(/^(\+34|0034)/, '');
+
+        // Obtener datos de verificación actuales
+        const verifiedUser = await db.collection('verified_users').findOne({ discordId: userId });
+        let oldPsn = '';
+        let oldWA = '';
+        let oldTwitter = '';
+        let dataChanged = false;
+
+        if (verifiedUser) {
+            oldPsn = verifiedUser.gameId || '';
+            oldWA = verifiedUser.whatsapp || '';
+            oldTwitter = verifiedUser.twitter || '';
+
+            if (oldPsn !== psnId || oldWA !== normalizedWA || oldTwitter !== (twitter !== 'NONE' ? twitter : '')) {
+                dataChanged = true;
+                // Actualizar verified_users
+                await db.collection('verified_users').updateOne(
+                    { discordId: userId },
+                    {
+                        $set: {
+                            gameId: psnId,
+                            whatsapp: normalizedWA,
+                            position: primaryPosition,
+                            secondaryPosition,
+                            twitter: twitter !== 'NONE' ? twitter : '',
+                            username: interaction.user.username,
+                            updatedAt: new Date()
+                        }
+                    }
+                );
+            }
+        } else {
+            // Si no estaba verificado por alguna razón (fallback de seguridad), crearlo
+            await db.collection('verified_users').insertOne({
+                discordId: userId,
+                username: interaction.user.username,
+                gameId: psnId,
+                whatsapp: normalizedWA,
+                position: primaryPosition,
+                secondaryPosition,
+                twitter: twitter !== 'NONE' ? twitter : '',
+                verified: true,
+                createdAt: new Date()
+            });
+        }
+
+        const playerData = {
+            userId,
+            userName: interaction.user.username,
+            psnId,
+            twitter: twitter !== 'NONE' ? twitter : '',
+            whatsapp: normalizedWA,
+            primaryPosition,
+            secondaryPosition,
+            currentTeam: 'Libre',
+            isCaptain: false,
+            captainId: null,
+            createdAt: new Date()
+        };
+
+        // Enviar log/notificación de aviso al canal de logs del draft
+        try {
+            const notificationsThreadId = draft.discordMessageIds?.notificationsThreadId;
+            if (notificationsThreadId) {
+                const notificationsThread = await client.channels.fetch(notificationsThreadId).catch(() => null);
+                if (notificationsThread) {
+                    if (dataChanged) {
+                        await notificationsThread.send(`✏️ **${interaction.user.username}** ha actualizado sus datos y se ha inscrito al draft **${draft.name}**:\n• **PSN ID:** \`${psnId}\` *(antes \`${oldPsn}\`)*\n• **WhatsApp:** \`${normalizedWA}\` *(antes \`${oldWA}\`)*\n• **Posición:** \`${primaryPosition}/${secondaryPosition}\``);
+                    } else {
+                        await notificationsThread.send(`✅ **${interaction.user.username}** se ha inscrito como jugador al draft **${draft.name}** (PSN ID: \`${psnId}\`, Posición: \`${primaryPosition}/${secondaryPosition}\`)`);
+                    }
+                }
+            }
+        } catch (logErr) {
+            console.error('[LOG DRAFT] Fallo al enviar log de inscripción:', logErr);
+        }
+
+        if (draft.config.isPaid) {
+            const pendingData = { playerData };
+            await db.collection('drafts').updateOne({ _id: draft._id }, { $set: { [`pendingPayments.${userId}`]: pendingData } });
+
+            const { PAYMENT_CONFIG } = await import('../../config.js');
+            const embedDm = new EmbedBuilder()
+                .setTitle(`💸 Inscripción al Draft Pendiente de Pago: ${draft.name}`)
+                .setDescription(`Para confirmar tu plaza, realiza el pago de **${draft.config.entryFee}€**.\n\n**Pagar a / Pay to:**\n\`${PAYMENT_CONFIG.PAYPAL_EMAIL}\`\n\nUna vez realizado, pulsa el botón de abajo.`)
+                .setColor('#e67e22');
+
+            const confirmButton = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`draft_payment_confirm_start:${draftShortId}`).setLabel('✅ Ya he Pagado / I Have Paid').setStyle(ButtonStyle.Success)
+            );
+            
+            try {
+                await interaction.user.send({ embeds: [embedDm], components: [confirmButton] });
+                await interaction.editReply('✅ ¡Inscripción recibida! Revisa tus Mensajes Directos para completar el pago.');
+            } catch (e) {
+                await interaction.editReply('✅ Inscripción recibida. Por favor, realiza el pago para confirmar tu plaza.');
+            }
+        } else {
+            // Draft Gratuito -> Registrar directamente
+            await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
+            await interaction.editReply(`✅ **¡Te has inscrito correctamente!**\n\n- Posición Primaria: **${primaryPosition}**\n- Posición Secundaria: **${secondaryPosition}**`);
+
+            if (isFromTicket) {
+                const ticketChannel = await client.channels.fetch(ticketChannelId).catch(() => null);
+                if (ticketChannel) {
+                    await ticketChannel.send('✅ Proceso de inscripción finalizado. Este canal se cerrará en 10 segundos.');
+                    setTimeout(() => ticketChannel.delete('Inscripción completada.').catch(console.error), 10000);
+                }
+            }
+
+            const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+            const { updatePublicMessages, notifyVisualizer } = await import('../logic/tournamentLogic.js');
+            if (typeof updatePublicMessages === 'function') {
+                await updatePublicMessages(client, updatedDraft).catch(() => {});
+            }
+            updateDraftMainInterface(client, updatedDraft.shortId);
+            notifyVisualizer(updatedDraft);
+        }
+        return;
+    }
+
     if (action === 'register_draft_captain_modal' || action === 'register_draft_player_modal') {
         const [draftShortId, p1, p2, p3, ticketChannelId] = params;
         const isFromTicket = ticketChannelId && ticketChannelId !== 'no-ticket';

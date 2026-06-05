@@ -1031,7 +1031,6 @@ function initializeDraftView(draftId) {
         const modal = document.getElementById('admin-control-modal');
         if (!modal || !currentDraftState) return;
 
-        document.getElementById('admin-add-player-id').value = '';
         document.getElementById('admin-add-player-psn').value = '';
         document.getElementById('admin-kick-search-input').value = '';
         document.getElementById('admin-kick-results-container').style.display = 'none';
@@ -1049,7 +1048,6 @@ function initializeDraftView(draftId) {
     };
 
     window.adminAddPlayerFromModal = async function() {
-        const playerId = document.getElementById('admin-add-player-id').value.trim();
         const psnId = document.getElementById('admin-add-player-psn').value.trim();
         const primaryPosition = document.getElementById('admin-add-player-primary-pos').value;
         const secondaryPosition = document.getElementById('admin-add-player-secondary-pos').value;
@@ -1069,8 +1067,8 @@ function initializeDraftView(draftId) {
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({
                     draftId: currentDraftState.shortId,
-                    playerId,
-                    psnId: psnId || null,
+                    playerId: null,
+                    psnId: psnId,
                     primaryPosition,
                     secondaryPosition
                 })
@@ -1078,7 +1076,6 @@ function initializeDraftView(draftId) {
             const data = await res.json();
             if (data.success) {
                 alert('Jugador añadido como Agente Libre.');
-                document.getElementById('admin-add-player-id').value = '';
                 document.getElementById('admin-add-player-psn').value = '';
                 document.getElementById('admin-control-modal').classList.add('hidden');
             } else {
@@ -1867,8 +1864,7 @@ function initializeDraftView(draftId) {
                 row.innerHTML = innerHTML;
             }
         });
-
-        // Ordenar físicamente los elementos del DOM basándose en la ordenación de availablePlayers
+            // Ordenar físicamente los elementos del DOM basándose en la ordenación de availablePlayers
         const sortedRows = availablePlayers.map(p => playersTableBodyEl.querySelector(`tr[data-player-id="${p.userId}"]`)).filter(Boolean);
         sortedRows.forEach(row => playersTableBodyEl.appendChild(row));
 
@@ -1879,6 +1875,7 @@ function initializeDraftView(draftId) {
         const filterColumn = document.getElementById('filter-column-select').value;
         const rows = playersTableBodyEl.querySelectorAll('tr');
         const table = document.getElementById('players-table');
+        const searchQuery = document.getElementById('player-search-input')?.value.toLowerCase().trim() || '';
 
         const captainIdInTurn = (currentDraftState?.selection?.order?.length > 0) ? currentDraftState.selection.order[currentDraftState.selection.turn] : null;
         const isMyTurn = currentUser && currentDraftState?.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
@@ -1935,6 +1932,15 @@ function initializeDraftView(draftId) {
                     } else if (filterColumn === 'secondary' && secondaryPos === activeFilterPos) {
                         isVisible = true;
                     }
+                }
+            }
+
+            // Aplicar búsqueda por nombre
+            if (isVisible && searchQuery) {
+                const nameEl = row.querySelector('td[data-label="NOMBRE"] .player-data');
+                const playerName = nameEl ? nameEl.textContent.toLowerCase() : '';
+                if (!playerName.includes(searchQuery)) {
+                    isVisible = false;
                 }
             }
 
@@ -2183,9 +2189,15 @@ function initializeDraftView(draftId) {
 
     function setupFilters() {
         if (positionFiltersEl.innerHTML !== '') return;
-        positionFiltersEl.innerHTML = `<select id="filter-column-select"><option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option></select>`;
+        positionFiltersEl.innerHTML = `
+            <select id="filter-column-select"><option value="primary">Filtrar por Pos. Primaria</option><option value="secondary">Filtrar por Pos. Secundaria</option></select>
+            <input type="text" id="player-search-input" placeholder="🔍 Buscar jugador..." style="padding: 6px 12px; border-radius: 6px; border: 1.5px solid var(--neon-cyan); background: rgba(0, 0, 0, 0.4); color: white; margin-left: 10px; font-size: 0.85rem; width: 150px; outline: none; box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);">
+        `;
         const select = document.getElementById('filter-column-select');
         select.addEventListener('change', applyTableFilters);
+
+        const searchInput = document.getElementById('player-search-input');
+        searchInput.addEventListener('input', applyTableFilters);
 
         const allPositions = ['Todos', 'GK', 'DFC', 'CARR', 'Medios', 'DC'];
         allPositions.forEach(pos => {

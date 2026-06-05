@@ -1672,45 +1672,64 @@ export async function handleButton(interaction) {
         const verifiedData = isVerified ? await db.collection('verified_users').findOne({ discordId: userId }) : null;
 
         if (isVerified && verifiedData) {
-            // Flujo Verificados: menus de posicion en un unico paso
-            const primaryMenu = new StringSelectMenuBuilder()
-                .setCustomId(`draft_reg_pos_primary:${draftShortId}:${channelId || 'no-ticket'}`)
-                .setPlaceholder('Paso 1: Selecciona tu posición PRIMARIA')
-                .addOptions(
-                    { label: '🥅 Portero (GK)', value: 'GK' },
-                    { label: '🧱 Defensa Central (DFC)', value: 'DFC' },
-                    { label: '⚡ Carrilero (CARR)', value: 'CARR' },
-                    { label: '🎩 Medio (MC)', value: 'MC' },
-                    { label: '🏟️ Delantero Centro (DC)', value: 'DC' }
-                );
+            // Flujo Verificados: Modal pre-rellenado con opción de actualizar datos
+            const modal = new ModalBuilder()
+                .setCustomId(`register_verified_player_modal:${draftShortId}:${channelId || 'no-ticket'}`)
+                .setTitle('Inscripción al Draft');
 
-            const secondaryMenu = new StringSelectMenuBuilder()
-                .setCustomId(`draft_reg_pos_secondary:${draftShortId}:${channelId || 'no-ticket'}`)
-                .setPlaceholder('Paso 2: Selecciona tu posición SECUNDARIA')
-                .addOptions(
-                    { label: '❌ Ninguna posición secundaria', value: 'NONE' },
-                    { label: '🥅 Portero (GK)', value: 'GK' },
-                    { label: '🧱 Defensa Central (DFC)', value: 'DFC' },
-                    { label: '⚡ Carrilero (CARR)', value: 'CARR' },
-                    { label: '🎩 Medio (MC)', value: 'MC' },
-                    { label: '🏟️ Delantero Centro (DC)', value: 'DC' }
-                );
+            const psnInput = new TextInputBuilder()
+                .setCustomId('psn_id_input')
+                .setLabel('Tu EA ID / PSN ID')
+                .setValue(verifiedData.gameId || '')
+                .setPlaceholder('Ej: Rayden_VPG')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
 
-            const confirmButton = new ButtonBuilder()
-                .setCustomId(`draft_reg_confirm:${draftShortId}:${channelId || 'no-ticket'}:PENDING:PENDING`)
-                .setLabel('Confirmar Inscripción')
-                .setStyle(ButtonStyle.Success)
-                .setDisabled(true);
+            const whatsappInput = new TextInputBuilder()
+                .setCustomId('whatsapp_input')
+                .setLabel('Tu WhatsApp')
+                .setValue(verifiedData.whatsapp || '')
+                .setPlaceholder('Ej: +34 600123456')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
 
-            await interaction.reply({
-                content: `📋 **Inscripción para Verificados en 1 paso**\n\nPor favor, selecciona tus posiciones primaria y secundaria de los menús inferiores para habilitar el botón de confirmar.`,
-                components: [
-                    new ActionRowBuilder().addComponents(primaryMenu),
-                    new ActionRowBuilder().addComponents(secondaryMenu),
-                    new ActionRowBuilder().addComponents(confirmButton)
-                ],
-                flags: [MessageFlags.Ephemeral]
-            });
+            const primaryPosInput = new TextInputBuilder()
+                .setCustomId('primary_pos_input')
+                .setLabel('Posición Primaria (GK, DFC, CARR, MC, DC)')
+                .setValue(verifiedData.position || '')
+                .setPlaceholder('Ej: MC')
+                .setMinLength(2)
+                .setMaxLength(4)
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            const secondaryPosInput = new TextInputBuilder()
+                .setCustomId('secondary_pos_input')
+                .setLabel('Posición Secundaria (o NONE)')
+                .setValue(verifiedData.secondaryPosition || 'NONE')
+                .setPlaceholder('Ej: NONE')
+                .setMinLength(2)
+                .setMaxLength(4)
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            const twitterInput = new TextInputBuilder()
+                .setCustomId('twitter_input')
+                .setLabel('Tu Twitter (sin @) o escribe NONE')
+                .setValue(verifiedData.twitter || 'NONE')
+                .setPlaceholder('Ej: Rayden_VPG')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(psnInput),
+                new ActionRowBuilder().addComponents(whatsappInput),
+                new ActionRowBuilder().addComponents(primaryPosInput),
+                new ActionRowBuilder().addComponents(secondaryPosInput),
+                new ActionRowBuilder().addComponents(twitterInput)
+            );
+
+            await interaction.showModal(modal);
         } else {
             // Flujo No Verificados: modal unico de 5 campos (EA ID, WhatsApp, Pos Primaria, Pos Secundaria, Twitter)
             const modal = new ModalBuilder()
