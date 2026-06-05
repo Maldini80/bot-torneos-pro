@@ -607,7 +607,7 @@
 
             <form id="registration-form">
                 <div class="reg-form-group">
-                    <label for="field-gameid">ID de Jugador</label>
+                    <label for="field-gameid">ID de Jugador (PSN ID / EA ID)</label>
                     <input type="text" id="field-gameid" placeholder="Tu ID en el juego" required minlength="2"
                         maxlength="50">
                     <p class="error-msg" id="err-gameid">Este campo es obligatorio</p>
@@ -620,19 +620,38 @@
                 </div>
 
                 <div class="reg-form-group">
-                    <label for="field-position">Posición</label>
+                    <label for="field-position">Posición Primaria</label>
                     <select id="field-position" required>
-                        <option value="" disabled selected>Selecciona tu posición...</option>
-                        <option value="GK">🥅 Portero</option>
-                        <option value="DFC">🧱 Defensa</option>
-                        <option value="CARR">⚡ Carrilero</option>
-                        <option value="MC">🎩 Medio</option>
-                        <option value="DC">🏟️ Delantero</option>
+                        <option value="" disabled selected>Selecciona tu posición primaria...</option>
+                        <option value="GK">🥅 Portero (GK)</option>
+                        <option value="DFC">🧱 Defensa Central (DFC)</option>
+                        <option value="CARR">⚡ Carrilero (CARR)</option>
+                        <option value="MC">🎩 Medio (MC)</option>
+                        <option value="DC">🏟️ Delantero Centro (DC)</option>
                     </select>
-                    <p class="error-msg" id="err-position">Debes seleccionar una posición</p>
+                    <p class="error-msg" id="err-position">Debes seleccionar una posición primaria</p>
                 </div>
 
-                <button type="submit" class="reg-submit-btn" id="submit-btn">INSCRIBIRSE</button>
+                <div class="reg-form-group">
+                    <label for="field-secondary-position">Posición Secundaria</label>
+                    <select id="field-secondary-position" required>
+                        <option value="" disabled selected>Selecciona tu posición secundaria...</option>
+                        <option value="NONE">❌ Ninguna</option>
+                        <option value="GK">🥅 Portero (GK)</option>
+                        <option value="DFC">🧱 Defensa Central (DFC)</option>
+                        <option value="CARR">⚡ Carrilero (CARR)</option>
+                        <option value="MC">🎩 Medio (MC)</option>
+                        <option value="DC">🏟️ Delantero Centro (DC)</option>
+                    </select>
+                    <p class="error-msg" id="err-secondary-position">Debes seleccionar una posición secundaria o Ninguna</p>
+                </div>
+
+                <div class="reg-form-group" style="display: flex; align-items: flex-start; gap: 10px; margin-top: 1.5rem; margin-bottom: 1.5rem;">
+                    <input type="checkbox" id="field-rules" style="width: auto; cursor: pointer; margin-top: 4px;" required>
+                    <label for="field-rules" style="margin-bottom: 0; cursor: pointer; text-transform: none; font-size: 0.95rem; color: #fff; font-family: 'Rajdhani', sans-serif;">Acepto y me comprometo a cumplir el reglamento del torneo y las normas de draft.</label>
+                </div>
+
+                <button type="submit" class="reg-submit-btn" id="submit-btn">COMPLETAR REGISTRO</button>
                 <div class="reg-status-msg" id="form-status"></div>
             </form>
         </div>
@@ -832,7 +851,8 @@
         function showRegisteredState(reg) {
             document.getElementById('reg-gameid').textContent = reg.gameId;
             document.getElementById('reg-whatsapp').textContent = reg.whatsapp;
-            document.getElementById('reg-position').textContent = POSITION_LABELS[reg.position] || reg.position;
+            const secLabel = reg.secondaryPosition && reg.secondaryPosition !== 'NONE' ? ` (Sec: ${POSITION_LABELS[reg.secondaryPosition] || reg.secondaryPosition})` : '';
+            document.getElementById('reg-position').textContent = `${POSITION_LABELS[reg.position] || reg.position}${secLabel}`;
             showState('state-registered');
         }
 
@@ -843,6 +863,8 @@
             const gameId = document.getElementById('field-gameid').value.trim();
             const whatsapp = document.getElementById('field-whatsapp').value.trim();
             const position = document.getElementById('field-position').value;
+            const secondaryPosition = document.getElementById('field-secondary-position').value;
+            const acceptRules = document.getElementById('field-rules').checked;
             let valid = true;
 
             // Validate
@@ -874,12 +896,26 @@
                 document.getElementById('field-position').classList.remove('error');
             }
 
+            if (!secondaryPosition) {
+                document.getElementById('err-secondary-position').classList.add('visible');
+                document.getElementById('field-secondary-position').classList.add('error');
+                valid = false;
+            } else {
+                document.getElementById('err-secondary-position').classList.remove('visible');
+                document.getElementById('field-secondary-position').classList.remove('error');
+            }
+
+            if (!acceptRules) {
+                alert('Debes aceptar las normas y reglamento del torneo.');
+                valid = false;
+            }
+
             if (!valid) return;
 
             const btn = document.getElementById('submit-btn');
             const statusEl = document.getElementById('form-status');
             btn.disabled = true;
-            btn.textContent = 'INSCRIBIENDO...';
+            btn.textContent = 'COMPLETANDO REGISTRO...';
             statusEl.className = 'reg-status-msg';
             statusEl.style.display = 'none';
 
@@ -887,31 +923,39 @@
                 const res = await fetch(`/api/external-draft/register/${tournamentId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ gameId, whatsapp: normalizedWA, position })
+                    body: JSON.stringify({ gameId, whatsapp: normalizedWA, position, secondaryPosition })
                 });
 
                 const data = await res.json();
 
                 if (res.ok) {
-                    statusEl.textContent = '✅ ¡Te has inscrito correctamente!';
-                    statusEl.className = 'reg-status-msg success';
-                    if (data.stats) updateCounter(data.stats);
-                    // Show registered state after brief delay
-                    setTimeout(() => {
-                        currentRegistration = data.registration;
-                        showRegisteredState(data.registration);
-                    }, 1500);
+                    if (data.pendingApproval) {
+                        statusEl.textContent = '✅ ' + (data.message || 'Solicitud de cambio enviada a los administradores.');
+                        statusEl.className = 'reg-status-msg success';
+                        statusEl.style.display = 'block';
+                        setTimeout(() => {
+                            showState('state-registered');
+                        }, 3000);
+                    } else {
+                        statusEl.textContent = '✅ ¡Te has inscrito correctamente!';
+                        statusEl.className = 'reg-status-msg success';
+                        if (data.stats) updateCounter(data.stats);
+                        setTimeout(() => {
+                            currentRegistration = data.registration;
+                            showRegisteredState(data.registration);
+                        }, 1500);
+                    }
                 } else {
                     statusEl.textContent = '❌ ' + (data.error || 'Error al inscribirse');
                     statusEl.className = 'reg-status-msg error';
                     btn.disabled = false;
-                    btn.textContent = 'INSCRIBIRSE';
+                    btn.textContent = 'COMPLETAR REGISTRO';
                 }
             } catch (err) {
                 statusEl.textContent = '❌ Error de conexión. Intenta de nuevo.';
                 statusEl.className = 'reg-status-msg error';
                 btn.disabled = false;
-                btn.textContent = 'INSCRIBIRSE';
+                btn.textContent = 'COMPLETAR REGISTRO';
             }
         });
 
@@ -922,6 +966,8 @@
             document.getElementById('field-gameid').value = currentRegistration.gameId;
             document.getElementById('field-whatsapp').value = currentRegistration.whatsapp;
             document.getElementById('field-position').value = currentRegistration.position;
+            document.getElementById('field-secondary-position').value = currentRegistration.secondaryPosition || 'NONE';
+            document.getElementById('field-rules').checked = true;
             // Change submit button to "update"
             document.getElementById('submit-btn').textContent = 'GUARDAR CAMBIOS';
             showState('state-form');
@@ -952,7 +998,7 @@
                     currentRegistration = null;
                     // Reset form
                     document.getElementById('registration-form').reset();
-                    document.getElementById('submit-btn').textContent = 'INSCRIBIRSE';
+                    document.getElementById('submit-btn').textContent = 'COMPLETAR REGISTRO';
                     const statusEl = document.getElementById('form-status');
                     statusEl.textContent = '✅ Te has dado de baja correctamente.';
                     statusEl.className = 'reg-status-msg success';

@@ -136,6 +136,7 @@
                     <h2>Estado del Draft: <span id="draft-status">...</span></h2>
                     <div class="controls">
                         <button class="btn-warning" onclick="undoLastPick()">↩️ Deshacer Último Pick</button>
+                        <button class="btn-primary" style="background: #a855f7; color: white;" onclick="openSeedTestModal()">🧪 Generar Jugadores Test</button>
                         <button class="btn-danger" onclick="forcePause()">⏸️ Pausar</button>
                         <button class="btn-success" onclick="forceResume()">▶️ Reanudar</button>
                     </div>
@@ -148,6 +149,26 @@
 
             <div class="grid" id="teams-container">
                 <!-- Teams will be injected here -->
+            </div>
+
+            <div class="card" id="free-agents-card" style="display:none; margin-top: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 15px;">
+                    <h2 style="margin: 0;">Agentes Libres - Asignación Rápida</h2>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <input type="text" id="free-agent-search-input" placeholder="Filtrar por nombre..." onkeyup="filterFreeAgentsGrid()" style="margin: 0; padding: 6px 12px; width: 200px; font-size: 0.9em; height: 36px; box-sizing: border-box;">
+                        <div id="free-agent-position-filters" style="display: flex; gap: 5px; flex-wrap: wrap;">
+                            <button class="btn-primary" style="padding: 6px 12px; font-size: 0.85em; height: 36px; box-sizing: border-box;" onclick="filterFreeAgentsGridByPos('Todos')">Todos</button>
+                            <button class="btn-primary" style="padding: 6px 12px; font-size: 0.85em; background: #d97706; color: white; height: 36px; box-sizing: border-box;" onclick="filterFreeAgentsGridByPos('GK')">GK</button>
+                            <button class="btn-primary" style="padding: 6px 12px; font-size: 0.85em; background: #2563eb; color: white; height: 36px; box-sizing: border-box;" onclick="filterFreeAgentsGridByPos('DFC')">DFC</button>
+                            <button class="btn-primary" style="padding: 6px 12px; font-size: 0.85em; background: #0891b2; color: white; height: 36px; box-sizing: border-box;" onclick="filterFreeAgentsGridByPos('CARR')">CARR</button>
+                            <button class="btn-primary" style="padding: 6px 12px; font-size: 0.85em; background: #059669; color: white; height: 36px; box-sizing: border-box;" onclick="filterFreeAgentsGridByPos('MC')">MC</button>
+                            <button class="btn-primary" style="padding: 6px 12px; font-size: 0.85em; background: #dc2626; color: white; height: 36px; box-sizing: border-box;" onclick="filterFreeAgentsGridByPos('DC')">DC</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="free-agents-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px;">
+                    <!-- Free agents cards will be injected here -->
+                </div>
             </div>
         </div>
     </div>
@@ -166,22 +187,85 @@
         </div>
     </div>
 
-    <!-- Manage Team Modal (Kick/Add) -->
+    <!-- Manage Team Modal (Kick/Add/Replace) -->
     <div id="manage-team-modal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content" style="max-height: 90vh; overflow-y: auto;">
             <h3>Gestionar Equipo: <span id="manage-team-name"></span></h3>
+            
             <div style="margin-bottom: 20px;">
                 <h4>Añadir Jugador (Post-Draft)</h4>
-                <input type="text" id="add-player-id" placeholder="ID de Discord o GameID">
+                <div style="position: relative; margin-bottom: 10px;">
+                    <input type="text" id="add-player-search" placeholder="Buscar jugador a añadir..." onkeyup="autocompleteAddPlayer()">
+                    <input type="hidden" id="add-player-id">
+                    <div id="add-player-autocomplete-list" style="position: absolute; border: 1px solid #334155; border-top: none; z-index: 99; top: 100%; left: 0; right: 0; background: var(--card); max-height: 150px; overflow-y: auto; border-radius: 0 0 6px 6px;"></div>
+                </div>
                 <button class="btn-success" onclick="adminAddPlayer()">Añadir</button>
             </div>
-            <div style="border-top: 1px solid #334155; padding-top: 20px;">
-                <h4>Expulsar Jugador</h4>
+            
+            <div style="border-top: 1px solid #334155; padding-top: 20px; margin-top: 20px;">
+                <h4>Expulsar Jugador (Eliminar del Draft)</h4>
                 <select id="kick-player-select"></select>
                 <button class="btn-danger" onclick="adminKickPlayer()">Expulsar</button>
             </div>
-            <div style="margin-top: 20px; text-align: right;">
+
+            <div style="border-top: 1px solid #334155; padding-top: 20px; margin-top: 20px;">
+                <h4>Reemplazar Jugador (Corregir Pick)</h4>
+                <div style="margin-bottom: 10px;">
+                    <label style="font-size: 0.85em; color: #94a3b8;">Jugador a quitar del equipo:</label>
+                    <select id="replace-old-player-select" style="margin: 5px 0;"></select>
+                </div>
+                <div style="position: relative; margin-bottom: 10px;">
+                    <label style="font-size: 0.85em; color: #94a3b8;">Reemplazar por Agente Libre:</label>
+                    <input type="text" id="replace-new-player-search" placeholder="Buscar reemplazo..." onkeyup="autocompleteReplacePlayer()" style="margin: 5px 0;">
+                    <input type="hidden" id="replace-new-player-id">
+                    <div id="replace-player-autocomplete-list" style="position: absolute; border: 1px solid #334155; border-top: none; z-index: 99; top: 100%; left: 0; right: 0; background: var(--card); max-height: 150px; overflow-y: auto; border-radius: 0 0 6px 6px;"></div>
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="font-size: 0.85em; color: #94a3b8;">Destino del jugador quitado:</label>
+                    <select id="replace-disposition-select" style="margin: 5px 0;">
+                        <option value="release">Liberar a Agentes Libres (Volver a Libre)</option>
+                        <option value="kick">Expulsar completamente del Draft</option>
+                    </select>
+                </div>
+                <button class="btn-warning" onclick="adminReplacePlayer()">Reemplazar Pick</button>
+            </div>
+            
+            <div style="margin-top: 20px; text-align: right; border-top: 1px solid #334155; padding-top: 15px;">
                 <button onclick="closeModal('manage-team-modal')">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seed Test Players Modal -->
+    <div id="seed-test-modal" class="modal">
+        <div class="modal-content">
+            <h3>Generar Jugadores Test</h3>
+            <p>Introduce la cantidad de jugadores a generar por posición:</p>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+                <div>
+                    <label style="font-size: 0.85em; color: #94a3b8;">Porteros (GK):</label>
+                    <input type="number" id="seed-gk" value="2" min="0">
+                </div>
+                <div>
+                    <label style="font-size: 0.85em; color: #94a3b8;">Defensas Centrales (DFC):</label>
+                    <input type="number" id="seed-dfc" value="4" min="0">
+                </div>
+                <div>
+                    <label style="font-size: 0.85em; color: #94a3b8;">Laterales/Carrileros (CARR):</label>
+                    <input type="number" id="seed-carr" value="4" min="0">
+                </div>
+                <div>
+                    <label style="font-size: 0.85em; color: #94a3b8;">Mediocampistas (MC):</label>
+                    <input type="number" id="seed-mc" value="8" min="0">
+                </div>
+                <div style="grid-column: span 2;">
+                    <label style="font-size: 0.85em; color: #94a3b8;">Delanteros (DC):</label>
+                    <input type="number" id="seed-dc" value="4" min="0">
+                </div>
+            </div>
+            <div style="text-align: right;">
+                <button onclick="closeModal('seed-test-modal')">Cancelar</button>
+                <button class="btn-success" style="background: #a855f7; color: white;" onclick="confirmSeedTestPlayers()">Generar Jugadores</button>
             </div>
         </div>
     </div>
@@ -191,6 +275,11 @@
     <script>
         let currentDraft = null;
         let availablePlayers = [];
+        let socket = null;
+        let reconnectDelay = 1000;
+        const maxReconnectDelay = 30000;
+        let reconnectTimeout = null;
+        let selectedFreeAgentPosFilter = 'Todos';
 
         async function checkAuth() {
             const res = await fetch('/api/user');
@@ -258,6 +347,63 @@
 
             // Update available players for modal
             availablePlayers = currentDraft.players.filter(p => p.currentTeam === 'Libre');
+
+            // Sort free agents by position hierarchy (GK -> DFC -> CARR -> MC -> DC) and then alphabetically
+            const positionOrder = ['GK', 'DFC', 'CARR', 'MC', 'DC'];
+            availablePlayers.sort((a, b) => {
+                const posA = positionOrder.indexOf(a.primaryPosition || '');
+                const posB = positionOrder.indexOf(b.primaryPosition || '');
+                const indexA = posA === -1 ? 99 : posA;
+                const indexB = posB === -1 ? 99 : posB;
+                if (indexA !== indexB) return indexA - indexB;
+                const nameA = (a.psnId || a.userName || '').toLowerCase();
+                const nameB = (b.psnId || b.userName || '').toLowerCase();
+                return nameA.localeCompare(nameB);
+            });
+
+            // Free Agents - Quick Assignment Grid
+            const freeAgentsCard = document.getElementById('free-agents-card');
+            const freeAgentsGrid = document.getElementById('free-agents-grid');
+            if (availablePlayers.length > 0) {
+                freeAgentsCard.style.display = 'block';
+                freeAgentsGrid.innerHTML = '';
+                availablePlayers.forEach(p => {
+                    const card = document.createElement('div');
+                    const pos = p.primaryPosition || 'N/A';
+                    card.dataset.playerName = (p.psnId || p.userName || '').toLowerCase();
+                    card.dataset.playerPos = pos;
+                    card.style.cssText = 'padding: 12px; border: 1px solid #334155; border-radius: 8px; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; justify-content: space-between; gap: 8px;';
+                    
+                    const selectOptions = currentDraft.teams.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+                    let badgeColor = '#64748b'; // slate-500
+                    if (pos === 'GK') badgeColor = '#d97706'; // amber-600
+                    else if (pos === 'DFC') badgeColor = '#2563eb'; // blue-600
+                    else if (pos === 'CARR') badgeColor = '#0891b2'; // cyan-600
+                    else if (pos === 'MC') badgeColor = '#059669'; // emerald-600
+                    else if (pos === 'DC') badgeColor = '#dc2626'; // red-600
+
+                    card.innerHTML = `
+                        <div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
+                                <div style="font-weight: 600; font-size: 0.95em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${p.psnId || p.userName}">${p.psnId || p.userName}</div>
+                                <span style="font-size: 0.7em; font-weight: bold; background: ${badgeColor}; color: white; padding: 2px 6px; border-radius: 4px; flex-shrink: 0;">${pos}</span>
+                            </div>
+                            <div style="font-size: 0.8em; color: #94a3b8; margin-top: 4px;">
+                                ID: ${p.userId} ${p.secondaryPosition && p.secondaryPosition !== 'NONE' ? '| Sec: ' + p.secondaryPosition : ''}
+                            </div>
+                        </div>
+                        <select onchange="quickAssignPlayer('${p.userId}', this)" style="margin: 0; padding: 6px; font-size: 0.85em; width: 100%; background: #0f172a; color: white; border: 1px solid #334155; border-radius: 4px; cursor: pointer;">
+                            <option value="">-- Asignar --</option>
+                            ${selectOptions}
+                        </select>
+                    `;
+                    freeAgentsGrid.appendChild(card);
+                });
+                // Apply active search & position filter
+                filterFreeAgentsGrid();
+            } else {
+                freeAgentsCard.style.display = 'none';
+            }
         }
 
         function openForcePickModal() {
@@ -325,6 +471,14 @@
             } catch (e) { showStatus(e.message, 'error'); }
         }
 
+        function forcePause() {
+            showStatus('La pausa no está implementada en esta versión del draft (los turnos son manuales).', 'error');
+        }
+
+        function forceResume() {
+            showStatus('El draft ya está activo.', 'success');
+        }
+
         // --- Manage Team Modal ---
         let managingTeamId = null;
         function openManageTeam(teamId) {
@@ -334,12 +488,31 @@
             
             const kickSelect = document.getElementById('kick-player-select');
             kickSelect.innerHTML = '';
+
+            const replaceOldSelect = document.getElementById('replace-old-player-select');
+            replaceOldSelect.innerHTML = '';
+            
             team.players.forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.userId;
-                opt.text = p.psnId;
-                kickSelect.appendChild(opt);
+                const opt1 = document.createElement('option');
+                opt1.value = p.userId;
+                opt1.text = p.psnId;
+                kickSelect.appendChild(opt1);
+
+                const opt2 = document.createElement('option');
+                opt2.value = p.userId;
+                opt2.text = p.psnId;
+                replaceOldSelect.appendChild(opt2);
             });
+
+            // Reset add player inputs
+            document.getElementById('add-player-search').value = '';
+            document.getElementById('add-player-id').value = '';
+            document.getElementById('add-player-autocomplete-list').innerHTML = '';
+
+            // Reset replace player inputs
+            document.getElementById('replace-new-player-search').value = '';
+            document.getElementById('replace-new-player-id').value = '';
+            document.getElementById('replace-player-autocomplete-list').innerHTML = '';
             
             document.getElementById('manage-team-modal').style.display = 'flex';
         }
@@ -366,7 +539,7 @@
 
         async function adminAddPlayer() {
             const playerId = document.getElementById('add-player-id').value;
-            if (!playerId) return;
+            if (!playerId) return showStatus('Por favor, selecciona un jugador de la lista autocompletable.', 'error');
 
             try {
                 const res = await fetch('/api/admin/add-player', {
@@ -384,6 +557,140 @@
             } catch (e) { showStatus(e.message, 'error'); }
         }
 
+        async function quickAssignPlayer(playerId, selectElement) {
+            const teamId = selectElement.value;
+            if (!teamId) return;
+
+            const teamName = selectElement.options[selectElement.selectedIndex].text;
+            if (!confirm(`¿Seguro que quieres asignar este jugador a ${teamName}?`)) {
+                selectElement.value = '';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/add-player', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ draftId: currentDraft.shortId, teamId, playerId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showStatus('Jugador asignado con éxito', 'success');
+                } else {
+                    showStatus(data.error, 'error');
+                }
+            } catch (e) {
+                showStatus(e.message, 'error');
+            } finally {
+                selectElement.value = '';
+            }
+        }
+
+        function autocompleteAddPlayer() {
+            const val = document.getElementById('add-player-search').value.toLowerCase();
+            const list = document.getElementById('add-player-autocomplete-list');
+            list.innerHTML = '';
+            
+            if (!val) return;
+            
+            const filtered = availablePlayers.filter(p => 
+                (p.psnId && p.psnId.toLowerCase().includes(val)) || 
+                (p.userName && p.userName.toLowerCase().includes(val))
+            );
+            
+            filtered.forEach(p => {
+                const div = document.createElement('div');
+                div.style.padding = '8px 12px';
+                div.style.cursor = 'pointer';
+                div.style.borderBottom = '1px solid #334155';
+                div.innerHTML = `<strong>${p.psnId || p.userName}</strong> <span style="font-size:0.8em;color:#94a3b8;">(${p.primaryPosition || ''})</span>`;
+                div.addEventListener('click', () => {
+                    document.getElementById('add-player-search').value = p.psnId || p.userName;
+                    document.getElementById('add-player-id').value = p.userId;
+                    list.innerHTML = '';
+                });
+                div.addEventListener('mouseover', () => {
+                    div.style.background = '#334155';
+                });
+                div.addEventListener('mouseout', () => {
+                    div.style.background = 'transparent';
+                });
+                list.appendChild(div);
+            });
+        }
+
+        function autocompleteReplacePlayer() {
+            const val = document.getElementById('replace-new-player-search').value.toLowerCase();
+            const list = document.getElementById('replace-player-autocomplete-list');
+            list.innerHTML = '';
+            
+            if (!val) return;
+            
+            const filtered = availablePlayers.filter(p => 
+                (p.psnId && p.psnId.toLowerCase().includes(val)) || 
+                (p.userName && p.userName.toLowerCase().includes(val))
+            );
+            
+            filtered.forEach(p => {
+                const div = document.createElement('div');
+                div.style.padding = '8px 12px';
+                div.style.cursor = 'pointer';
+                div.style.borderBottom = '1px solid #334155';
+                div.innerHTML = `<strong>${p.psnId || p.userName}</strong> <span style="font-size:0.8em;color:#94a3b8;">(${p.primaryPosition || ''})</span>`;
+                div.addEventListener('click', () => {
+                    document.getElementById('replace-new-player-search').value = p.psnId || p.userName;
+                    document.getElementById('replace-new-player-id').value = p.userId;
+                    list.innerHTML = '';
+                });
+                div.addEventListener('mouseover', () => {
+                    div.style.background = '#334155';
+                });
+                div.addEventListener('mouseout', () => {
+                    div.style.background = 'transparent';
+                });
+                list.appendChild(div);
+            });
+        }
+
+        async function adminReplacePlayer() {
+            const oldPlayerId = document.getElementById('replace-old-player-select').value;
+            const newPlayerId = document.getElementById('replace-new-player-id').value;
+            const disposition = document.getElementById('replace-disposition-select').value;
+
+            if (!oldPlayerId) return showStatus('Por favor, selecciona el jugador a quitar del equipo.', 'error');
+            if (!newPlayerId) return showStatus('Por favor, selecciona un jugador de reemplazo de la lista autocompletable.', 'error');
+
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                return showStatus('No hay conexión con el servidor WebSocket.', 'error');
+            }
+
+            try {
+                socket.send(JSON.stringify({
+                    type: 'admin_replace_pick',
+                    oldPlayerId,
+                    newPlayerId,
+                    disposition,
+                    teamId: managingTeamId
+                }));
+                showStatus('Enviando solicitud de reemplazo...', 'success');
+                closeModal('manage-team-modal');
+            } catch (e) {
+                showStatus(e.message, 'error');
+            }
+        }
+
+        // Close autocomplete when clicking outside
+        document.addEventListener('click', function(e) {
+            const listAdd = document.getElementById('add-player-autocomplete-list');
+            if (listAdd && e.target.id !== 'add-player-search') {
+                listAdd.innerHTML = '';
+            }
+            const listReplace = document.getElementById('replace-player-autocomplete-list');
+            if (listReplace && e.target.id !== 'replace-new-player-search') {
+                listReplace.innerHTML = '';
+            }
+        });
+
         function closeModal(id) {
             document.getElementById(id).style.display = 'none';
         }
@@ -392,20 +699,181 @@
             const bar = document.getElementById('status-bar');
             bar.innerText = msg;
             bar.style.display = 'block';
-            bar.style.color = type === 'error' ? '#ef4444' : '#22c55e';
+            bar.style.backgroundColor = type === 'error' ? 'rgba(239, 68, 68, 0.9)' : 'rgba(34, 197, 94, 0.9)';
+            bar.style.color = '#ffffff';
+            bar.style.padding = '12px 24px';
+            bar.style.borderRadius = '8px';
+            bar.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+            bar.style.position = 'fixed';
+            bar.style.bottom = '20px';
+            bar.style.right = '20px';
+            bar.style.zIndex = '10000';
             setTimeout(() => bar.style.display = 'none', 3000);
         }
 
         function connectWS(draftId) {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const ws = new WebSocket(`${protocol}//${window.location.host}`);
-            ws.onmessage = (event) => {
+            if (socket) {
+                try { socket.close(); } catch(e) {}
+            }
+            updateConnectionStatus('connecting');
+            const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+            socket = new WebSocket(`${protocol}://${window.location.host}`);
+            
+            socket.onopen = () => {
+                console.log('Conectado al servidor para Draft (Admin).');
+                reconnectDelay = 1000;
+                updateConnectionStatus('connected');
+                if (reconnectTimeout) {
+                    clearTimeout(reconnectTimeout);
+                    reconnectTimeout = null;
+                }
+            };
+
+            socket.onmessage = (event) => {
                 const msg = JSON.parse(event.data);
                 if (msg.type === 'draft' && msg.id === draftId) {
                     currentDraft = msg.data;
                     renderDraft();
                 }
             };
+
+            socket.onclose = () => {
+                console.warn('Conexión de WebSocket de Admin cerrada. Intentando reconectar...');
+                updateConnectionStatus('disconnected');
+                scheduleReconnect(draftId);
+            };
+
+            socket.onerror = (err) => {
+                console.error('Error de WebSocket de Admin:', err);
+                socket.close();
+            };
+        }
+
+        function scheduleReconnect(draftId) {
+            if (reconnectTimeout) return;
+            reconnectTimeout = setTimeout(() => {
+                reconnectTimeout = null;
+                connectWS(draftId);
+            }, reconnectDelay);
+            reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay);
+        }
+
+        function updateConnectionStatus(status) {
+            let statusEl = document.getElementById('ws-connection-status');
+            if (!statusEl) {
+                statusEl = document.createElement('div');
+                statusEl.id = 'ws-connection-status';
+                statusEl.style.position = 'fixed';
+                statusEl.style.bottom = '15px';
+                statusEl.style.right = '15px';
+                statusEl.style.padding = '6px 12px';
+                statusEl.style.borderRadius = '20px';
+                statusEl.style.fontSize = '0.75rem';
+                statusEl.style.fontWeight = 'bold';
+                statusEl.style.fontFamily = "'Outfit', sans-serif";
+                statusEl.style.zIndex = '9999';
+                statusEl.style.display = 'flex';
+                statusEl.style.alignItems = 'center';
+                statusEl.style.gap = '6px';
+                statusEl.style.boxShadow = '0 2px 10px rgba(0,0,0,0.5)';
+                statusEl.style.transition = 'all 0.3s ease';
+                document.body.appendChild(statusEl);
+            }
+
+            const dot = '<span style="width: 8px; height: 8px; border-radius: 50%; display: inline-block; background-color: currentColor;"></span>';
+
+            if (status === 'connected') {
+                statusEl.innerHTML = `${dot} Conectado`;
+                statusEl.style.backgroundColor = 'rgba(34, 197, 94, 0.2)';
+                statusEl.style.color = '#22c55e';
+                statusEl.style.border = '1px solid #22c55e';
+            } else if (status === 'connecting') {
+                statusEl.innerHTML = `${dot} Conectando...`;
+                statusEl.style.backgroundColor = 'rgba(234, 179, 8, 0.2)';
+                statusEl.style.color = '#eab308';
+                statusEl.style.border = '1px solid #eab308';
+            } else {
+                statusEl.innerHTML = `${dot} Desconectado`;
+                statusEl.style.backgroundColor = 'rgba(239, 68, 68, 0.2)';
+                statusEl.style.color = '#ef4444';
+                statusEl.style.border = '1px solid #ef4444';
+            }
+        }
+
+        function filterFreeAgentsGridByPos(pos) {
+            selectedFreeAgentPosFilter = pos;
+            
+            // Update active styling on filter buttons
+            const buttons = document.querySelectorAll('#free-agent-position-filters button');
+            buttons.forEach(btn => {
+                if (btn.innerText === pos || (pos === 'Todos' && btn.innerText === 'Todos')) {
+                    btn.classList.add('active-filter');
+                    btn.style.boxShadow = '0 0 0 2px var(--text)';
+                } else {
+                    btn.classList.remove('active-filter');
+                    btn.style.boxShadow = 'none';
+                }
+            });
+            
+            filterFreeAgentsGrid();
+        }
+
+        function filterFreeAgentsGrid() {
+            const query = (document.getElementById('free-agent-search-input')?.value || '').toLowerCase();
+            const grid = document.getElementById('free-agents-grid');
+            if (!grid) return;
+            const cards = grid.children;
+            
+            for (let i = 0; i < cards.length; i++) {
+                const card = cards[i];
+                const playerName = card.dataset.playerName || '';
+                const playerPos = card.dataset.playerPos || '';
+                
+                const matchesSearch = playerName.includes(query);
+                const matchesPos = selectedFreeAgentPosFilter === 'Todos' || playerPos === selectedFreeAgentPosFilter;
+                
+                if (matchesSearch && matchesPos) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            }
+        }
+
+        function openSeedTestModal() {
+            document.getElementById('seed-test-modal').style.display = 'flex';
+        }
+
+        async function confirmSeedTestPlayers() {
+            const gk = document.getElementById('seed-gk').value;
+            const dfc = document.getElementById('seed-dfc').value;
+            const carr = document.getElementById('seed-carr').value;
+            const mc = document.getElementById('seed-mc').value;
+            const dc = document.getElementById('seed-dc').value;
+
+            if (!currentDraft || !currentDraft.shortId) {
+                return showStatus('Carga primero un draft activo.', 'error');
+            }
+
+            try {
+                const res = await fetch('/api/admin/seed-test-players', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        draftId: currentDraft.shortId,
+                        gk, dfc, carr, mc, dc
+                    })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showStatus(`Se han generado ${data.count} jugadores test con éxito`, 'success');
+                    closeModal('seed-test-modal');
+                } else {
+                    showStatus(data.error, 'error');
+                }
+            } catch (e) {
+                showStatus(e.message, 'error');
+            }
         }
 
         checkAuth();

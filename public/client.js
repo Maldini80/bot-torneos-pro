@@ -937,6 +937,9 @@ function initializeDraftView(draftId) {
     let currentDraftState = null;
     let lastShownPickData = null;
     let socket;
+    let reconnectDelay = 1000;
+    const maxReconnectDelay = 30000;
+    let reconnectTimeout = null;
 
     // Captain substitute mode (from dashboard redirect)
     window.captainSubstituteMode = false;
@@ -1004,9 +1007,23 @@ function initializeDraftView(draftId) {
     }
 
     function connectWebSocket() {
+        if (socket) {
+            try { socket.close(); } catch(e) {}
+        }
+        updateConnectionStatus('connecting');
         const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
         socket = new WebSocket(`${protocol}://${window.location.host}`);
-        socket.onopen = () => console.log('Conectado al servidor para Draft.');
+        
+        socket.onopen = () => {
+            console.log('Conectado al servidor para Draft.');
+            reconnectDelay = 1000;
+            updateConnectionStatus('connected');
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
+                reconnectTimeout = null;
+            }
+        };
+
         socket.onmessage = (event) => {
             const message = JSON.parse(event.data);
             if (message.type === 'draft' && message.id === draftId) {
@@ -1025,6 +1042,68 @@ function initializeDraftView(draftId) {
                 document.querySelectorAll('.admin-force-pick-btn').forEach(btn => { btn.disabled = false; btn.textContent = 'Forzar Pick'; });
             }
         };
+
+        socket.onclose = () => {
+            console.warn('Conexión de WebSocket cerrada. Intentando reconectar...');
+            updateConnectionStatus('disconnected');
+            scheduleReconnect();
+        };
+
+        socket.onerror = (err) => {
+            console.error('Error de WebSocket:', err);
+            socket.close();
+        };
+    }
+
+    function scheduleReconnect() {
+        if (reconnectTimeout) return;
+        reconnectTimeout = setTimeout(() => {
+            reconnectTimeout = null;
+            connectWebSocket();
+        }, reconnectDelay);
+        reconnectDelay = Math.min(reconnectDelay * 2, maxReconnectDelay);
+    }
+
+    function updateConnectionStatus(status) {
+        let statusEl = document.getElementById('ws-connection-status');
+        if (!statusEl) {
+            statusEl = document.createElement('div');
+            statusEl.id = 'ws-connection-status';
+            statusEl.style.position = 'fixed';
+            statusEl.style.bottom = '15px';
+            statusEl.style.right = '15px';
+            statusEl.style.padding = '6px 12px';
+            statusEl.style.borderRadius = '20px';
+            statusEl.style.fontSize = '0.75rem';
+            statusEl.style.fontWeight = 'bold';
+            statusEl.style.fontFamily = 'Inter, sans-serif';
+            statusEl.style.zIndex = '9999';
+            statusEl.style.display = 'flex';
+            statusEl.style.alignItems = 'center';
+            statusEl.style.gap = '6px';
+            statusEl.style.boxShadow = '0 2px 10px rgba(0,0,0,0.5)';
+            statusEl.style.transition = 'all 0.3s ease';
+            document.body.appendChild(statusEl);
+        }
+
+        const dot = '<span style="width: 8px; height: 8px; border-radius: 50%; display: inline-block; background-color: currentColor;"></span>';
+
+        if (status === 'connected') {
+            statusEl.innerHTML = `${dot} Conectado`;
+            statusEl.style.backgroundColor = 'rgba(46, 204, 113, 0.2)';
+            statusEl.style.color = '#2ecc71';
+            statusEl.style.border = '1px solid #2ecc71';
+        } else if (status === 'connecting') {
+            statusEl.innerHTML = `${dot} Conectando...`;
+            statusEl.style.backgroundColor = 'rgba(241, 196, 15, 0.2)';
+            statusEl.style.color = '#f1c40f';
+            statusEl.style.border = '1px solid #f1c40f';
+        } else {
+            statusEl.innerHTML = `${dot} Desconectado`;
+            statusEl.style.backgroundColor = 'rgba(231, 76, 60, 0.2)';
+            statusEl.style.color = '#e74c3c';
+            statusEl.style.border = '1px solid #e74c3c';
+        }
     }
 
     function fetchInitialData() {
@@ -1530,7 +1609,6 @@ function initializeDraftView(draftId) {
     }
 
     function renderAvailablePlayers(draft) {
-        playersTableBodyEl.innerHTML = '';
         const captainIdInTurn = (draft.selection && draft.selection.order?.length > 0) ? draft.selection.order[draft.selection.turn] : null;
         const isMyTurn = currentUser && draft.status === 'seleccion' && String(currentUser.id) === String(captainIdInTurn);
 
@@ -1561,37 +1639,42 @@ function initializeDraftView(draftId) {
 
         availablePlayers.sort(sortPlayersAdvanced);
 
-        availablePlayers.forEach(player => {
-            const row = document.createElement('tr');
-            row.dataset.primaryPos = player.primaryPosition;
-            row.dataset.secondaryPos = player.secondaryPosition || 'NONE';
+        const availablePlayerIds = new Set(availablePlayers.map(p => p.userId));
 
-            const secPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? player.secondaryPosition : '-';
-            const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
-
-            let actionButtonsHTML = isMyTurn ? `<button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}">Elegir</button>` : '---';
-
-            // CAPTAIN SUBSTITUTE MODE
-            if (window.captainSubstituteMode) {
-                actionButtonsHTML = `<button class="captain-substitute-select-btn" data-player-id="${player.userId}" data-player-psn="${player.psnId}" data-draft-id="${draft.shortId}" style="background:linear-gradient(135deg, #2196F3, #1565C0); color:white; padding:6px 12px; border-radius:6px; border:none; cursor:pointer; font-weight:bold; font-size:0.85rem;">🔄 Sustituir por este</button> <button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}" style="margin-left:4px;">🪪 Ficha</button>`;
+        // Reconciliar: eliminar las filas de los jugadores que ya no están disponibles
+        const existingRows = Array.from(playersTableBodyEl.querySelectorAll('tr'));
+        existingRows.forEach(row => {
+            const playerId = row.dataset.playerId;
+            if (!availablePlayerIds.has(playerId)) {
+                row.remove();
             }
-            // ADMIN CONTROLS: REPLACE MODE OR FORCE PICK
-            else if (userRoleData && userRoleData.isAdmin && draft.status === 'seleccion') {
+        });
+
+        const activeFilterPos = document.querySelector('#position-filters .filter-btn.active')?.dataset.pos || 'Todos';
+
+        availablePlayers.forEach(player => {
+            let row = playersTableBodyEl.querySelector(`tr[data-player-id="${player.userId}"]`);
+            const secPos = player.secondaryPosition && player.secondaryPosition !== 'NONE' ? player.secondaryPosition : '-';
+
+            // Opciones de acción: SOLO los administradores o árbitros pueden elegir jugadores desde la web (Modo Árbitro)
+            let actionButtonsHTML = '---';
+
+            if (userRoleData && userRoleData.isAdmin && draft.status === 'seleccion') {
                 if (window.adminReplaceMode) {
-                    actionButtonsHTML = `<button class="admin-finalize-replace-btn" data-new-player-id="${player.userId}" data-new-player-psn="${player.psnId}" style="background-color:#E62429; color:white; padding:5px; border-radius:5px; border:none; cursor:pointer; font-weight:bold;">Sustituir por este</button>`;
+                    actionButtonsHTML = `<button class="admin-finalize-replace-btn" data-new-player-id="${player.userId}" data-new-player-psn="${player.psnId}" style="background-color:#E62429; color:white; padding:5px; border-radius:5px; border:none; cursor:pointer; font-weight:bold;">Sustituir</button>`;
                 } else {
-                    actionButtonsHTML = `<button class="admin-force-pick-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}" style="background-color:#3498db; color:white; padding:5px; border-radius:5px; border:none; cursor:pointer;">⚡ Forzar Pick</button>`;
+                    actionButtonsHTML = `<button class="pick-btn" data-player-id="${player.userId}" data-position="${activeFilterPos}" style="background-color:#3498db; color:white; padding:5px 10px; border-radius:5px; border:none; cursor:pointer; font-weight:bold;">Elegir</button>`;
                 }
+            } else if (window.captainSubstituteMode) {
+                actionButtonsHTML = `<button class="captain-substitute-select-btn" data-player-id="${player.userId}" data-player-psn="${player.psnId}" data-draft-id="${draft.shortId}" style="background:linear-gradient(135deg, #2196F3, #1565C0); color:white; padding:6px 12px; border-radius:6px; border:none; cursor:pointer; font-weight:bold; font-size:0.85rem;">🔄 Sustituir</button> <button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}" style="margin-left:4px;">🪪 Ficha</button>`;
             }
 
             // Si se cumplen las condiciones, añadimos el botón de ver detalles
             if (canViewDetails && !window.captainSubstituteMode) {
-                actionButtonsHTML += `<button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}">🪪 Ver Ficha</button>`;
+                actionButtonsHTML += `<button class="details-btn" data-player-id="${player.userId}" data-draft-id="${draft.shortId}" style="margin-left: 4px;">🪪 Ficha</button>`;
             }
 
-            const statusIcon = '';
-
-            // Renderizado condicional de WhatsApp (Oculto por defecto para streamings)
+            // Renderizado condicional de WhatsApp
             let whatsappCell = '';
             if (isAuthenticated) {
                 whatsappCell = `<td data-label="WhatsApp">
@@ -1604,16 +1687,32 @@ function initializeDraftView(draftId) {
                 </td>`;
             }
 
-            row.innerHTML = `
-            <td data-label="Strikes"><span class="player-data">${player.strikes || 0}</span></td>
-            <td data-label="NOMBRE"><span class="player-data">${statusIcon} ${player.psnId}</span></td>
-            ${whatsappCell}
-            <td data-label="Pos. Primaria" class="col-primary"><span class="player-data">${player.primaryPosition}</span></td>
-            <td data-label="Pos. Secundaria" class="col-secondary"><span class="player-data">${secPos}</span></td>
-            <td data-label="Acción" class="col-action">${actionButtonsHTML}</td>
-        `;
-            playersTableBodyEl.appendChild(row);
+            const innerHTML = `
+                <td data-label="Strikes"><span class="player-data">${player.strikes || 0}</span></td>
+                <td data-label="NOMBRE"><span class="player-data">${player.psnId}</span></td>
+                ${whatsappCell}
+                <td data-label="Pos. Primaria" class="col-primary"><span class="player-data">${player.primaryPosition}</span></td>
+                <td data-label="Pos. Secundaria" class="col-secondary"><span class="player-data">${secPos}</span></td>
+                <td data-label="Acción" class="col-action">${actionButtonsHTML}</td>
+            `;
+
+            if (!row) {
+                row = document.createElement('tr');
+                row.dataset.playerId = player.userId;
+                row.dataset.primaryPos = player.primaryPosition;
+                row.dataset.secondaryPos = player.secondaryPosition || 'NONE';
+                row.innerHTML = innerHTML;
+                playersTableBodyEl.appendChild(row);
+            } else {
+                if (row.dataset.primaryPos !== player.primaryPosition) row.dataset.primaryPos = player.primaryPosition;
+                if (row.dataset.secondaryPos !== (player.secondaryPosition || 'NONE')) row.dataset.secondaryPos = player.secondaryPosition || 'NONE';
+                row.innerHTML = innerHTML;
+            }
         });
+
+        // Ordenar físicamente los elementos del DOM basándose en la ordenación de availablePlayers
+        const sortedRows = availablePlayers.map(p => playersTableBodyEl.querySelector(`tr[data-player-id="${p.userId}"]`)).filter(Boolean);
+        sortedRows.forEach(row => playersTableBodyEl.appendChild(row));
 
         applyTableFilters();
     }

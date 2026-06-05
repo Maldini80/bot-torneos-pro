@@ -29,6 +29,70 @@ export async function handleSelectMenu(interaction) {
         return vpgSelectMenuHandler(client, interaction);
     }
 
+    if (action === 'draft_reg_pos_primary' || action === 'draft_reg_pos_secondary') {
+        const [draftShortId, channelId] = params;
+        const selectedValue = interaction.values[0];
+
+        let primaryPos = 'PENDING';
+        let secondaryPos = 'PENDING';
+
+        const confirmRow = interaction.message.components.find(row => 
+            row.components.some(comp => comp.customId && comp.customId.startsWith('draft_reg_confirm:'))
+        );
+
+        if (confirmRow) {
+            const confirmBtn = confirmRow.components.find(comp => comp.customId.startsWith('draft_reg_confirm:'));
+            const parts = confirmBtn.customId.split(':');
+            primaryPos = parts[3] || 'PENDING';
+            secondaryPos = parts[4] || 'PENDING';
+        }
+
+        if (action === 'draft_reg_pos_primary') {
+            primaryPos = selectedValue;
+        } else {
+            secondaryPos = selectedValue;
+        }
+
+        const primaryMenu = StringSelectMenuBuilder.from(interaction.message.components[0].components[0]);
+        primaryMenu.options.forEach(opt => opt.default = (opt.value === primaryPos));
+
+        const secondaryMenu = StringSelectMenuBuilder.from(interaction.message.components[1].components[0]);
+        secondaryMenu.options.forEach(opt => opt.default = (opt.value === secondaryPos));
+
+        const confirmButton = ButtonBuilder.from(confirmRow.components[0]);
+        confirmButton.setCustomId(`draft_reg_confirm:${draftShortId}:${channelId}:${primaryPos}:${secondaryPos}`);
+        
+        const canConfirm = primaryPos !== 'PENDING' && secondaryPos !== 'PENDING';
+        confirmButton.setDisabled(!canConfirm);
+
+        let content = `📋 **Inscripción para Verificados en 1 paso**\n\n`;
+        if (primaryPos !== 'PENDING') {
+            content += `- Posición Primaria: **${DRAFT_POSITIONS[primaryPos] || primaryPos}**\n`;
+        } else {
+            content += `- Posición Primaria: *Selecciona del menú*\n`;
+        }
+
+        if (secondaryPos !== 'PENDING') {
+            content += `- Posición Secundaria: **${DRAFT_POSITIONS[secondaryPos] || secondaryPos}**\n`;
+        } else {
+            content += `- Posición Secundaria: *Selecciona del menú*\n`;
+        }
+
+        if (canConfirm) {
+            content += `\n✨ ¡Todo listo! Pulsa el botón verde de abajo para completar tu inscripción.`;
+        }
+
+        await interaction.update({
+            content,
+            components: [
+                new ActionRowBuilder().addComponents(primaryMenu),
+                new ActionRowBuilder().addComponents(secondaryMenu),
+                new ActionRowBuilder().addComponents(confirmButton)
+            ]
+        });
+        return;
+    }
+
     // =======================================================
     // --- CIERRE DE INCIDENCIA (ARBITRAJE) ---
     // =======================================================

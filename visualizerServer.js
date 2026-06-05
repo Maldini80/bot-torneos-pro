@@ -361,6 +361,22 @@ app.use(express.static('public', { maxAge: '1d', etag: true }));
 const server = http.createServer(app);
 const wss = new WebSocketServer({ noServer: true });
 
+// WebSocket Heartbeat to prevent idle disconnects (common on cloud hosts like Render/Nginx)
+const heartbeatInterval = setInterval(() => {
+    wss.clients.forEach(ws => {
+        if (ws.isAlive === false) {
+            console.log('[WebSocket] Terminating inactive socket.');
+            return ws.terminate();
+        }
+        ws.isAlive = false;
+        ws.ping();
+    });
+}, 30000);
+
+wss.on('close', () => {
+    clearInterval(heartbeatInterval);
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.get('/healthz', (req, res) => {
@@ -2980,7 +2996,8 @@ app.get('/api/my-role-in-event/:eventId', async (req, res) => {
             const adminRoleIds = [
                 ...(process.env.ADMIN_ROLE_IDS?.split(',') || []),
                 process.env.ARBITER_ROLE_ID,
-                process.env.ADMIN_ROLE_ID
+                process.env.ADMIN_ROLE_ID,
+                '1393505777443930183' // Referee role
             ].filter(Boolean);
             const isAdmin = memberData.roles.some(roleId => adminRoleIds.includes(roleId));
 
@@ -3804,7 +3821,8 @@ export async function startVisualizerServer(discordClient) {
                 registration: registration ? {
                     gameId: registration.gameId,
                     whatsapp: registration.whatsapp,
-                    position: registration.position
+                    position: registration.position,
+                    secondaryPosition: registration.secondaryPosition || 'NONE'
                 } : null,
                 previousData
             });
@@ -3834,7 +3852,7 @@ export async function startVisualizerServer(discordClient) {
             if (!req.user) return res.status(401).json({ error: 'No autenticado' });
 
             const { tournamentId } = req.params;
-            const { gameId, whatsapp, position } = req.body;
+            const { gameId, whatsapp, position, secondaryPosition } = req.body;
             const db = getDb();
 
             // Validar
@@ -3842,52 +3860,111 @@ export async function startVisualizerServer(discordClient) {
                 return res.status(400).json({ error: 'Todos los campos son obligatorios.' });
             }
             if (!['GK', 'DFC', 'CARR', 'MC', 'DC'].includes(position)) {
-                return res.status(400).json({ error: 'Posición inválida.' });
+                return res.status(400).json({ error: 'Posición primaria inválida.' });
+            }
+            if (secondaryPosition && !['NONE', 'GK', 'DFC', 'CARR', 'MC', 'DC'].includes(secondaryPosition)) {
+                return res.status(400).json({ error: 'Posición secundaria inválida.' });
             }
 
             const tournament = await db.collection('tournaments').findOne({ shortId: tournamentId });
             if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado.' });
             if (tournament.registrationsClosed) return res.status(403).json({ error: 'Las inscripciones están cerradas.' });
 
+            const normalizedWA = normalizeWhatsApp(whatsapp);
+
             // Check if already registered (by Discord ID or userId)
             const existing = await db.collection('external_draft_registrations').findOne({
                 tournamentId, 
                 $or: [{ discordId: req.user.id }, { userId: req.user.id }]
             });
-            if (existing) {
-                // Update instead of create (edit flow)
-                const oldPosition = existing.position;
-                await db.collection('external_draft_registrations').updateOne(
-                    { _id: existing._id },
-                    { $set: { gameId: sanitizeInput(gameId, 50), whatsapp: normalizeWhatsApp(whatsapp), position, updatedAt: new Date() } }
-                );
-                const stats = await getRegistrationStats(db, tournamentId);
-                const updatedReg = { gameId: sanitizeInput(gameId, 50), whatsapp: normalizeWhatsApp(whatsapp), position };
 
-                // Log
-                if (oldPosition !== position) {
-                    const statsLine = `📊 Total: ${Object.values(stats).reduce((a, b) => a + b, 0)} inscritos (${stats.GK} POR · ${stats.DFC} DFC · ${stats.CARR} CARR · ${stats.MC} MC · ${stats.DC} DC)`;
-                    await sendRegistrationLog(db, tournamentId, `✏️ **${req.user.global_name || req.user.username}** ha cambiado de **${POSITION_LABELS[oldPosition]}** a **${POSITION_LABELS[position]}**\n${statsLine}`);
+            if (existing) {
+                // Verificar si hay cambios
+                const secPos = secondaryPosition || 'NONE';
+                const existingSecPos = existing.secondaryPosition || 'NONE';
+
+                if (existing.gameId === gameId && existing.whatsapp === normalizedWA && existing.position === position && existingSecPos === secPos) {
+                    return res.json({
+                        registration: {
+                            gameId: existing.gameId,
+                            whatsapp: existing.whatsapp,
+                            position: existing.position,
+                            secondaryPosition: existingSecPos
+                        },
+                        stats: await getRegistrationStats(db, tournamentId)
+                    });
                 }
 
-                return res.json({ registration: updatedReg, stats });
+                // Guardar la solicitud de cambio para aprobación de los admins
+                await db.collection('draft_change_requests').updateOne(
+                    { tournamentId, userId: req.user.id },
+                    {
+                        $set: {
+                            tournamentId,
+                            userId: req.user.id,
+                            discordId: req.user.id,
+                            discordUsername: req.user.global_name || req.user.username,
+                            gameId: sanitizeInput(gameId, 50),
+                            whatsapp: normalizedWA,
+                            position,
+                            secondaryPosition: secPos,
+                            updatedAt: new Date()
+                        }
+                    },
+                    { upsert: true }
+                );
+
+                // Enviar embed de aprobación a #avisos
+                if (client) {
+                    const { ADMIN_APPROVAL_CHANNEL_ID } = await import('./config.js');
+                    const adminChannel = await client.channels.fetch(ADMIN_APPROVAL_CHANNEL_ID).catch(() => null);
+                    if (adminChannel) {
+                        const embed = new EmbedBuilder()
+                            .setColor('#f39c12')
+                            .setTitle('✏️ Solicitud de Modificación de Inscripción')
+                            .setDescription(`El jugador <@${req.user.id}> (${req.user.global_name || req.user.username}) ha solicitado modificar sus datos en el torneo/draft **${tournament.nombre}**.`)
+                            .addFields(
+                                { name: 'ID de Juego', value: `Antes: \`${existing.gameId}\`\nAhora: \`${sanitizeInput(gameId, 50)}\``, inline: true },
+                                { name: 'WhatsApp', value: `Antes: \`${existing.whatsapp}\`\nAhora: \`${normalizedWA}\``, inline: true },
+                                { name: 'Pos. Primaria', value: `Antes: \`${existing.position}\`\nAhora: \`${position}\``, inline: true },
+                                { name: 'Pos. Secundaria', value: `Antes: \`${existingSecPos}\`\nAhora: \`${secPos}\``, inline: true }
+                            )
+                            .setTimestamp()
+                            .setFooter({ text: `Torneo: ${tournamentId} | User ID: ${req.user.id}` });
+
+                        const row = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder().setCustomId(`admin_approve_reg_upd:${tournamentId}:${req.user.id}`).setLabel('Aprobar').setStyle(ButtonStyle.Success),
+                            new ButtonBuilder().setCustomId(`admin_reject_reg_upd:${tournamentId}:${req.user.id}`).setLabel('Rechazar').setStyle(ButtonStyle.Danger)
+                        );
+
+                        await adminChannel.send({ embeds: [embed], components: [row] });
+                    }
+                }
+
+                return res.json({
+                    registration: {
+                        gameId: existing.gameId,
+                        whatsapp: existing.whatsapp,
+                        position: existing.position,
+                        secondaryPosition: existingSecPos
+                    },
+                    stats: await getRegistrationStats(db, tournamentId),
+                    pendingApproval: true,
+                    message: 'Tu solicitud de modificación ha sido enviada a los administradores en #avisos para su revisión.'
+                });
             }
 
             // Check IP limit
-            // Intentar leer explícitamente la cabecera x-forwarded-for por seguridad extra
             const userIP = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip;
             const ipCount = await db.collection('external_draft_registrations').countDocuments({
                 tournamentId, ip: userIP
             });
             if (ipCount >= 1) {
-                // Alert admin but don't block - just warn
                 const stats = await getRegistrationStats(db, tournamentId);
-                // Log alert
                 await sendRegistrationLog(db, tournamentId, `⚠️ **Alerta IP**: La IP \`${userIP}\` ya tiene ${ipCount} inscripción(es). **${req.user.global_name || req.user.username}** intenta inscribirse también.`);
             }
 
             // Check WhatsApp uniqueness
-            const normalizedWA = normalizeWhatsApp(whatsapp);
             const waExists = await db.collection('external_draft_registrations').findOne({
                 tournamentId, whatsapp: normalizedWA
             });
@@ -3904,10 +3981,40 @@ export async function startVisualizerServer(discordClient) {
                 gameId: sanitizeInput(gameId, 50),
                 whatsapp: normalizedWA,
                 position,
+                secondaryPosition: secondaryPosition || 'NONE',
                 ip: userIP,
                 createdAt: new Date()
             };
             await db.collection('external_draft_registrations').insertOne(registration);
+
+            // Auto-verificación: comprobar y crear registro en verified_users si no existe
+            const verifiedUser = await db.collection('verified_users').findOne({ discordId: req.user.id });
+            if (!verifiedUser) {
+                await db.collection('verified_users').insertOne({
+                    discordId: req.user.id,
+                    username: req.user.global_name || req.user.username,
+                    gameId: sanitizeInput(gameId, 50),
+                    whatsapp: normalizedWA,
+                    position,
+                    secondaryPosition: secondaryPosition || 'NONE',
+                    verified: true,
+                    createdAt: new Date()
+                });
+
+                // Intentar asignar el rol de verificado en Discord
+                try {
+                    const { VERIFIED_ROLE_ID } = await import('./config.js');
+                    const guild = client ? await client.guilds.fetch(process.env.GUILD_ID).catch(() => null) : null;
+                    if (guild && VERIFIED_ROLE_ID) {
+                        const member = await guild.members.fetch(req.user.id).catch(() => null);
+                        if (member) {
+                            await member.roles.add(VERIFIED_ROLE_ID).catch(() => null);
+                        }
+                    }
+                } catch (e) {
+                    console.warn(`[Auto-Verification] No se pudo asignar el rol verificado en Discord: ${e.message}`);
+                }
+            }
 
             const stats = await getRegistrationStats(db, tournamentId);
 
@@ -3918,10 +4025,10 @@ export async function startVisualizerServer(discordClient) {
 
             // Log
             const statsLine = `📊 Total: ${Object.values(stats).reduce((a, b) => a + b, 0)} inscritos (${stats.GK} POR · ${stats.DFC} DFC · ${stats.CARR} CARR · ${stats.MC} MC · ${stats.DC} DC)`;
-            await sendRegistrationLog(db, tournamentId, `✅ **${req.user.global_name || req.user.username}** se ha inscrito como **${POSITION_LABELS[position]}** — ID: \`${sanitizeInput(gameId, 50)}\`\n${statsLine}`);
+            await sendRegistrationLog(db, tournamentId, `✅ **${req.user.global_name || req.user.username}** se ha inscrito como **${POSITION_LABELS[position]}** (Sec: ${secondaryPosition || 'NONE'}) — ID: \`${sanitizeInput(gameId, 50)}\`\n${statsLine}`);
 
             res.json({
-                registration: { gameId: registration.gameId, whatsapp: registration.whatsapp, position: registration.position },
+                registration: { gameId: registration.gameId, whatsapp: registration.whatsapp, position: registration.position, secondaryPosition: registration.secondaryPosition },
                 stats
             });
         } catch (error) {
@@ -4169,6 +4276,65 @@ export async function startVisualizerServer(discordClient) {
             await adminAddPlayerFromWeb(client, draftId, teamId, playerId, req.user.username);
             res.json({ success: true });
         } catch (e) { res.status(400).json({ error: e.message }); }
+    });
+
+    app.post('/api/admin/seed-test-players', isAdmin, async (req, res) => {
+        try {
+            const { draftId, gk, dfc, carr, mc, dc } = req.body;
+            const db = getDb();
+            const draft = await db.collection('drafts').findOne({ shortId: draftId });
+            if (!draft) return res.status(404).json({ error: 'Draft no encontrado.' });
+
+            const testPlayers = [];
+            const addPlayersForPos = (pos, count) => {
+                for (let i = 1; i <= count; i++) {
+                    const userId = `test_${Math.random().toString(36).substr(2, 9)}`;
+                    testPlayers.push({
+                        userId,
+                        userName: `Test_${pos}_${i}_${Math.floor(Math.random() * 1000)}`,
+                        psnId: `Test_${pos}_${i}_${Math.floor(Math.random() * 100)}`,
+                        twitter: 'NONE',
+                        whatsapp: `600000000`,
+                        primaryPosition: pos,
+                        secondaryPosition: 'NONE',
+                        currentTeam: 'Libre',
+                        isCaptain: false,
+                        captainId: null,
+                        createdAt: new Date()
+                    });
+                }
+            };
+
+            addPlayersForPos('GK', parseInt(gk || 0));
+            addPlayersForPos('DFC', parseInt(dfc || 0));
+            addPlayersForPos('CARR', parseInt(carr || 0));
+            addPlayersForPos('MC', parseInt(mc || 0));
+            addPlayersForPos('DC', parseInt(dc || 0));
+
+            if (testPlayers.length > 0) {
+                await db.collection('drafts').updateOne(
+                    { _id: draft._id },
+                    { $push: { players: { $each: testPlayers } } }
+                );
+
+                // Update visualizer cache and notify
+                const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+                
+                // Repopulate draftStates cache if it exists
+                if (typeof draftStates !== 'undefined' && draftStates.set) {
+                    draftStates.set(updatedDraft.shortId, updatedDraft);
+                }
+
+                const { updateDraftMainInterface, notifyVisualizer, updatePublicMessages } = await import('./src/logic/tournamentLogic.js');
+                await updateDraftMainInterface(client, updatedDraft.shortId);
+                await updatePublicMessages(client, updatedDraft);
+                await notifyVisualizer(updatedDraft);
+            }
+
+            res.json({ success: true, count: testPlayers.length });
+        } catch (e) {
+            res.status(400).json({ error: e.message });
+        }
     });
 
     // Endpoint: Invitar Co-Capitán desde Web
@@ -9834,6 +10000,11 @@ export async function startVisualizerServer(discordClient) {
     });
 
     wss.on('connection', (ws, req) => {
+        ws.isAlive = true;
+        ws.on('pong', () => {
+            ws.isAlive = true;
+        });
+
         if (ws.user) console.log(`[Visualizer] Usuario autenticado conectado: ${ws.user.username}`);
         else console.log('[Visualizer] Espectador conectado.');
 
@@ -9858,14 +10029,22 @@ export async function startVisualizerServer(discordClient) {
                 const adminRoleIds = [
                     ...(process.env.ADMIN_ROLE_IDS?.split(',') || []),
                     process.env.ARBITER_ROLE_ID,
-                    process.env.ADMIN_ROLE_ID
+                    process.env.ADMIN_ROLE_ID,
+                    '1393505777443930183' // Arbitro role
                 ].filter(Boolean);
                 const isWsUserAdmin = ws.user.roles && ws.user.roles.some(r => adminRoleIds.includes(r));
 
                 switch (data.type) {
                     case 'execute_draft_pick':
+                        if (!isWsUserAdmin) {
+                            throw new Error('Solo los administradores y árbitros pueden realizar selecciones en el draft.');
+                        }
                         await withDraftLock(draftId, async () => {
-                            await handlePlayerSelectionFromWeb(client, draftId, captainId, playerId, position);
+                            const db = getDb();
+                            const draft = await db.collection('drafts').findOne({ shortId: draftId });
+                            if (!draft) throw new Error('Borrador no encontrado.');
+                            const activeCaptainId = draft.selection.order[draft.selection.turn];
+                            await handlePlayerSelectionFromWeb(client, draftId, activeCaptainId, playerId, position);
                             await advanceDraftTurn(client, draftId);
                         });
                         break;

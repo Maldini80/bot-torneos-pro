@@ -1611,7 +1611,7 @@ export async function handleButton(interaction) {
         return;
     }
 
-    if (action === 'register_draft_captain' || action === 'register_draft_player') {
+    if (action === 'register_draft_captain') {
         const playerRecord = await db.collection('player_records').findOne({ userId: interaction.user.id });
 
         if (playerRecord && playerRecord.strikes >= 3) {
@@ -1639,11 +1639,189 @@ export async function handleButton(interaction) {
             return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.', flags: [MessageFlags.Ephemeral] });
         }
 
-        // --- CORRECCIÓN CLAVE ---
-        // Pasamos los parámetros en el orden correcto a la función.
         const originalActionWithContext = `${action}:${channelId || 'no-ticket'}`;
         const ruleStepContent = createRuleAcceptanceEmbed(1, 3, originalActionWithContext, draftShortId);
         await interaction.reply(ruleStepContent);
+        return;
+    }
+
+    if (action === 'register_draft_player') {
+        const playerRecord = await db.collection('player_records').findOne({ userId: interaction.user.id });
+
+        if (playerRecord && playerRecord.strikes >= 3) {
+            return interaction.reply({
+                content: `❌ **Inscripción Bloqueada:** Tienes ${playerRecord.strikes} strikes acumulados. No puedes participar en nuevos drafts.`,
+                flags: [MessageFlags.Ephemeral]
+            });
+        }
+
+        const [draftShortId, channelId] = params;
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) return interaction.reply({ content: 'Error: No se encontró este draft.', flags: [MessageFlags.Ephemeral] });
+
+        const userId = interaction.user.id;
+        const isAlreadyRegistered = draft.captains.some(c => c.userId === userId) ||
+            (draft.pendingCaptains && draft.pendingCaptains[userId]) ||
+            draft.players.some(p => p.userId === userId) ||
+            (draft.pendingPayments && draft.pendingPayments[userId]);
+        if (isAlreadyRegistered) {
+            return interaction.reply({ content: '❌ Ya estás inscrito, pendiente de aprobación o de pago en este draft.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const isVerified = await checkVerification(interaction.user.id);
+        const verifiedData = isVerified ? await db.collection('verified_users').findOne({ discordId: userId }) : null;
+
+        if (isVerified && verifiedData) {
+            // Flujo Verificados: menus de posicion en un unico paso
+            const primaryMenu = new StringSelectMenuBuilder()
+                .setCustomId(`draft_reg_pos_primary:${draftShortId}:${channelId || 'no-ticket'}`)
+                .setPlaceholder('Paso 1: Selecciona tu posición PRIMARIA')
+                .addOptions(
+                    { label: '🥅 Portero (GK)', value: 'GK' },
+                    { label: '🧱 Defensa Central (DFC)', value: 'DFC' },
+                    { label: '⚡ Carrilero (CARR)', value: 'CARR' },
+                    { label: '🎩 Medio (MC)', value: 'MC' },
+                    { label: '🏟️ Delantero Centro (DC)', value: 'DC' }
+                );
+
+            const secondaryMenu = new StringSelectMenuBuilder()
+                .setCustomId(`draft_reg_pos_secondary:${draftShortId}:${channelId || 'no-ticket'}`)
+                .setPlaceholder('Paso 2: Selecciona tu posición SECUNDARIA')
+                .addOptions(
+                    { label: '❌ Ninguna posición secundaria', value: 'NONE' },
+                    { label: '🥅 Portero (GK)', value: 'GK' },
+                    { label: '🧱 Defensa Central (DFC)', value: 'DFC' },
+                    { label: '⚡ Carrilero (CARR)', value: 'CARR' },
+                    { label: '🎩 Medio (MC)', value: 'MC' },
+                    { label: '🏟️ Delantero Centro (DC)', value: 'DC' }
+                );
+
+            const confirmButton = new ButtonBuilder()
+                .setCustomId(`draft_reg_confirm:${draftShortId}:${channelId || 'no-ticket'}:PENDING:PENDING`)
+                .setLabel('Confirmar Inscripción')
+                .setStyle(ButtonStyle.Success)
+                .setDisabled(true);
+
+            await interaction.reply({
+                content: `📋 **Inscripción para Verificados en 1 paso**\n\nPor favor, selecciona tus posiciones primaria y secundaria de los menús inferiores para habilitar el botón de confirmar.`,
+                components: [
+                    new ActionRowBuilder().addComponents(primaryMenu),
+                    new ActionRowBuilder().addComponents(secondaryMenu),
+                    new ActionRowBuilder().addComponents(confirmButton)
+                ],
+                flags: [MessageFlags.Ephemeral]
+            });
+        } else {
+            // Flujo No Verificados: modal unico de 5 campos (EA ID, WhatsApp, Pos Primaria, Pos Secundaria, Twitter)
+            const modal = new ModalBuilder()
+                .setCustomId(`register_unverified_player_modal:${draftShortId}:${channelId || 'no-ticket'}`)
+                .setTitle('Inscripción y Auto-verificación');
+
+            const psnInput = new TextInputBuilder()
+                .setCustomId('psn_id_input')
+                .setLabel('Tu EA ID / PSN ID')
+                .setPlaceholder('Ej: Rayden_VPG')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            const whatsappInput = new TextInputBuilder()
+                .setCustomId('whatsapp_input')
+                .setLabel('Tu WhatsApp')
+                .setPlaceholder('Ej: +34 600123456')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            const primaryPosInput = new TextInputBuilder()
+                .setCustomId('primary_pos_input')
+                .setLabel('Posición Primaria (GK, DFC, CARR, MC, DC)')
+                .setPlaceholder('Ej: MC')
+                .setMinLength(2)
+                .setMaxLength(4)
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            const secondaryPosInput = new TextInputBuilder()
+                .setCustomId('secondary_pos_input')
+                .setLabel('Posición Secundaria (GK, DFC, CARR, MC, DC, NONE)')
+                .setPlaceholder('Ej: NONE')
+                .setMinLength(2)
+                .setMaxLength(4)
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            const twitterInput = new TextInputBuilder()
+                .setCustomId('twitter_input')
+                .setLabel('Tu Twitter (sin @) o escribe NONE')
+                .setPlaceholder('Ej: Rayden_VPG')
+                .setStyle(TextInputStyle.Short)
+                .setRequired(true);
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(psnInput),
+                new ActionRowBuilder().addComponents(whatsappInput),
+                new ActionRowBuilder().addComponents(primaryPosInput),
+                new ActionRowBuilder().addComponents(secondaryPosInput),
+                new ActionRowBuilder().addComponents(twitterInput)
+            );
+
+            await interaction.showModal(modal);
+        }
+        return;
+    }
+
+    if (action === 'draft_reg_confirm') {
+        await interaction.deferUpdate();
+        const [draftShortId, channelId, primaryPosition, secondaryPosition] = params;
+
+        const verifiedData = await db.collection('verified_users').findOne({ discordId: interaction.user.id });
+        if (!verifiedData) {
+            return interaction.followUp({ content: '❌ Error: No se encontraron tus datos de verificación. Vuelve a intentarlo.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
+        if (!draft) {
+            return interaction.followUp({ content: '❌ Error: Borrador no encontrado.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        const playerData = {
+            userId: interaction.user.id,
+            userName: interaction.user.username,
+            psnId: verifiedData.gameId,
+            twitter: verifiedData.twitter,
+            whatsapp: verifiedData.whatsapp,
+            primaryPosition,
+            secondaryPosition,
+            currentTeam: 'Libre',
+            isCaptain: false,
+            captainId: null,
+            createdAt: new Date()
+        };
+
+        await db.collection('drafts').updateOne(
+            { _id: draft._id },
+            { $push: { players: playerData } }
+        );
+
+        await interaction.editReply({
+            content: `✅ **¡Te has inscrito correctamente!**\n\n- Posición Primaria: **${DRAFT_POSITIONS[primaryPosition] || primaryPosition}**\n- Posición Secundaria: **${DRAFT_POSITIONS[secondaryPosition] || secondaryPosition}**`,
+            components: []
+        });
+
+        if (channelId && channelId !== 'no-ticket') {
+            const ticketChannel = await client.channels.fetch(channelId).catch(() => null);
+            if (ticketChannel) {
+                await ticketChannel.send('✅ Proceso de inscripción finalizado. Este canal se cerrará en 10 segundos.');
+                setTimeout(() => ticketChannel.delete('Inscripción completada.').catch(console.error), 10000);
+            }
+        }
+
+        const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+        const { updatePublicMessages, notifyVisualizer } = await import('../logic/tournamentLogic.js');
+        if (typeof updatePublicMessages === 'function') {
+            await updatePublicMessages(client, updatedDraft).catch(() => {});
+        }
+        updateDraftMainInterface(client, updatedDraft.shortId);
+        notifyVisualizer(updatedDraft);
         return;
     }
     if (action === 'draft_approve_captain' || action === 'draft_reject_captain') {
@@ -1682,7 +1860,85 @@ export async function handleButton(interaction) {
             originalEmbed.setColor('#e74c3c').setFooter({ text: `Solicitud rechazada por ${interaction.user.tag}` });
             await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
             await interaction.followUp({ content: '❌ Solicitud de capitán rechazada.', flags: [MessageFlags.Ephemeral] });
+        return;
+    }
+
+    if (action === 'admin_approve_reg_upd' || action === 'admin_reject_reg_upd') {
+        await interaction.deferUpdate();
+        const [tournamentShortId, targetUserId] = params;
+        const request = await db.collection('draft_change_requests').findOne({ tournamentId: tournamentShortId, userId: targetUserId });
+        
+        if (!request) {
+            return interaction.followUp({ content: '❌ La solicitud de modificación no existe o ya ha sido procesada.', flags: [MessageFlags.Ephemeral] });
         }
+
+        const originalMessage = interaction.message;
+        const originalEmbed = EmbedBuilder.from(originalMessage.embeds[0]);
+
+        if (action === 'admin_approve_reg_upd') {
+            // Apply changes to registration
+            await db.collection('external_draft_registrations').updateOne(
+                { tournamentId: tournamentShortId, userId: targetUserId },
+                {
+                    $set: {
+                        gameId: request.gameId,
+                        whatsapp: request.whatsapp,
+                        position: request.position,
+                        secondaryPosition: request.secondaryPosition,
+                        updatedAt: new Date()
+                    }
+                }
+            );
+
+            // Apply changes to verified_users profile as well
+            await db.collection('verified_users').updateOne(
+                { discordId: targetUserId },
+                {
+                    $set: {
+                        gameId: request.gameId,
+                        whatsapp: request.whatsapp,
+                        position: request.position,
+                        secondaryPosition: request.secondaryPosition,
+                        updatedAt: new Date()
+                    }
+                }
+            );
+
+            // Hook: Update list channel if VPG bot schedule is set
+            scheduleRegistrationListUpdate(client, tournamentShortId);
+
+            // Send DM to the player
+            try {
+                const user = await client.users.fetch(targetUserId);
+                if (user) {
+                    await user.send(`✅ Un administrador ha **aprobado** tus cambios en el torneo/draft.\n\n- **ID**: \`${request.gameId}\`\n- **WhatsApp**: \`${request.whatsapp}\`\n- **Pos. Primaria**: \`${request.position}\`\n- **Pos. Secundaria**: \`${request.secondaryPosition}\``);
+                }
+            } catch (dmErr) {
+                console.warn(`No se pudo enviar MD de aprobación de cambio al usuario ${targetUserId}`);
+            }
+
+            originalEmbed.setColor('#2ecc71').setFooter({ text: `Aprobado por ${interaction.user.tag}` });
+            await originalMessage.edit({ embeds: [originalEmbed], components: [] });
+            await interaction.followUp({ content: '✅ Modificación aprobada y aplicada correctamente.', flags: [MessageFlags.Ephemeral] });
+        } else {
+            // Reject change
+            // Send DM to the player
+            try {
+                const user = await client.users.fetch(targetUserId);
+                if (user) {
+                    await user.send(`❌ Tu solicitud para modificar tus datos de inscripción en el torneo/draft ha sido **rechazada** por un administrador.`);
+                }
+            } catch (dmErr) {
+                console.warn(`No se pudo enviar MD de rechazo de cambio al usuario ${targetUserId}`);
+            }
+
+            originalEmbed.setColor('#e74c3c').setFooter({ text: `Rechazado por ${interaction.user.tag}` });
+            await originalMessage.edit({ embeds: [originalEmbed], components: [] });
+            await interaction.followUp({ content: '❌ Modificación rechazada.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        // Delete request from collection
+        await db.collection('draft_change_requests').deleteOne({ _id: request._id });
         return;
     }
 
