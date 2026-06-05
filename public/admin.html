@@ -903,7 +903,16 @@
             }
         }
 
-        checkAuth();
+        async function init() {
+            await checkAuth();
+            const urlParams = new URLSearchParams(window.location.search);
+            const draftId = urlParams.get('draftId');
+            if (draftId) {
+                document.getElementById('draft-id-input').value = draftId;
+                await loadDraft();
+            }
+        }
+        init();
     </script>
 </body>
 </html>
