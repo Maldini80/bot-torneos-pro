@@ -1860,6 +1860,7 @@ export async function handleButton(interaction) {
             originalEmbed.setColor('#e74c3c').setFooter({ text: `Solicitud rechazada por ${interaction.user.tag}` });
             await originalMessage.edit({ embeds: [originalEmbed], components: [disabledRow] });
             await interaction.followUp({ content: '❌ Solicitud de capitán rechazada.', flags: [MessageFlags.Ephemeral] });
+        }
         return;
     }
 
