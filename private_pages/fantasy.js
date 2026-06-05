@@ -363,6 +363,10 @@ const ownerPanelModal = document.getElementById('owner-panel-modal');
 const ownerPanelModalCloseBtn = document.getElementById('owner-panel-modal-close-btn');
 const btnOpenOwnerPanel = document.getElementById('btn-open-owner-panel');
 const btnOpenOwnerPanelDash = document.getElementById('btn-open-owner-panel-dash');
+const adminSchedulesModal = document.getElementById('admin-schedules-modal');
+const adminSchedulesModalCloseBtn = document.getElementById('admin-schedules-modal-close-btn');
+const btnOpenSchedulesPanel = document.getElementById('btn-open-schedules-panel');
+const btnOpenSchedulesPanelDash = document.getElementById('btn-open-schedules-panel-dash');
 const ownerRebuildProgress = document.getElementById('owner-rebuild-progress');
 const adminParticipantsList = document.getElementById('admin-participants-list');
 const adminSearchPlayerInput = document.getElementById('admin-search-player-input');
@@ -1091,6 +1095,7 @@ function setupEventHandlers() {
                     await loadSchedulesConfig();
                     
                     lockLineupsActive = lockActive;
+                    if (adminSchedulesModal) adminSchedulesModal.classList.remove('open');
                 } else {
                     showToast(data.error || 'Error al guardar horarios.', 'error');
                 }
@@ -1265,6 +1270,28 @@ function setupEventHandlers() {
     window.addEventListener('click', (e) => {
         if (ownerPanelModal && e.target === ownerPanelModal) {
             ownerPanelModal.classList.remove('open');
+        }
+    });
+
+    // Schedules Modal open/close handlers
+    if (btnOpenSchedulesPanel) {
+        btnOpenSchedulesPanel.addEventListener('click', () => {
+            if (adminSchedulesModal) adminSchedulesModal.classList.add('open');
+        });
+    }
+    if (btnOpenSchedulesPanelDash) {
+        btnOpenSchedulesPanelDash.addEventListener('click', () => {
+            if (adminSchedulesModal) adminSchedulesModal.classList.add('open');
+        });
+    }
+    if (adminSchedulesModalCloseBtn) {
+        adminSchedulesModalCloseBtn.addEventListener('click', () => {
+            if (adminSchedulesModal) adminSchedulesModal.classList.remove('open');
+        });
+    }
+    window.addEventListener('click', (e) => {
+        if (adminSchedulesModal && e.target === adminSchedulesModal) {
+            adminSchedulesModal.classList.remove('open');
         }
     });
 

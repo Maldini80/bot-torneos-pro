@@ -46,6 +46,7 @@
             <div class="user-profile">
                 <span id="selector-user-name"><i class="fa-solid fa-user"></i> Cargando...</span>
                 <button id="btn-open-owner-panel" class="btn btn-warning btn-sm owner-only-block" style="display: none; background: #eab308; color: #000; border: none; font-weight: 700; gap: 6px;"><i class="fa-solid fa-crown"></i> Panel Propietario</button>
+                <button id="btn-open-schedules-panel" class="btn btn-primary btn-sm admin-only-block" style="display: none; background: #3b82f6; color: #fff; border: none; font-weight: 700; gap: 6px;"><i class="fa-solid fa-clock"></i> Horarios</button>
                 <button id="pwa-install-btn-selector" class="btn btn-primary btn-sm" style="display: none;"><i class="fa-solid fa-download"></i> Instalar App</button>
                 <a href="/home.html" class="btn btn-secondary btn-sm"><i class="fa-solid fa-house"></i> Volver al Inicio</a>
             </div>
@@ -122,191 +123,7 @@
                     </form>
                 </section>
 
-                <!-- Global Admin: Schedules Configuration Card -->
-                <section id="admin-schedules-section" class="fantasy-card admin-only-block" style="display: none; margin-top: 24px;">
-                    <div class="card-header">
-                        <h2><i class="fa-solid fa-clock text-blue"></i> Horarios de Automatización</h2>
-                    </div>
-                    <form id="admin-schedules-form" class="admin-form" style="margin-top: 16px;">
-                        <!-- Mercado y Pujas -->
-                        <div class="schedule-block" style="background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 12px;">
-                                <h3 style="font-size: 0.95rem; display: flex; align-items: center; gap: 8px; margin: 0; color: #38bdf8;">
-                                    <i class="fa-solid fa-store"></i> Mercado y Pujas
-                                </h3>
-                                <label class="switch-toggle">
-                                    <input type="checkbox" id="sched-market-active">
-                                    <span class="slider-toggle"></span>
-                                </label>
-                            </div>
-                            <div class="form-group">
-                                <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Días de Ejecución</label>
-                                <div class="day-chips-container" id="sched-market-days">
-                                    <label class="day-chip"><input type="checkbox" value="1"><span>L</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="2"><span>M</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="3"><span>X</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="4"><span>J</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="5"><span>V</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="6"><span>S</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="0"><span>D</span></label>
-                                </div>
-                            </div>
-                            <div class="form-group" style="margin-top: 12px;">
-                                <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Ventanas Horarias Madrid (Mín. 1, Máx. 3)</label>
-                                <div class="time-windows-grid">
-                                    <div class="time-window-input">
-                                        <label>Ventana 1</label>
-                                        <input type="time" id="sched-market-time1" required>
-                                    </div>
-                                    <div class="time-window-input">
-                                        <label>Ventana 2</label>
-                                        <input type="time" id="sched-market-time2">
-                                    </div>
-                                    <div class="time-window-input">
-                                        <label>Ventana 3</label>
-                                        <input type="time" id="sched-market-time3">
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
 
-                        <!-- Suma de Puntos -->
-                        <div class="schedule-block" style="background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 12px;">
-                                <h3 style="font-size: 0.95rem; display: flex; align-items: center; gap: 8px; margin: 0; color: #00f59b;">
-                                    <i class="fa-solid fa-star"></i> Suma de Puntos (Sync)
-                                </h3>
-                                <label class="switch-toggle">
-                                    <input type="checkbox" id="sched-points-active">
-                                    <span class="slider-toggle"></span>
-                                </label>
-                            </div>
-                            <div class="form-group">
-                                <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Días de Ejecución</label>
-                                <div class="day-chips-container" id="sched-points-days">
-                                    <label class="day-chip"><input type="checkbox" value="1"><span>L</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="2"><span>M</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="3"><span>X</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="4"><span>J</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="5"><span>V</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="6"><span>S</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="0"><span>D</span></label>
-                                </div>
-                            </div>
-                            <div class="form-group" style="margin-top: 12px;">
-                                <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Hora de Sincronización Madrid</label>
-                                <input type="time" id="sched-points-time" required style="width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #f8fafc; padding: 10px; font-family: inherit; font-size: 0.85rem;">
-                            </div>
-                        </div>
-
-                        <!-- Bloqueo de Alineaciones -->
-                        <div class="schedule-block" style="background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 12px;">
-                                <h3 style="font-size: 0.95rem; display: flex; align-items: center; gap: 8px; margin: 0; color: #ef4444;">
-                                    <i class="fa-solid fa-lock"></i> Bloqueo de Alineación
-                                </h3>
-                                <label class="switch-toggle">
-                                    <input type="checkbox" id="sched-lock-active">
-                                    <span class="slider-toggle"></span>
-                                </label>
-                            </div>
-                            <div class="form-group">
-                                <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Días Activos</label>
-                                <div class="day-chips-container" id="sched-lock-days">
-                                    <label class="day-chip"><input type="checkbox" value="1"><span>L</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="2"><span>M</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="3"><span>X</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="4"><span>J</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="5"><span>V</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="6"><span>S</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="0"><span>D</span></label>
-                                </div>
-                            </div>
-                            <div class="form-row" style="margin-top: 12px;">
-                                <div class="form-group col">
-                                    <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Hora de Inicio</label>
-                                    <input type="time" id="sched-lock-start" required style="width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #f8fafc; padding: 10px; font-family: inherit; font-size: 0.85rem;">
-                                </div>
-                                <div class="form-group col">
-                                    <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Duración (Horas)</label>
-                                    <input type="number" id="sched-lock-duration" min="1" max="24" required style="width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #f8fafc; padding: 10px; font-family: inherit; font-size: 0.85rem;">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Bloqueo de Clausulazo -->
-                        <div class="schedule-block" style="background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 12px;">
-                                <h3 style="font-size: 0.95rem; display: flex; align-items: center; gap: 8px; margin: 0; color: #f59e0b;">
-                                    <i class="fa-solid fa-lock text-yellow"></i> Bloqueo de Clausulazo
-                                </h3>
-                                <label class="switch-toggle">
-                                    <input type="checkbox" id="sched-clauseLock-active">
-                                    <span class="slider-toggle"></span>
-                                </label>
-                            </div>
-                            <div class="form-group">
-                                <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Días Activos</label>
-                                <div class="day-chips-container" id="sched-clauseLock-days">
-                                    <label class="day-chip"><input type="checkbox" value="1"><span>L</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="2"><span>M</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="3"><span>X</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="4"><span>J</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="5"><span>V</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="6"><span>S</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="0"><span>D</span></label>
-                                </div>
-                            </div>
-                            <div class="form-row" style="margin-top: 12px;">
-                                <div class="form-group col">
-                                    <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Hora de Inicio</label>
-                                    <input type="time" id="sched-clauseLock-start" required style="width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #f8fafc; padding: 10px; font-family: inherit; font-size: 0.85rem;">
-                                </div>
-                                <div class="form-group col">
-                                    <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Duración (Horas)</label>
-                                    <input type="number" id="sched-clauseLock-duration" min="0.1" max="24" step="0.1" required style="width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #f8fafc; padding: 10px; font-family: inherit; font-size: 0.85rem;">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Bloqueo de Mercado -->
-                        <div class="schedule-block" style="background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
-                            <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 12px;">
-                                <h3 style="font-size: 0.95rem; display: flex; align-items: center; gap: 8px; margin: 0; color: #ef4444;">
-                                    <i class="fa-solid fa-lock text-red"></i> Bloqueo de Mercado
-                                </h3>
-                                <label class="switch-toggle">
-                                    <input type="checkbox" id="sched-marketLock-active">
-                                    <span class="slider-toggle"></span>
-                                </label>
-                            </div>
-                            <div class="form-group">
-                                <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Días Activos</label>
-                                <div class="day-chips-container" id="sched-marketLock-days">
-                                    <label class="day-chip"><input type="checkbox" value="1"><span>L</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="2"><span>M</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="3"><span>X</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="4"><span>J</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="5"><span>V</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="6"><span>S</span></label>
-                                    <label class="day-chip"><input type="checkbox" value="0"><span>D</span></label>
-                                </div>
-                            </div>
-                            <div class="form-row" style="margin-top: 12px;">
-                                <div class="form-group col">
-                                    <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Hora de Inicio</label>
-                                    <input type="time" id="sched-marketLock-start" required style="width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #f8fafc; padding: 10px; font-family: inherit; font-size: 0.85rem;">
-                                </div>
-                                <div class="form-group col">
-                                    <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Duración (Horas)</label>
-                                    <input type="number" id="sched-marketLock-duration" min="0.1" max="24" step="0.1" required style="width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #f8fafc; padding: 10px; font-family: inherit; font-size: 0.85rem;">
-                                </div>
-                            </div>
-                        </div>
-
-                        <button type="submit" class="btn btn-primary btn-block" style="margin-top: 8px;"><i class="fa-solid fa-floppy-disk"></i> Guardar Horarios</button>
-                    </form>
-                </section>
 
 
 
@@ -425,6 +242,7 @@
             </div>
             <div class="user-profile" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                 <button id="btn-open-owner-panel-dash" class="btn btn-warning btn-sm owner-only-block" style="display: none; background: #eab308; color: #000; border: none; font-weight: 700; gap: 6px;"><i class="fa-solid fa-crown"></i> Panel Propietario</button>
+                <button id="btn-open-schedules-panel-dash" class="btn btn-primary btn-sm admin-only-block" style="display: none; background: #3b82f6; color: #fff; border: none; font-weight: 700; gap: 6px;"><i class="fa-solid fa-clock"></i> Horarios</button>
                 <button id="pwa-install-btn-dash" class="btn btn-primary btn-sm" style="display: none;"><i class="fa-solid fa-download"></i> Instalar App</button>
                 <button id="btn-change-league" class="btn btn-secondary btn-sm"><i class="fa-solid fa-house"></i> Cambiar de Liga</button>
                 <button id="btn-join-league-spectator" class="btn btn-success btn-sm" style="display: none;"><i class="fa-solid fa-plus"></i> Unirse a la Liga</button>
@@ -1262,6 +1080,197 @@
     </div>
 
     <!-- MODAL 11: Panel de Propietario Global -->
+    <!-- MODAL 12: Configuración de Horarios de Automatización -->
+    <div class="modal-overlay" id="admin-schedules-modal">
+        <div class="modal-content" style="max-width: 600px; width: 95%;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-clock text-blue"></i> Horarios de Automatización</h3>
+                <button class="modal-close" id="admin-schedules-modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
+                <form id="admin-schedules-form" class="admin-form">
+                    <!-- Mercado y Pujas -->
+                    <div class="schedule-block" style="background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 12px;">
+                            <h3 style="font-size: 0.95rem; display: flex; align-items: center; gap: 8px; margin: 0; color: #38bdf8;">
+                                <i class="fa-solid fa-store"></i> Mercado y Pujas
+                            </h3>
+                            <label class="switch-toggle">
+                                <input type="checkbox" id="sched-market-active">
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Días de Ejecución</label>
+                            <div class="day-chips-container" id="sched-market-days">
+                                <label class="day-chip"><input type="checkbox" value="1"><span>L</span></label>
+                                <label class="day-chip"><input type="checkbox" value="2"><span>M</span></label>
+                                <label class="day-chip"><input type="checkbox" value="3"><span>X</span></label>
+                                <label class="day-chip"><input type="checkbox" value="4"><span>J</span></label>
+                                <label class="day-chip"><input type="checkbox" value="5"><span>V</span></label>
+                                <label class="day-chip"><input type="checkbox" value="6"><span>S</span></label>
+                                <label class="day-chip"><input type="checkbox" value="0"><span>D</span></label>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top: 12px;">
+                            <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Ventanas Horarias Madrid (Mín. 1, Máx. 3)</label>
+                            <div class="time-windows-grid">
+                                <div class="time-window-input">
+                                    <label>Ventana 1</label>
+                                    <input type="time" id="sched-market-time1" required>
+                                </div>
+                                <div class="time-window-input">
+                                    <label>Ventana 2</label>
+                                    <input type="time" id="sched-market-time2">
+                                </div>
+                                <div class="time-window-input">
+                                    <label>Ventana 3</label>
+                                    <input type="time" id="sched-market-time3">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Suma de Puntos -->
+                    <div class="schedule-block" style="background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 12px;">
+                            <h3 style="font-size: 0.95rem; display: flex; align-items: center; gap: 8px; margin: 0; color: #00f59b;">
+                                <i class="fa-solid fa-star"></i> Suma de Puntos (Sync)
+                            </h3>
+                            <label class="switch-toggle">
+                                <input type="checkbox" id="sched-points-active">
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Días de Ejecución</label>
+                            <div class="day-chips-container" id="sched-points-days">
+                                <label class="day-chip"><input type="checkbox" value="1"><span>L</span></label>
+                                <label class="day-chip"><input type="checkbox" value="2"><span>M</span></label>
+                                <label class="day-chip"><input type="checkbox" value="3"><span>X</span></label>
+                                <label class="day-chip"><input type="checkbox" value="4"><span>J</span></label>
+                                <label class="day-chip"><input type="checkbox" value="5"><span>V</span></label>
+                                <label class="day-chip"><input type="checkbox" value="6"><span>S</span></label>
+                                <label class="day-chip"><input type="checkbox" value="0"><span>D</span></label>
+                            </div>
+                        </div>
+                        <div class="form-group" style="margin-top: 12px;">
+                            <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Hora de Sincronización Madrid</label>
+                            <input type="time" id="sched-points-time" required style="width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #f8fafc; padding: 10px; font-family: inherit; font-size: 0.85rem;">
+                        </div>
+                    </div>
+
+                    <!-- Bloqueo de Alineaciones -->
+                    <div class="schedule-block" style="background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 12px;">
+                            <h3 style="font-size: 0.95rem; display: flex; align-items: center; gap: 8px; margin: 0; color: #ef4444;">
+                                <i class="fa-solid fa-lock"></i> Bloqueo de Alineación
+                            </h3>
+                            <label class="switch-toggle">
+                                <input type="checkbox" id="sched-lock-active">
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Días Activos</label>
+                            <div class="day-chips-container" id="sched-lock-days">
+                                <label class="day-chip"><input type="checkbox" value="1"><span>L</span></label>
+                                <label class="day-chip"><input type="checkbox" value="2"><span>M</span></label>
+                                <label class="day-chip"><input type="checkbox" value="3"><span>X</span></label>
+                                <label class="day-chip"><input type="checkbox" value="4"><span>J</span></label>
+                                <label class="day-chip"><input type="checkbox" value="5"><span>V</span></label>
+                                <label class="day-chip"><input type="checkbox" value="6"><span>S</span></label>
+                                <label class="day-chip"><input type="checkbox" value="0"><span>D</span></label>
+                            </div>
+                        </div>
+                        <div class="form-row" style="margin-top: 12px;">
+                            <div class="form-group col">
+                                <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Hora de Inicio</label>
+                                <input type="time" id="sched-lock-start" required style="width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #f8fafc; padding: 10px; font-family: inherit; font-size: 0.85rem;">
+                            </div>
+                            <div class="form-group col">
+                                <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Duración (Horas)</label>
+                                <input type="number" id="sched-lock-duration" min="1" max="24" required style="width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #f8fafc; padding: 10px; font-family: inherit; font-size: 0.85rem;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bloqueo de Clausulazo -->
+                    <div class="schedule-block" style="background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 12px;">
+                            <h3 style="font-size: 0.95rem; display: flex; align-items: center; gap: 8px; margin: 0; color: #f59e0b;">
+                                <i class="fa-solid fa-lock text-yellow"></i> Bloqueo de Clausulazo
+                            </h3>
+                            <label class="switch-toggle">
+                                <input type="checkbox" id="sched-clauseLock-active">
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Días Activos</label>
+                            <div class="day-chips-container" id="sched-clauseLock-days">
+                                <label class="day-chip"><input type="checkbox" value="1"><span>L</span></label>
+                                <label class="day-chip"><input type="checkbox" value="2"><span>M</span></label>
+                                <label class="day-chip"><input type="checkbox" value="3"><span>X</span></label>
+                                <label class="day-chip"><input type="checkbox" value="4"><span>J</span></label>
+                                <label class="day-chip"><input type="checkbox" value="5"><span>V</span></label>
+                                <label class="day-chip"><input type="checkbox" value="6"><span>S</span></label>
+                                <label class="day-chip"><input type="checkbox" value="0"><span>D</span></label>
+                            </div>
+                        </div>
+                        <div class="form-row" style="margin-top: 12px;">
+                            <div class="form-group col">
+                                <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Hora de Inicio</label>
+                                <input type="time" id="sched-clauseLock-start" required style="width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #f8fafc; padding: 10px; font-family: inherit; font-size: 0.85rem;">
+                            </div>
+                            <div class="form-group col">
+                                <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Duración (Horas)</label>
+                                <input type="number" id="sched-clauseLock-duration" min="0.1" max="24" step="0.1" required style="width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #f8fafc; padding: 10px; font-family: inherit; font-size: 0.85rem;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bloqueo de Mercado -->
+                    <div class="schedule-block" style="background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.04); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 12px;">
+                            <h3 style="font-size: 0.95rem; display: flex; align-items: center; gap: 8px; margin: 0; color: #ef4444;">
+                                <i class="fa-solid fa-lock text-red"></i> Bloqueo de Mercado
+                            </h3>
+                            <label class="switch-toggle">
+                                <input type="checkbox" id="sched-marketLock-active">
+                                <span class="slider-toggle"></span>
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Días Activos</label>
+                            <div class="day-chips-container" id="sched-marketLock-days">
+                                <label class="day-chip"><input type="checkbox" value="1"><span>L</span></label>
+                                <label class="day-chip"><input type="checkbox" value="2"><span>M</span></label>
+                                <label class="day-chip"><input type="checkbox" value="3"><span>X</span></label>
+                                <label class="day-chip"><input type="checkbox" value="4"><span>J</span></label>
+                                <label class="day-chip"><input type="checkbox" value="5"><span>V</span></label>
+                                <label class="day-chip"><input type="checkbox" value="6"><span>S</span></label>
+                                <label class="day-chip"><input type="checkbox" value="0"><span>D</span></label>
+                            </div>
+                        </div>
+                        <div class="form-row" style="margin-top: 12px;">
+                            <div class="form-group col">
+                                <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Hora de Inicio</label>
+                                <input type="time" id="sched-marketLock-start" required style="width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #f8fafc; padding: 10px; font-family: inherit; font-size: 0.85rem;">
+                            </div>
+                            <div class="form-group col">
+                                <label style="font-size: 0.8rem; color: #94a3b8; font-weight: 500;">Duración (Horas)</label>
+                                <input type="number" id="sched-marketLock-duration" min="0.1" max="24" step="0.1" required style="width: 100%; box-sizing: border-box; background: #0f172a; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; color: #f8fafc; padding: 10px; font-family: inherit; font-size: 0.85rem;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-block" style="margin-top: 8px;"><i class="fa-solid fa-floppy-disk"></i> Guardar Horarios</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="owner-panel-modal">
         <div class="modal-content" style="max-width: 600px; width: 95%;">
             <div class="modal-header">
