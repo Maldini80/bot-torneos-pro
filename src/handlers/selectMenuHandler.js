@@ -1968,13 +1968,23 @@ export async function handleSelectMenu(interaction) {
             return;
         }
 
-        // Flujo para no verificados: pedimos PSN ID y Twitter
+        // Flujo para no verificados: pedimos PSN ID, Twitter y Notas
         const modal = new ModalBuilder()
             .setCustomId(`register_draft_player_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}:${teamStatus}:${channelId}`)
             .setTitle('Finalizar Inscripción de Jugador');
         const psnIdInput = new TextInputBuilder().setCustomId('psn_id_input').setLabel("Tu PSN ID / EA ID").setStyle(TextInputStyle.Short).setRequired(true);
         const twitterInput = new TextInputBuilder().setCustomId('twitter_input').setLabel("Tu Twitter (sin @)").setStyle(TextInputStyle.Short).setRequired(true);
-        modal.addComponents(new ActionRowBuilder().addComponents(psnIdInput), new ActionRowBuilder().addComponents(twitterInput));
+        const notesInput = new TextInputBuilder()
+            .setCustomId('notes_input')
+            .setLabel("Notas / Posición específica (Opcional)")
+            .setStyle(TextInputStyle.Short)
+            .setMaxLength(50)
+            .setRequired(false);
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(psnIdInput),
+            new ActionRowBuilder().addComponents(twitterInput),
+            new ActionRowBuilder().addComponents(notesInput)
+        );
         await interaction.showModal(modal);
         return;
     }

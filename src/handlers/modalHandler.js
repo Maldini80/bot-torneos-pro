@@ -1631,7 +1631,9 @@ export async function handleModal(interaction) {
         const whatsapp = interaction.fields.getTextInputValue('whatsapp_input').trim();
         const rawPrimaryPos = interaction.fields.getTextInputValue('primary_pos_input').trim().toUpperCase();
         const rawSecondaryPos = interaction.fields.getTextInputValue('secondary_pos_input').trim().toUpperCase();
-        const twitter = interaction.fields.getTextInputValue('twitter_input').trim();
+        let notes = '';
+        try { notes = interaction.fields.getTextInputValue('notes_input').trim(); } catch (e) { }
+        const twitter = 'NONE';
 
         // Normalizar posiciones
         const normalizePosition = (pos) => {
@@ -1689,13 +1691,14 @@ export async function handleModal(interaction) {
             userId,
             userName: interaction.user.username,
             psnId,
-            twitter: twitter !== 'NONE' ? twitter : '',
+            twitter: 'NONE',
             whatsapp: normalizedWA,
             primaryPosition,
             secondaryPosition,
             currentTeam: 'Libre',
             isCaptain: false,
             captainId: null,
+            notes: notes || '',
             createdAt: new Date()
         };
 
@@ -1766,7 +1769,8 @@ export async function handleModal(interaction) {
         const whatsapp = interaction.fields.getTextInputValue('whatsapp_input').trim();
         const rawPrimaryPos = interaction.fields.getTextInputValue('primary_pos_input').trim().toUpperCase();
         const rawSecondaryPos = interaction.fields.getTextInputValue('secondary_pos_input').trim().toUpperCase();
-        const twitter = interaction.fields.getTextInputValue('twitter_input').trim();
+        let notes = '';
+        try { notes = interaction.fields.getTextInputValue('notes_input').trim(); } catch (e) { }
 
         // Normalizar posiciones
         const normalizePosition = (pos) => {
@@ -1792,6 +1796,7 @@ export async function handleModal(interaction) {
 
         // Obtener datos de verificación actuales
         const verifiedUser = await db.collection('verified_users').findOne({ discordId: userId });
+        const twitter = verifiedUser ? verifiedUser.twitter || 'NONE' : 'NONE';
         let oldPsn = '';
         let oldWA = '';
         let oldTwitter = '';
@@ -1846,6 +1851,7 @@ export async function handleModal(interaction) {
             currentTeam: 'Libre',
             isCaptain: false,
             captainId: null,
+            notes: notes || '',
             createdAt: new Date()
         };
 
@@ -1950,6 +1956,9 @@ export async function handleModal(interaction) {
         let twitter = '';
         try { twitter = interaction.fields.getTextInputValue('twitter_input'); } catch (e) { }
 
+        let notes = '';
+        try { notes = interaction.fields.getTextInputValue('notes_input').trim(); } catch (e) { }
+
         if (isRegisteringAsCaptain) {
 
             const teamName = interaction.fields.getTextInputValue('team_name_input');
@@ -1960,7 +1969,7 @@ export async function handleModal(interaction) {
             if (draft.captains.some(c => c.teamName.toLowerCase() === teamName.toLowerCase())) return interaction.editReply('❌ Ya existe un equipo con ese nombre.');
 
             captainData = { userId, userName: interaction.user.tag, teamName, eafcTeamName, streamChannel, psnId, twitter, whatsapp, position };
-            playerData = { userId, userName: interaction.user.tag, psnId, twitter, whatsapp, primaryPosition: position, secondaryPosition: 'NONE', currentTeam: teamName, isCaptain: true, captainId: userId };
+            playerData = { userId, userName: interaction.user.tag, psnId, twitter, whatsapp, primaryPosition: position, secondaryPosition: 'NONE', currentTeam: teamName, isCaptain: true, captainId: userId, notes: '' };
 
         } else {
             let currentTeam;
@@ -1969,7 +1978,7 @@ export async function handleModal(interaction) {
             } else {
                 currentTeam = 'Libre';
             }
-            playerData = { userId, userName: interaction.user.tag, psnId, twitter, whatsapp, primaryPosition, secondaryPosition, currentTeam, isCaptain: false, captainId: null };
+            playerData = { userId, userName: interaction.user.tag, psnId, twitter, whatsapp, primaryPosition, secondaryPosition, currentTeam, isCaptain: false, captainId: null, notes: notes || '' };
         }
 
         if (draft.config.isPaid) {
@@ -2038,7 +2047,8 @@ export async function handleModal(interaction) {
                                 "players.$.whatsapp": whatsapp || existingManualPlayer.whatsapp,
                                 "players.$.primaryPosition": primaryPosition || existingManualPlayer.primaryPosition,
                                 "players.$.secondaryPosition": secondaryPosition || existingManualPlayer.secondaryPosition,
-                                "players.$.currentTeam": playerData.currentTeam
+                                "players.$.currentTeam": playerData.currentTeam,
+                                "players.$.notes": notes || existingManualPlayer.notes || ''
                             }
                         }
                     );

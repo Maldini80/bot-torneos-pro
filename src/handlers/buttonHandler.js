@@ -1713,20 +1713,20 @@ export async function handleButton(interaction) {
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true);
 
-            const twitterInput = new TextInputBuilder()
-                .setCustomId('twitter_input')
-                .setLabel('Tu Twitter (sin @) o escribe NONE')
-                .setValue(verifiedData.twitter || 'NONE')
-                .setPlaceholder('Ej: Rayden_VPG')
+            const notesInput = new TextInputBuilder()
+                .setCustomId('notes_input')
+                .setLabel('Notas / Posición específica (Opcional)')
+                .setPlaceholder('Ej: Prefiero MCD o MCO, libre de noches')
+                .setMaxLength(50)
                 .setStyle(TextInputStyle.Short)
-                .setRequired(true);
+                .setRequired(false);
 
             modal.addComponents(
                 new ActionRowBuilder().addComponents(psnInput),
                 new ActionRowBuilder().addComponents(whatsappInput),
                 new ActionRowBuilder().addComponents(primaryPosInput),
                 new ActionRowBuilder().addComponents(secondaryPosInput),
-                new ActionRowBuilder().addComponents(twitterInput)
+                new ActionRowBuilder().addComponents(notesInput)
             );
 
             await interaction.showModal(modal);
@@ -1768,19 +1768,20 @@ export async function handleButton(interaction) {
                 .setStyle(TextInputStyle.Short)
                 .setRequired(true);
 
-            const twitterInput = new TextInputBuilder()
-                .setCustomId('twitter_input')
-                .setLabel('Tu Twitter (sin @) o escribe NONE')
-                .setPlaceholder('Ej: Rayden_VPG')
+            const notesInput = new TextInputBuilder()
+                .setCustomId('notes_input')
+                .setLabel('Notas / Posición específica (Opcional)')
+                .setPlaceholder('Ej: Prefiero MCD o MCO, libre de noches')
+                .setMaxLength(50)
                 .setStyle(TextInputStyle.Short)
-                .setRequired(true);
+                .setRequired(false);
 
             modal.addComponents(
                 new ActionRowBuilder().addComponents(psnInput),
                 new ActionRowBuilder().addComponents(whatsappInput),
                 new ActionRowBuilder().addComponents(primaryPosInput),
                 new ActionRowBuilder().addComponents(secondaryPosInput),
-                new ActionRowBuilder().addComponents(twitterInput)
+                new ActionRowBuilder().addComponents(notesInput)
             );
 
             await interaction.showModal(modal);

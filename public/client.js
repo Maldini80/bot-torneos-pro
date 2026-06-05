@@ -1868,7 +1868,11 @@ function initializeDraftView(draftId) {
                     </span>
                 </td>`;
             }
-            const displayName = player.isPendingCaptain ? `👑 Ⓒ ${player.psnId}` : player.psnId;
+            let displayName = player.isPendingCaptain ? `👑 Ⓒ ${player.psnId}` : player.psnId;
+            if (player.notes && player.notes.trim()) {
+                const escapedNotes = player.notes.replace(/"/g, '&quot;');
+                displayName += ` <span class="player-notes-bubble" title="${escapedNotes}" style="cursor:help;margin-left:4px;">💬</span>`;
+            }
 
             const innerHTML = `
                 <td data-label="Strikes"><span class="player-data">${player.strikes || 0}</span></td>
