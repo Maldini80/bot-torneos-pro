@@ -1582,38 +1582,28 @@ export async function handleModal(interaction) {
         const draft = await db.collection('drafts').findOne({ shortId: draftShortId });
 
         if (flow === 'player') {
-            if (teamStatus === 'Con Equipo') {
-                const teamNameModal = new ModalBuilder()
-                    .setCustomId(`register_draft_player_team_name_modal:${draftShortId}:${primaryPosition}:${secondaryPosition}:${channelId}`)
-                    .setTitle('Último Dato: Tu Equipo Actual');
-                const currentTeamInput = new TextInputBuilder().setCustomId('current_team_input').setLabel("Nombre de tu equipo actual").setStyle(TextInputStyle.Short).setRequired(true);
-                teamNameModal.addComponents(new ActionRowBuilder().addComponents(currentTeamInput));
+            const playerData = {
+                userId: interaction.user.id, userName: interaction.user.tag,
+                psnId: verifiedData.gameId, twitter: verifiedData.twitter, whatsapp: verifiedData.whatsapp,
+                primaryPosition, secondaryPosition, currentTeam: 'Libre',
+                isCaptain: false, captainId: null
+            };
+            await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
 
-                return interaction.showModal(teamNameModal);
-            } else {
-                const playerData = {
-                    userId: interaction.user.id, userName: interaction.user.tag,
-                    psnId: verifiedData.gameId, twitter: verifiedData.twitter, whatsapp: verifiedData.whatsapp,
-                    primaryPosition, secondaryPosition, currentTeam: 'Libre',
-                    isCaptain: false, captainId: null
-                };
-                await db.collection('drafts').updateOne({ _id: draft._id }, { $push: { players: playerData } });
+            await interaction.editReply('✅ ¡Inscripción completada!');
 
-                await interaction.editReply('✅ ¡Inscripción completada!');
-
-                if (channelId && channelId !== 'no-ticket') {
-                    const ticketChannel = await client.channels.fetch(channelId).catch(() => null);
-                    if (ticketChannel) {
-                        await ticketChannel.send('✅ Proceso de inscripción finalizado. Este canal se cerrará en 10 segundos.');
-                        setTimeout(() => ticketChannel.delete('Inscripción completada.').catch(console.error), 10000);
-                    }
+            if (channelId && channelId !== 'no-ticket') {
+                const ticketChannel = await client.channels.fetch(channelId).catch(() => null);
+                if (ticketChannel) {
+                    await ticketChannel.send('✅ Proceso de inscripción finalizado. Este canal se cerrará en 10 segundos.');
+                    setTimeout(() => ticketChannel.delete('Inscripción completada.').catch(console.error), 10000);
                 }
-
-                const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
-                updatePublicMessages(client, updatedDraft);
-                updateDraftMainInterface(client, updatedDraft.shortId);
-                notifyVisualizer(updatedDraft);
             }
+
+            const updatedDraft = await db.collection('drafts').findOne({ _id: draft._id });
+            updatePublicMessages(client, updatedDraft);
+            updateDraftMainInterface(client, updatedDraft.shortId);
+            notifyVisualizer(updatedDraft);
         }
         return;
     }
