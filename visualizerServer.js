@@ -9742,6 +9742,77 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
+    // Delete all user-created leagues at once (owner only)
+    app.post('/api/fantasy/admin/delete-user-leagues', isAuthenticated, isOwner, async (req, res) => {
+        try {
+            const db = getDb();
+            // User-created leagues are those where createdBy !== OWNER_DISCORD_ID
+            const userLeagues = await db.collection('fantasy_leagues').find({
+                createdBy: { $ne: process.env.OWNER_DISCORD_ID }
+            }).toArray();
+
+            if (userLeagues.length === 0) {
+                return res.json({ success: true, message: 'No hay ligas creadas por usuarios para eliminar.' });
+            }
+
+            let leaguesDeleted = 0;
+            let teamsDeleted = 0;
+            let bidsDeleted = 0;
+            let listingsDeleted = 0;
+            let newsDeleted = 0;
+            let buyoutsDeleted = 0;
+
+            for (const league of userLeagues) {
+                const leagueId = league._id.toString();
+
+                const teamsRes = await db.collection('fantasy_teams').deleteMany({ leagueId });
+                teamsDeleted += (teamsRes.deletedCount || 0);
+
+                const bidsRes = await db.collection('fantasy_market_bids').deleteMany({ leagueId });
+                bidsDeleted += (bidsRes.deletedCount || 0);
+
+                const listingsRes = await db.collection('fantasy_market_listings').deleteMany({ leagueId });
+                listingsDeleted += (listingsRes.deletedCount || 0);
+
+                const newsRes = await db.collection('fantasy_market_news').deleteMany({ leagueId });
+                newsDeleted += (newsRes.deletedCount || 0);
+
+                const buyoutsRes = await db.collection('fantasy_buyouts').deleteMany({ leagueId });
+                buyoutsDeleted += (buyoutsRes.deletedCount || 0);
+
+                await db.collection('fantasy_leagues').deleteOne({ _id: league._id });
+                leaguesDeleted++;
+            }
+
+            res.json({
+                success: true,
+                message: `Se han eliminado ${leaguesDeleted} ligas de usuarios, ${teamsDeleted} equipos, ${bidsDeleted} pujas, ${listingsDeleted} listados, ${newsDeleted} noticias y ${buyoutsDeleted} clausulazos.`
+            });
+        } catch (e) {
+            console.error('[API Admin Delete User Leagues] Error:', e);
+            res.status(500).json({ error: 'Error del servidor al eliminar las ligas de usuarios.' });
+        }
+    });
+
+    // Finalize all active/open leagues at once (owner only)
+    app.post('/api/fantasy/admin/finalize-all-leagues', isAuthenticated, isOwner, async (req, res) => {
+        try {
+            const db = getDb();
+            const result = await db.collection('fantasy_leagues').updateMany(
+                { status: { $in: ['open', 'active'] } },
+                { $set: { status: 'closed', endedAt: new Date() } }
+            );
+
+            res.json({
+                success: true,
+                message: `Se han finalizado y cerrado ${result.modifiedCount} ligas correctamente.`
+            });
+        } catch (e) {
+            console.error('[API Admin Finalize All Leagues] Error:', e);
+            res.status(500).json({ error: 'Error del servidor al finalizar las ligas.' });
+        }
+    });
+
     // === 404 Catch-all: Must be AFTER all routes ===
     app.use((req, res) => {
         // Return JSON for API routes, HTML for everything else

@@ -357,6 +357,8 @@ const rebuildStatsProgress = null; // Removed from league admin panel
 const btnOwnerRebuildStats = document.getElementById('btn-owner-rebuild-stats');
 const btnOwnerResetZeroPoints = document.getElementById('btn-owner-reset-zero-points');
 const btnOwnerRunMarket = document.getElementById('btn-owner-run-market');
+const btnOwnerDeleteUserLeagues = document.getElementById('btn-owner-delete-user-leagues');
+const btnOwnerFinalizeAllLeagues = document.getElementById('btn-owner-finalize-all-leagues');
 const ownerRebuildProgress = document.getElementById('owner-rebuild-progress');
 const adminParticipantsList = document.getElementById('admin-participants-list');
 const adminSearchPlayerInput = document.getElementById('admin-search-player-input');
@@ -1173,6 +1175,69 @@ function setupEventHandlers() {
             } finally {
                 btnOwnerRunMarket.disabled = false;
                 btnOwnerRunMarket.innerHTML = '<i class="fa-solid fa-gavel"></i> Adjudicar Mercado';
+            }
+        });
+    }
+
+    if (btnOwnerDeleteUserLeagues) {
+        btnOwnerDeleteUserLeagues.addEventListener('click', async () => {
+            if (!confirm('⚠️ ¿ESTÁS ABSOLUTAMENTE SEGURO DE QUE DESEAS ELIMINAR TODAS LAS LIGAS CREADAS POR LOS USUARIOS?\nEsta acción es irreversible y borrará permanentemente todos los equipos, plantillas, ofertas, pujas e historial de esas ligas.')) {
+                return;
+            }
+            if (prompt('Escribe "ELIMINAR" para confirmar la eliminación de todas las ligas de usuarios:') !== 'ELIMINAR') {
+                return;
+            }
+            try {
+                btnOwnerDeleteUserLeagues.disabled = true;
+                btnOwnerDeleteUserLeagues.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Eliminando...';
+
+                const res = await fetch('/api/fantasy/admin/delete-user-leagues', { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Error al eliminar ligas de usuarios.');
+
+                showToast(data.message || 'Ligas de usuarios eliminadas correctamente.', 'success');
+                
+                // Refresh list
+                const leaguesRes = await fetch('/api/fantasy/leagues');
+                const leaguesData = await leaguesRes.json();
+                activeFantasyLeagues = leaguesData.leagues || [];
+                renderLeaguesList();
+            } catch (e) {
+                console.error(e);
+                showToast(e.message, 'error');
+            } finally {
+                btnOwnerDeleteUserLeagues.disabled = false;
+                btnOwnerDeleteUserLeagues.innerHTML = '<i class="fa-solid fa-trash"></i> Eliminar Ligas de Usuarios';
+            }
+        });
+    }
+
+    if (btnOwnerFinalizeAllLeagues) {
+        btnOwnerFinalizeAllLeagues.addEventListener('click', async () => {
+            if (!confirm('⚠️ ¿Seguro que quieres finalizar y cerrar todas las ligas de Fantasy abiertas o en curso?\nEsto detendrá permanentemente el mercado de fichajes y congelará las alineaciones.')) {
+                return;
+            }
+            try {
+                btnOwnerFinalizeAllLeagues.disabled = true;
+                btnOwnerFinalizeAllLeagues.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Finalizando...';
+
+                const res = await fetch('/api/fantasy/admin/finalize-all-leagues', { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Error al finalizar ligas.');
+
+                showToast(data.message || 'Todas las ligas han sido finalizadas.', 'success');
+                
+                // Refresh list
+                const leaguesRes = await fetch('/api/fantasy/leagues');
+                const leaguesData = await leaguesRes.json();
+                activeFantasyLeagues = leaguesData.leagues || [];
+                renderLeaguesList();
+            } catch (e) {
+                console.error(e);
+                showToast(e.message, 'error');
+            } finally {
+                btnOwnerFinalizeAllLeagues.disabled = false;
+                btnOwnerFinalizeAllLeagues.innerHTML = '<i class="fa-solid fa-flag-checkered"></i> Finalizar Todas las Ligas';
             }
         });
     }
@@ -2055,6 +2120,7 @@ async function enterLeague(leagueId, keepCurrentTab = false, password = null, op
         renderSquadList();
         updateSquadStats();
         loadMiniNewsWidget();
+        checkAndRenderClosedLeagueUI();
 
         if (keepCurrentTab) {
             const activeLeftBtn = document.querySelector('.nav-tab-btn.active');
@@ -3148,6 +3214,124 @@ async function loadNewsFeed() {
     } catch (e) {
         console.error(e);
         newsTimelineList.innerHTML = `<div class="text-center py-4 text-danger"><i class="fa-solid fa-triangle-exclamation"></i> ${e.message}</div>`;
+    }
+}
+
+// Check and render closed league banner with podium and final standings
+async function checkAndRenderClosedLeagueUI() {
+    const banner = document.getElementById('closed-league-summary-banner');
+    if (!banner) return;
+    
+    if (!activeLeague || activeLeague.status !== 'closed') {
+        banner.style.display = 'none';
+        return;
+    }
+    
+    banner.style.display = 'block';
+    banner.innerHTML = `
+        <div style="text-align: center; padding: 15px 0;">
+            <i class="fa-solid fa-spinner fa-spin" style="font-size: 1.5rem; color: #f59e0b; margin-bottom: 8px;"></i>
+            <div style="font-size: 0.85rem; color: #94a3b8;">Cargando podio y clasificación final...</div>
+        </div>
+    `;
+    
+    try {
+        const res = await fetch(`/api/fantasy/leagues/${currentLeagueId}/leaderboard`);
+        if (!res.ok) throw new Error('Error al cargar la clasificación.');
+        const data = await res.json();
+        const leaderboard = data.leaderboard || [];
+        
+        if (leaderboard.length === 0) {
+            banner.innerHTML = `<div style="text-align: center; color: #94a3b8; padding: 10px;"><i class="fa-solid fa-circle-info"></i> La liga ha finalizado pero no hay participantes registrados.</div>`;
+            return;
+        }
+        
+        // Find top 3 teams
+        const first = leaderboard.find(t => t.position === 1);
+        const second = leaderboard.find(t => t.position === 2);
+        const third = leaderboard.find(t => t.position === 3);
+        
+        // Find current user's position
+        const myRank = leaderboard.find(t => t.isMe);
+        
+        let podiumHtml = '';
+        if (first) {
+            podiumHtml += `
+                <div class="podium-place first" style="text-align: center; flex: 1; min-width: 140px; padding: 12px; background: rgba(253, 224, 71, 0.04); border: 1px solid rgba(253, 224, 71, 0.2); border-radius: 8px; box-shadow: 0 0 10px rgba(253, 224, 71, 0.05);">
+                    <div style="font-size: 2rem; margin-bottom: 4px;">🥇</div>
+                    <div style="font-weight: 700; color: #fde047; font-size: 0.95rem; margin-bottom: 2px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 130px;" title="${first.teamName}">${first.teamName}</div>
+                    <div style="font-size: 0.75rem; color: #94a3b8; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 130px;">${first.discordUsername}</div>
+                    <div style="font-weight: 700; font-size: 0.85rem; color: #f8fafc; margin-top: 6px; background: rgba(253, 224, 71, 0.1); padding: 2px 6px; border-radius: 4px; display: inline-block;">${Math.round(first.points * 10) / 10} pts</div>
+                </div>
+            `;
+        }
+        if (second) {
+            podiumHtml += `
+                <div class="podium-place second" style="text-align: center; flex: 1; min-width: 140px; padding: 12px; background: rgba(226, 232, 240, 0.04); border: 1px solid rgba(226, 232, 240, 0.2); border-radius: 8px;">
+                    <div style="font-size: 1.75rem; margin-bottom: 4px;">🥈</div>
+                    <div style="font-weight: 700; color: #cbd5e1; font-size: 0.95rem; margin-bottom: 2px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 130px;" title="${second.teamName}">${second.teamName}</div>
+                    <div style="font-size: 0.75rem; color: #94a3b8; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 130px;">${second.discordUsername}</div>
+                    <div style="font-weight: 700; font-size: 0.85rem; color: #f8fafc; margin-top: 6px; background: rgba(226, 232, 240, 0.1); padding: 2px 6px; border-radius: 4px; display: inline-block;">${Math.round(second.points * 10) / 10} pts</div>
+                </div>
+            `;
+        }
+        if (third) {
+            podiumHtml += `
+                <div class="podium-place third" style="text-align: center; flex: 1; min-width: 140px; padding: 12px; background: rgba(180, 83, 9, 0.04); border: 1px solid rgba(180, 83, 9, 0.2); border-radius: 8px;">
+                    <div style="font-size: 1.75rem; margin-bottom: 4px;">🥉</div>
+                    <div style="font-weight: 700; color: #b45309; font-size: 0.95rem; margin-bottom: 2px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 130px;" title="${third.teamName}">${third.teamName}</div>
+                    <div style="font-size: 0.75rem; color: #94a3b8; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 130px;">${third.discordUsername}</div>
+                    <div style="font-weight: 700; font-size: 0.85rem; color: #f8fafc; margin-top: 6px; background: rgba(180, 83, 9, 0.1); padding: 2px 6px; border-radius: 4px; display: inline-block;">${Math.round(third.points * 10) / 10} pts</div>
+                </div>
+            `;
+        }
+        
+        let userResultHtml = '';
+        if (myRank) {
+            let userIcon = '🏆';
+            if (myRank.position === 1) userIcon = '🥇 ¡CAMPEÓN!';
+            else if (myRank.position === 2) userIcon = '🥈 ¡SUB-CAMPEÓN!';
+            else if (myRank.position === 3) userIcon = '🥉 ¡3º PUESTO!';
+            
+            userResultHtml = `
+                <div style="margin: 10px 0; padding: 14px; background: rgba(56, 189, 248, 0.05); border: 1px solid rgba(56, 189, 248, 0.2); border-radius: 8px; text-align: center; box-shadow: 0 2px 10px rgba(56,189,248,0.03);">
+                    <span style="font-size: 1.05rem; color: #38bdf8; font-weight: 700; display: block; margin-bottom: 4px;">${userIcon}</span>
+                    <span style="font-size: 0.95rem; color: #f8fafc; font-weight: 600;">Has quedado en el puesto #${myRank.position} de ${leaderboard.length} participantes</span>
+                    <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 6px; display: flex; justify-content: center; gap: 15px;">
+                        <span>Puntos: <strong style="color: #fbbf24;">${Math.round(myRank.points * 10) / 10} pts</strong></span>
+                        <span style="color: rgba(255,255,255,0.15);">|</span>
+                        <span>Valor Once: <strong style="color: #60a5fa;">${((myRank.lineupValue || 0) / 1000000).toFixed(1)}M €</strong></span>
+                    </div>
+                </div>
+            `;
+        } else {
+            userResultHtml = `
+                <div style="margin: 10px 0; padding: 12px; background: rgba(255, 255, 255, 0.01); border: 1px solid rgba(255, 255, 255, 0.04); border-radius: 8px; text-align: center; color: #94a3b8; font-size: 0.8rem;">
+                    <i class="fa-solid fa-eye"></i> Estás visualizando esta liga finalizada en modo de lectura.
+                </div>
+            `;
+        }
+        
+        banner.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 14px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <i class="fa-solid fa-flag-checkered text-yellow" style="font-size: 1.35rem;"></i>
+                        <h3 style="margin: 0; font-size: 1.15rem; font-weight: 700; color: #f8fafc; letter-spacing: 0.25px;">Liga Finalizada</h3>
+                    </div>
+                    <span class="badge" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.25); padding: 2px 6px; font-size: 0.7rem; border-radius: 4px; font-weight: 700; text-transform: uppercase;">Cerrada</span>
+                </div>
+                
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin: 5px 0;">
+                    ${podiumHtml}
+                </div>
+                
+                ${userResultHtml}
+            </div>
+        `;
+    } catch (err) {
+        console.error('Error rendering closed league summary:', err);
+        banner.innerHTML = `<div style="text-align: center; color: #f87171; font-size: 0.85rem;"><i class="fa-solid fa-circle-exclamation"></i> Error al cargar el podio de clasificación.</div>`;
     }
 }
 

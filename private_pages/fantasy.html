@@ -372,6 +372,28 @@
                                 <button id="btn-owner-run-market" class="btn btn-sm btn-success" style="flex-shrink: 0; background-color: #22c55e; border-color: #22c55e;"><i class="fa-solid fa-gavel"></i> Adjudicar Mercado</button>
                             </div>
                         </div>
+
+                        <!-- Box 5: Delete User Leagues -->
+                        <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
+                            <div class="action-card-row">
+                                <div style="flex: 1; min-width: 0;">
+                                    <h4>Eliminar Ligas de Usuarios</h4>
+                                    <p class="text-muted">Elimina de forma permanente todas las ligas de Fantasy creadas por usuarios comunes junto con todos sus datos asociados de equipos, ofertas y transacciones.</p>
+                                </div>
+                                <button id="btn-owner-delete-user-leagues" class="btn btn-sm btn-danger" style="flex-shrink: 0;"><i class="fa-solid fa-trash"></i> Eliminar Ligas de Usuarios</button>
+                            </div>
+                        </div>
+
+                        <!-- Box 6: Finalize All Leagues -->
+                        <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
+                            <div class="action-card-row">
+                                <div style="flex: 1; min-width: 0;">
+                                    <h4>Finalizar Todas las Ligas</h4>
+                                    <p class="text-muted">Cierra y finaliza todas las ligas de Fantasy que estén abiertas o en curso de forma simultánea, bloqueando los fichajes y las alineaciones.</p>
+                                </div>
+                                <button id="btn-owner-finalize-all-leagues" class="btn btn-sm btn-warning" style="flex-shrink: 0;"><i class="fa-solid fa-flag-checkered"></i> Finalizar Todas las Ligas</button>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
@@ -503,6 +525,11 @@
             <button class="nav-tab-btn" data-league-tab="news-feed"><i class="fa-solid fa-bullhorn"></i> Noticias</button>
             <button id="btn-league-admin-tab" class="nav-tab-btn" data-league-tab="admin-panel" style="display: none;"><i class="fa-solid fa-gears"></i> Panel Admin</button>
         </nav>
+
+        <!-- Special Banner/Container for Closed Leagues -->
+        <div id="closed-league-summary-banner" style="display: none; margin: 15px 0; padding: 20px; background: linear-gradient(135deg, rgba(30, 41, 59, 0.9) 0%, rgba(15, 23, 42, 0.95) 100%); border: 2px solid #f59e0b; border-radius: 12px; box-shadow: 0 4px 20px rgba(245, 158, 11, 0.15);">
+            <!-- Will be populated dynamically by JS -->
+        </div>
 
         <!-- Pending Approval Message -->
         <div id="pending-approval-view" class="fantasy-card pending-card" style="display: none; margin: 30px auto; max-width: 600px; text-align: center; padding: 40px 20px;">
