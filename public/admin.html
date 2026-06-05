@@ -3,111 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel Admin - Draft</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <title>LOCK ON - Panel Admin Draft</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Russo+One&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #6366f1;
-            --bg: #060913;
-            --card: rgba(30, 41, 59, 0.7);
+            --primary: #00f0ff; /* Neon Cyan (Blue Lock Project) */
+            --bg: #070a13; /* Deep Space Black */
+            --card: rgba(11, 19, 38, 0.75); /* Holographic Card */
             --text: #f8fafc;
-            --danger: #ef4444;
-            --success: #10b981;
-            --warning: #f59e0b;
+            --danger: #ff0055; /* Electric Pinkish Red */
+            --success: #00f0ff; /* Neon cyan success */
+            --warning: #fbbf24;
+            --neon-purple: #a855f7;
         }
         body {
             font-family: 'Outfit', sans-serif;
             background: var(--bg);
             background-image: 
-                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.1) 0px, transparent 50%);
+                linear-gradient(rgba(0, 240, 255, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.02) 1px, transparent 1px),
+                radial-gradient(at 0% 0%, rgba(0, 240, 255, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.06) 0px, transparent 50%);
+            background-size: 30px 30px, 30px 30px, 100% 100%, 100% 100%;
             color: var(--text);
             margin: 0;
             padding: 20px;
             min-height: 100vh;
         }
         .container {
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
+        }
+        h1, h2, h3, .brand-font {
+            font-family: 'Russo One', sans-serif;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
         }
         header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #334155;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(0, 240, 255, 0.15);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        }
+        header h1 {
+            color: #ffffff;
+            text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+            font-size: 1.8rem;
+            margin: 0;
         }
         .card {
             background: var(--card);
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 20px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 240, 255, 0.1);
         }
         .free-agent-item {
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.06);
             transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: grab;
+        }
+        .free-agent-item:active {
+            cursor: grabbing;
         }
         .free-agent-item:hover {
             transform: translateY(-3px);
-            border-color: rgba(99, 102, 241, 0.4) !important;
-            background: rgba(255, 255, 255, 0.04) !important;
-            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+            border-color: rgba(0, 240, 255, 0.45) !important;
+            background: rgba(15, 23, 42, 0.9) !important;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.25);
         }
         @keyframes pulse {
             0% { transform: scale(1); opacity: 0.9; }
-            50% { transform: scale(1.02); opacity: 1; text-shadow: 0 0 15px rgba(99, 102, 241, 0.6); }
+            50% { transform: scale(1.02); opacity: 1; text-shadow: 0 0 15px rgba(0, 240, 255, 0.7); }
             100% { transform: scale(1); opacity: 0.9; }
         }
         .pulse-text {
             animation: pulse 2s infinite ease-in-out;
             display: inline-block;
         }
-        h1, h2, h3 { margin-top: 0; }
         button {
             padding: 8px 16px;
             border-radius: 6px;
             border: none;
             cursor: pointer;
             font-weight: 600;
+            font-family: 'Russo One', sans-serif;
+            text-transform: uppercase;
+            font-size: 0.8em;
+            letter-spacing: 0.5px;
             transition: all 0.2s;
         }
-        .btn-primary { background: var(--primary); color: white; }
-        .btn-danger { background: var(--danger); color: white; }
-        .btn-success { background: var(--success); color: white; }
-        .btn-warning { background: var(--warning); color: black; }
-        .active-turn-team-card {
-            border: 2px solid var(--primary) !important;
-            box-shadow: 0 0 15px rgba(99, 102, 241, 0.35) !important;
-            background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(99, 102, 241, 0.08)) !important;
+        .btn-primary { 
+            background: linear-gradient(135deg, #0284c7, #00f0ff); 
+            color: #000000; 
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
         }
-        .active-filter {
-            background: var(--text) !important;
-            color: var(--bg) !important;
+        .btn-primary:hover {
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+            transform: translateY(-1px);
+        }
+        .btn-danger { 
+            background: linear-gradient(135deg, #991b1b, var(--danger)); 
+            color: white; 
+        }
+        .btn-danger:hover {
+            box-shadow: 0 0 10px rgba(255, 0, 85, 0.3);
+        }
+        .btn-success { 
+            background: linear-gradient(135deg, #0d9488, #00f0ff); 
+            color: #000000;
+        }
+        .btn-success:hover {
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+        }
+        .btn-warning { 
+            background: linear-gradient(135deg, #d97706, var(--warning)); 
+            color: black; 
         }
         
         .grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
             gap: 20px;
         }
         
         .team-card {
-            border: 1px solid #334155;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(10, 15, 30, 0.85);
+            transition: all 0.25s ease;
+        }
+        .team-card:hover {
+            border-color: rgba(0, 240, 255, 0.25);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.08);
+        }
+        .team-card.drag-over {
+            border: 2px dashed var(--primary) !important;
+            background: rgba(0, 240, 255, 0.12) !important;
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.3) !important;
+            transform: scale(1.03);
+        }
+        .active-turn-team-card {
+            border: 2px solid var(--primary) !important;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.35) !important;
+            background: linear-gradient(135deg, rgba(15, 32, 66, 0.95), rgba(0, 240, 255, 0.12)) !important;
+            transform: scale(1.01);
+            animation: team-pulse 2s infinite ease-in-out;
+        }
+        @keyframes team-pulse {
+            0% { box-shadow: 0 0 15px rgba(0, 240, 255, 0.2); }
+            50% { box-shadow: 0 0 25px rgba(0, 240, 255, 0.4); }
+            100% { box-shadow: 0 0 15px rgba(0, 240, 255, 0.2); }
+        }
+        
+        .active-filter {
+            background: var(--primary) !important;
+            color: #000000 !important;
+            box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
         }
         .player-list {
             list-style: none;
             padding: 0;
+            margin: 0;
         }
         .player-item {
             display: flex;
             justify-content: space-between;
             padding: 8px;
-            border-bottom: 1px solid #334155;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
             align-items: center;
+            font-size: 0.9em;
         }
         .controls {
             display: flex;
@@ -129,25 +200,35 @@
             display: none;
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.8);
+            background: rgba(0,0,0,0.85);
             justify-content: center;
             align-items: center;
+            backdrop-filter: blur(5px);
+            z-index: 10000;
         }
         .modal-content {
-            background: var(--card);
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(0, 240, 255, 0.2);
             padding: 30px;
             border-radius: 12px;
             width: 90%;
             max-width: 500px;
+            box-shadow: 0 0 30px rgba(0, 240, 255, 0.15);
         }
         select, input {
             width: 100%;
             padding: 10px;
             margin: 10px 0;
-            background: #0f172a;
-            border: 1px solid #334155;
+            background: #090d16;
+            border: 1px solid rgba(0, 240, 255, 0.15);
             color: white;
             border-radius: 6px;
+            box-sizing: border-box;
+            outline: none;
+        }
+        select:focus, input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 8px rgba(0, 240, 255, 0.25);
         }
         @media (max-width: 768px) {
             body {
@@ -181,7 +262,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>Panel de Administración - Draft</h1>
+            <h1>LOCK ON - Draft Control Center</h1>
             <div id="user-info">Cargando...</div>
         </header>
 
@@ -405,8 +486,8 @@
 
             if (isActive && turnTeamName) {
                 document.getElementById('current-turn-team').innerHTML = `
-                    <span class="pulse-text" style="color: #6366f1; font-weight: 700; font-size: 1.1em; border-bottom: 2px solid #6366f1; padding-bottom: 2px;">
-                        ${turnTeamName}
+                    <span class="pulse-text" style="color: var(--primary); font-weight: 700; font-size: 1.2em; border-bottom: 2px solid var(--primary); padding-bottom: 2px; text-shadow: 0 0 10px rgba(0, 240, 255, 0.6);">
+                        🎯 LOCK ON: ${turnTeamName}
                     </span> 
                     <span style="font-size: 0.95em; color: #94a3b8; margin-left: 8px;">
                         (Capitán: ${turnCaptain.userName} | Pick #${currentDraft.selection.currentPick})
@@ -449,13 +530,19 @@
                     }
                 }
 
+                // Attach HTML5 Drag & Drop handlers on team card
+                card.ondragover = allowDrop;
+                card.ondragenter = dragEnter;
+                card.ondragleave = dragLeave;
+                card.ondrop = (event) => dropPlayer(event, team.id, team.name);
+
                 const isCollapsed = collapsedTeamsState[team.id];
                 const chevron = isCollapsed ? '▼' : '▲';
                 const listStyle = isCollapsed ? 'display: none;' : 'display: block;';
 
                 let playersHtml = team.players.map(p => `
                     <li class="player-item">
-                        <span>${p.psnId} (${p.position})</span>
+                        <span style="font-family: 'Outfit', sans-serif;">${p.psnId} (${p.position})</span>
                     </li>
                 `).join('');
 
@@ -470,11 +557,11 @@
                 card.innerHTML = `
                     <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 8px;">
                         <div style="display: flex; align-items: center; gap: 8px; cursor: pointer; flex-grow: 1;" onclick="toggleTeamCollapse('${team.id}')">
-                            <span style="font-size: 0.85em; color: #6366f1; width: 12px; display: inline-block;">${chevron}</span>
-                            <h3 style="margin:0; font-size:1.1em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${team.name}">${team.name}</h3>
+                            <span style="font-size: 0.85em; color: var(--primary); width: 12px; display: inline-block;">${chevron}</span>
+                            <h3 style="margin:0; font-size:1.1em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: ${isMyTurn ? '0 0 5px var(--primary)' : 'none'};" title="${team.name}">${team.name}</h3>
                         </div>
                         <div style="display:flex; gap:6px; align-items:center;">
-                            <span style="font-size:0.8em; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 12px; font-weight: 600;" title="Jugadores fichados">${team.players.length}</span>
+                            <span style="font-size:0.8em; background: rgba(0, 240, 255, 0.1); border: 1px solid rgba(0, 240, 255, 0.2); padding: 2px 6px; border-radius: 12px; font-weight: 600;" title="Jugadores fichados">${team.players.length}</span>
                             <button class="btn-warning" style="font-size:0.75em; padding: 4px 8px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: #fbbf24;" onclick="openManageTeam('${team.id}')">⚙️</button>
                         </div>
                     </div>
@@ -529,8 +616,12 @@
                 playersToDisplay.forEach(p => {
                     const card = document.createElement('div');
                     card.className = 'free-agent-item';
+                    card.draggable = true;
+                    card.ondragstart = (event) => dragStart(event, p.userId, p.psnId || p.userName);
+                    card.ondragend = dragEnd;
+                    
                     const pos = p.primaryPosition || 'N/A';
-                    card.style.cssText = 'padding: 12px; border: 1px solid #334155; border-radius: 8px; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; justify-content: space-between; gap: 8px;';
+                    card.style.cssText = 'padding: 12px; border: 1px solid rgba(255,255,255,0.06); border-radius: 8px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px;';
                     
                     const selectOptions = currentDraft.teams.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
                     let badgeColor = '#64748b'; // slate-500
@@ -543,31 +634,34 @@
                     let pickButtonHtml = '';
                     if (isActive && turnCaptain) {
                         pickButtonHtml = `
-                            <button class="btn-success" onclick="pickPlayerForCurrentTurn('${p.userId}', '${(p.psnId || p.userName).replace(/'/g, "\\'")}')" style="flex-grow: 1; padding: 6px 10px; font-size: 0.85em; background: ${badgeColor}; border: none; color: white; transition: all 0.2s ease; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
-                                ➕ Fichar para ${turnTeamName}
+                            <button class="btn-success" onclick="pickPlayerForCurrentTurn('${p.userId}', '${(p.psnId || p.userName).replace(/'/g, "\\'")}')" style="flex-grow: 1; padding: 6px 10px; font-size: 0.85em; background: linear-gradient(135deg, rgba(0,240,255,0.3), rgba(0,240,255,0.08)); border: 1px solid var(--primary); color: var(--primary); transition: all 0.2s ease; box-shadow: 0 0 10px rgba(0,240,255,0.1); text-shadow: 0 0 5px rgba(0,240,255,0.3);">
+                                🎯 LOCK ON: ${turnTeamName}
                             </button>
                         `;
                     } else {
                         pickButtonHtml = `
-                            <button class="btn-primary" disabled style="flex-grow: 1; padding: 6px 10px; font-size: 0.85em; background: #334155; border: none; color: #94a3b8; cursor: not-allowed;">
-                                Esperando Turno...
+                            <button class="btn-primary" disabled style="flex-grow: 1; padding: 6px 10px; font-size: 0.85em; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05); color: #64748b; cursor: not-allowed;">
+                                ESPERANDO TURNO...
                             </button>
                         `;
                     }
 
                     card.innerHTML = `
-                        <div>
-                            <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
-                                <div style="font-weight: 600; font-size: 0.95em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${p.psnId || p.userName}">${p.psnId || p.userName}</div>
-                                <span style="font-size: 0.7em; font-weight: bold; background: ${badgeColor}; color: white; padding: 2px 6px; border-radius: 4px; flex-shrink: 0;">${pos}</span>
-                            </div>
-                            <div style="font-size: 0.8em; color: #94a3b8; margin-top: 4px;">
-                                ID: ${p.userId} ${p.secondaryPosition && p.secondaryPosition !== 'NONE' ? '| Sec: ' + p.secondaryPosition : ''}
+                        <div style="display: flex; gap: 8px; align-items: flex-start;">
+                            <div style="font-size: 1.15em; color: rgba(0, 240, 255, 0.4); cursor: grab; padding-top: 2px; user-select: none;" title="Arrastrar para asignar">✥</div>
+                            <div style="flex-grow: 1; min-width: 0;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
+                                    <div style="font-weight: 700; font-size: 1em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: 'Russo One', sans-serif;" title="${p.psnId || p.userName}">${p.psnId || p.userName}</div>
+                                    <span style="font-size: 0.7em; font-weight: bold; background: ${badgeColor}; color: white; padding: 2px 6px; border-radius: 4px; flex-shrink: 0; font-family: 'Russo One', sans-serif;">${pos}</span>
+                                </div>
+                                <div style="font-size: 0.75em; color: #64748b; margin-top: 4px;">
+                                    ID: ${p.userId} ${p.secondaryPosition && p.secondaryPosition !== 'NONE' ? '| Sec: ' + p.secondaryPosition : ''}
+                                </div>
                             </div>
                         </div>
-                        <div style="display: flex; gap: 6px; margin-top: 8px;">
+                        <div style="display: flex; gap: 6px; margin-top: 8px; align-items: center;">
                             ${pickButtonHtml}
-                            <select onchange="quickAssignPlayer('${p.userId}', this)" style="margin: 0; padding: 6px; font-size: 0.85em; width: 45px; background: #0f172a; color: white; border: 1px solid #334155; border-radius: 4px; cursor: pointer; text-align: center; flex-shrink: 0;" title="Asignación manual a otro equipo">
+                            <select onchange="quickAssignPlayer('${p.userId}', this)" style="margin: 0; padding: 6px; font-size: 0.85em; width: 45px; background: #090d16; color: white; border: 1px solid rgba(0, 240, 255, 0.15); border-radius: 4px; cursor: pointer; text-align: center; flex-shrink: 0;" title="Asignación manual a otro equipo">
                                 <option value="">⚙️</option>
                                 ${selectOptions}
                             </select>
@@ -1071,6 +1165,72 @@
                 });
             }
             renderDraft();
+        }
+
+        // --- Drag & Drop Handlers ---
+        function dragStart(event, playerId, playerName) {
+            event.dataTransfer.setData("text/plain", JSON.stringify({ playerId, playerName }));
+            // Highlight droppable boundaries with dashed lines
+            document.querySelectorAll('.team-card').forEach(card => {
+                if (!card.classList.contains('active-turn-team-card')) {
+                    card.style.borderStyle = 'dashed';
+                    card.style.borderColor = 'rgba(0, 240, 255, 0.4)';
+                }
+            });
+        }
+
+        function dragEnd() {
+            document.querySelectorAll('.team-card').forEach(card => {
+                card.style.borderStyle = 'solid';
+                card.style.borderColor = '';
+            });
+        }
+
+        function allowDrop(event) {
+            event.preventDefault();
+        }
+
+        function dragEnter(event) {
+            event.preventDefault();
+            event.currentTarget.classList.add('drag-over');
+        }
+
+        function dragLeave(event) {
+            event.currentTarget.classList.remove('drag-over');
+        }
+
+        async function dropPlayer(event, teamId, teamName) {
+            event.preventDefault();
+            event.currentTarget.classList.remove('drag-over');
+            dragEnd();
+            
+            const dataStr = event.dataTransfer.getData("text/plain");
+            if (!dataStr) return;
+
+            try {
+                const { playerId, playerName } = JSON.parse(dataStr);
+                if (!confirm(`¿Fichar a ${playerName} para ${teamName}?`)) {
+                    return;
+                }
+
+                try {
+                    const res = await fetch('/api/admin/add-player', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({ draftId: currentDraft.shortId, teamId, playerId })
+                    });
+                    const data = await res.json();
+                    if (data.success) {
+                        showStatus(`¡${playerName} fichado para ${teamName}!`, 'success');
+                    } else {
+                        showStatus(data.error, 'error');
+                    }
+                } catch (e) {
+                    showStatus(e.message, 'error');
+                }
+            } catch (e) {
+                console.error(e);
+            }
         }
 
         function openSeedTestModal() {
