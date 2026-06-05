@@ -3557,58 +3557,7 @@ export async function startVisualizerServer(discordClient) {
         }
     });
 
-    // Endpoint: Detectar Rol en Evento (Torneo/Draft)
-    app.get('/api/my-role-in-event/:eventId', async (req, res) => {
-        try {
-            if (!req.user) {
-                return res.json({ authenticated: false, role: 'visitor' });
-            }
 
-            const { eventId } = req.params;
-            const db = getDb();
-            let event = await db.collection('tournaments').findOne({ shortId: eventId });
-            let type = 'tournament';
-            if (!event) {
-                event = await db.collection('drafts').findOne({ shortId: eventId });
-                type = 'draft';
-            }
-
-            if (!event) return res.status(404).json({ error: 'Evento no encontrado' });
-
-            const userId = req.user.id;
-            let role = 'visitor';
-            let teamName = null;
-            let teamId = null;
-
-            // Verificar PRIMERO en equipos del torneo (prioridad sobre admin)
-            if (type === 'tournament') {
-                const teams = Object.values(event.teams.aprobados || {});
-                for (const team of teams) {
-                    if (team.capitanId === userId) { role = 'captain'; teamName = team.nombre; teamId = team.id; break; }
-                    if (team.coCaptainId === userId) { role = 'coCaptain'; teamName = team.nombre; teamId = team.id; break; }
-                    if (team.managerId === userId) { role = 'manager'; teamName = team.nombre; teamId = team.id; break; }
-                }
-            }
-
-            // Verificar Admin SOLO si no es captain/coCaptain/manager
-            if (role === 'visitor') {
-                try {
-                    const guild = client.guilds.cache.get(process.env.GUILD_ID);
-                    if (guild) {
-                        const member = await guild.members.fetch(userId).catch(() => null);
-                        if (member && member.permissions.has('Administrator')) role = 'admin';
-                    }
-                } catch (e) { }
-            }
-
-            console.log(`[DEBUG /api/my-role-in-event] User ${userId} | Event ${eventId} | Role: ${role} | Team: ${teamName}`);
-            res.json({ authenticated: true, role, teamName, teamId });
-
-        } catch (e) {
-            console.error('Error my-role:', e);
-            res.status(500).json({ error: 'Error interno' });
-        }
-    });
 
     app.get('/tournament-data/:tournamentId', async (req, res) => {
         let data = tournamentStates.get(req.params.tournamentId);
