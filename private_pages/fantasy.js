@@ -356,6 +356,7 @@ const btnAdminRebuildStats = null; // Removed from league admin panel
 const rebuildStatsProgress = null; // Removed from league admin panel
 const btnOwnerRebuildStats = document.getElementById('btn-owner-rebuild-stats');
 const btnOwnerResetZeroPoints = document.getElementById('btn-owner-reset-zero-points');
+const btnOwnerRunMarket = document.getElementById('btn-owner-run-market');
 const ownerRebuildProgress = document.getElementById('owner-rebuild-progress');
 const adminParticipantsList = document.getElementById('admin-participants-list');
 const adminSearchPlayerInput = document.getElementById('admin-search-player-input');
@@ -1148,6 +1149,30 @@ function setupEventHandlers() {
             } finally {
                 btnOwnerResetZeroPoints.disabled = false;
                 btnOwnerResetZeroPoints.innerHTML = '<i class="fa-solid fa-rotate-left"></i> Resetear Ligas ZERO';
+            }
+        });
+    }
+
+    if (btnOwnerRunMarket) {
+        btnOwnerRunMarket.addEventListener('click', async () => {
+            if (!confirm('¿Seguro que quieres ejecutar la adjudicación de mercado y la renovación de agentes libres de forma manual ahora mismo en todas las ligas?')) {
+                return;
+            }
+            try {
+                btnOwnerRunMarket.disabled = true;
+                btnOwnerRunMarket.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Adjudicando...';
+
+                const res = await fetch('/api/admin/run-market-automation', { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Error al adjudicar mercado.');
+
+                showToast(data.message || 'Adjudicación de mercado completada con éxito.', 'success');
+            } catch (e) {
+                console.error(e);
+                showToast(e.message, 'error');
+            } finally {
+                btnOwnerRunMarket.disabled = false;
+                btnOwnerRunMarket.innerHTML = '<i class="fa-solid fa-gavel"></i> Adjudicar Mercado';
             }
         });
     }

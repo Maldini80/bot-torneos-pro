@@ -17,19 +17,28 @@ export const LEAGUE_EMOJIS = {
 
 export const LEAGUE_ORDER = ['DIAMOND', 'GOLD', 'SILVER', 'BRONZE'];
 
-// Orden de prioridad para el tier SILVER (de mayor a menor)
-const SILVER_DIVISION_ORDER = [
-    'segunda-division-a-spain',
-    'segunda-division-b-spain',
-    'tercera-division-a-spain',
-    'tercera-division-b-spain',
-    'cuarta-division-a-spain',
-    'cuarta-division-b-spain',
-    'quinta-division-a-spain',
-    'quinta-division-b-spain',
-    'quinta-division-c',
-    'quinta-division-d',
-];
+// Nivel de división para el tier SILVER (mismo nivel = misma importancia)
+const DIVISION_LEVEL = {
+    'segunda-division-a-spain': 1,
+    'segunda-division-b-spain': 1,
+    'tercera-division-a-spain': 2,
+    'tercera-division-b-spain': 2,
+    'cuarta-division-a-spain': 3,
+    'cuarta-division-b-spain': 3,
+    'quinta-division-a-spain': 4,
+    'quinta-division-b-spain': 4,
+    'quinta-division-c': 4,
+    'quinta-division-d': 4,
+};
+
+// Orden de grupo dentro del mismo nivel (A=0, B=1, C=2, D=3)
+const GROUP_ORDER = {
+    'segunda-division-a-spain': 0, 'segunda-division-b-spain': 1,
+    'tercera-division-a-spain': 0, 'tercera-division-b-spain': 1,
+    'cuarta-division-a-spain': 0, 'cuarta-division-b-spain': 1,
+    'quinta-division-a-spain': 0, 'quinta-division-b-spain': 1,
+    'quinta-division-c': 2, 'quinta-division-d': 3,
+};
 
 const HEADERS = {
     'User-Agent': 'VPG/1.0.0 (iPhone; iOS 15.0; Scale/3.00)',
@@ -126,49 +135,69 @@ export async function recalculateAllEloFromVpg() {
     }
 
     // 4. Ordenar cada tier
+    // IMPORTANTE: Los grupos A y B (y C, D) del mismo nivel son IGUALES.
+    // Se ordena por POSICIÓN primero, luego por grupo como desempate.
 
-    // DIAMOND: superliga-a primero, luego superliga-b, cada uno por posición
+    // DIAMOND: posición primero, luego grupo (A antes que B)
     diamond.sort((a, b) => {
-        const slugOrder = SUPERLIGA_SLUGS.indexOf(a.leagueSlug) - SUPERLIGA_SLUGS.indexOf(b.leagueSlug);
-        if (slugOrder !== 0) return slugOrder;
-        return a.position - b.position;
+        if (a.position !== b.position) return a.position - b.position;
+        return SUPERLIGA_SLUGS.indexOf(a.leagueSlug) - SUPERLIGA_SLUGS.indexOf(b.leagueSlug);
     });
 
-    // GOLD: misma lógica que DIAMOND
+    // GOLD: misma lógica
     gold.sort((a, b) => {
-        const slugOrder = SUPERLIGA_SLUGS.indexOf(a.leagueSlug) - SUPERLIGA_SLUGS.indexOf(b.leagueSlug);
-        if (slugOrder !== 0) return slugOrder;
-        return a.position - b.position;
+        if (a.position !== b.position) return a.position - b.position;
+        return SUPERLIGA_SLUGS.indexOf(a.leagueSlug) - SUPERLIGA_SLUGS.indexOf(b.leagueSlug);
     });
 
-    // SILVER: ordenado por prioridad de división, luego por posición
+    // SILVER: nivel de división primero, luego posición, luego grupo
     silver.sort((a, b) => {
-        const divOrderA = SILVER_DIVISION_ORDER.indexOf(a.leagueSlug);
-        const divOrderB = SILVER_DIVISION_ORDER.indexOf(b.leagueSlug);
-        const effectiveA = divOrderA === -1 ? SILVER_DIVISION_ORDER.length : divOrderA;
-        const effectiveB = divOrderB === -1 ? SILVER_DIVISION_ORDER.length : divOrderB;
-        if (effectiveA !== effectiveB) return effectiveA - effectiveB;
-        return a.position - b.position;
+        const levelA = DIVISION_LEVEL[a.leagueSlug] || 99;
+        const levelB = DIVISION_LEVEL[b.leagueSlug] || 99;
+        if (levelA !== levelB) return levelA - levelB;
+        if (a.position !== b.position) return a.position - b.position;
+        const groupA = GROUP_ORDER[a.leagueSlug] ?? 99;
+        const groupB = GROUP_ORDER[b.leagueSlug] ?? 99;
+        return groupA - groupB;
     });
 
-    // 5. Asignar ELO equidistante
-    const diamondElos = diamond.map((item, i) => ({
+    // 5. Asignar ELO equidistante por nivel de división y posición (intercalando grupos)
+    // De modo que el 1º del grupo A y el 1º del grupo B tengan la misma puntuación máxima,
+    // el 2º del A la misma que el 2º del B, etc.
+
+    // DIAMOND: posiciones 1 a 6 (DIAMOND_CUTOFF)
+    const diamondElos = diamond.map(item => ({
         ...item,
-        elo: equidistantElo(i, diamond.length, 2000, 1550),
+        elo: Math.round(2000 - ((item.position - 1) * (2000 - 1550) / 5)),
         league: 'DIAMOND',
     }));
 
-    const goldElos = gold.map((item, i) => ({
+    // GOLD: posiciones 7+ de Superliga
+    const maxGoldPosition = Math.max(...gold.map(item => item.position), 7);
+    const goldRange = Math.max(maxGoldPosition - 7, 1);
+    const goldElos = gold.map(item => ({
         ...item,
-        elo: equidistantElo(i, gold.length, 1549, 1300),
+        elo: Math.round(1549 - ((item.position - 7) * (1549 - 1300) / goldRange)),
         league: 'GOLD',
     }));
 
-    const silverElos = silver.map((item, i) => ({
-        ...item,
-        elo: equidistantElo(i, silver.length, 1299, 1000),
-        league: 'SILVER',
-    }));
+    // SILVER: Segunda (L1), Tercera (L2), Cuarta (L3), Quinta (L4)
+    const silverElos = [];
+    for (const item of silver) {
+        const lev = DIVISION_LEVEL[item.leagueSlug] || 4; // Por defecto Quinta
+        const maxL = 1300 - (lev - 1) * 75 - 1;
+        const minL = 1300 - lev * 75;
+        const lvlTeams = silver.filter(it => (DIVISION_LEVEL[it.leagueSlug] || 4) === lev);
+        const maxLPos = Math.max(...lvlTeams.map(it => it.position), 1);
+        const rangeL = Math.max(maxLPos - 1, 1);
+        
+        const elo = Math.round(maxL - ((item.position - 1) * (maxL - minL) / rangeL));
+        silverElos.push({
+            ...item,
+            elo,
+            league: 'SILVER',
+        });
+    }
 
     // Crear un mapa de team_slug -> { elo, league } para búsqueda rápida
     const vpgEloMap = new Map();
