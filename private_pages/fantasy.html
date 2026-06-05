@@ -45,6 +45,7 @@
             </div>
             <div class="user-profile">
                 <span id="selector-user-name"><i class="fa-solid fa-user"></i> Cargando...</span>
+                <button id="btn-open-owner-panel" class="btn btn-warning btn-sm owner-only-block" style="display: none; background: #eab308; color: #000; border: none; font-weight: 700; gap: 6px;"><i class="fa-solid fa-crown"></i> Panel Propietario</button>
                 <button id="pwa-install-btn-selector" class="btn btn-primary btn-sm" style="display: none;"><i class="fa-solid fa-download"></i> Instalar App</button>
                 <a href="/home.html" class="btn btn-secondary btn-sm"><i class="fa-solid fa-house"></i> Volver al Inicio</a>
             </div>
@@ -307,95 +308,7 @@
                     </form>
                 </section>
 
-                <!-- Global Admin: Owner Panel -->
-                <section id="owner-global-section" class="fantasy-card owner-only-block" style="display: none;">
-                    <div class="card-header">
-                        <h2><i class="fa-solid fa-crown text-yellow"></i> Panel de Propietario</h2>
-                    </div>
-                    <div class="admin-actions-col" style="margin-top: 16px; display: flex; flex-direction: column; gap: 16px;">
-                        <!-- Box 1: Rebuild Stats -->
-                        <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
-                            <div class="action-card-row">
-                                <div style="flex: 1; min-width: 0;">
-                                    <h4>Sincronizar Datos VPG</h4>
-                                    <p class="text-muted">Sincroniza de forma inmediata los perfiles de jugadores, clubes y estadísticas de líderes desde la API oficial de VPG España para las ligas habilitadas. Tarda menos de 1 minuto.</p>
-                                    <p id="owner-rebuild-progress" class="text-muted" style="font-size: 0.8rem; margin-top: 6px; display: none; color: #f59e0b;"></p>
-                                </div>
-                            </div>
-                        </div>
 
-                        <!-- Box 2: Manage Active VPG Leagues -->
-                        <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
-                            <div>
-                                <h4>Ligas VPG Disponibles en Fantasy</h4>
-                                <p class="text-muted">Define qué ligas oficiales de VPG España están activas en el bot de Fantasy. Los usuarios podrán elegir de esta lista al crear/editar una liga de Fantasy.</p>
-                            </div>
-                            
-                            <!-- Add League UI -->
-                            <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
-                                <select id="owner-available-leagues-select" class="owner-input" style="width: 100%;">
-                                    <option value="">-- Seleccionar liga VPG --</option>
-                                </select>
-                                <div style="display: flex; gap: 8px; width: 100%;">
-                                    <input type="text" id="owner-custom-league-slug" placeholder="O slug manual..." class="owner-input" style="flex: 1; min-width: 0;">
-                                    <button id="btn-owner-add-league" class="btn btn-sm btn-primary" style="padding: 8px 16px; white-space: nowrap;"><i class="fa-solid fa-plus"></i> Añadir</button>
-                                </div>
-                            </div>
-                            
-                            <!-- Active Leagues Chips -->
-                            <div style="margin-top: 4px;">
-                                <label style="font-size: 0.8rem; font-weight: 600; color: #94a3b8;">Ligas Habilitadas:</label>
-                                <div id="owner-active-leagues-chips" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;">
-                                    <!-- Chips like: superliga-spain-a (x) -->
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Box 3: Reset All Zero Points -->
-                        <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
-                            <div class="action-card-row">
-                                <div style="flex: 1; min-width: 0;">
-                                    <h4>Resetear Puntos Ligas ZERO</h4>
-                                    <p class="text-muted">Reinicia los puntos acumulados de todos los jugadores a 0 estableciendo los puntos VPG actuales como base en todas las ligas activas en modo ZERO.</p>
-                                </div>
-                                <button id="btn-owner-reset-zero-points" class="btn btn-sm btn-danger" style="flex-shrink: 0;"><i class="fa-solid fa-rotate-left"></i> Resetear Ligas ZERO</button>
-                            </div>
-                        </div>
-
-                        <!-- Box 4: Run Market Automation -->
-                        <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
-                            <div class="action-card-row">
-                                <div style="flex: 1; min-width: 0;">
-                                    <h4>Adjudicar Mercado Global</h4>
-                                    <p class="text-muted">Ejecuta de forma manual la adjudicación de pujas del mercado y la renovación de agentes libres en todas las ligas de Fantasy.</p>
-                                </div>
-                                <button id="btn-owner-run-market" class="btn btn-sm btn-success" style="flex-shrink: 0; background-color: #22c55e; border-color: #22c55e;"><i class="fa-solid fa-gavel"></i> Adjudicar Mercado</button>
-                            </div>
-                        </div>
-
-                        <!-- Box 5: Delete User Leagues -->
-                        <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
-                            <div class="action-card-row">
-                                <div style="flex: 1; min-width: 0;">
-                                    <h4>Eliminar Ligas de Usuarios</h4>
-                                    <p class="text-muted">Elimina de forma permanente todas las ligas de Fantasy creadas por usuarios comunes junto con todos sus datos asociados de equipos, ofertas y transacciones.</p>
-                                </div>
-                                <button id="btn-owner-delete-user-leagues" class="btn btn-sm btn-danger" style="flex-shrink: 0;"><i class="fa-solid fa-trash"></i> Eliminar Ligas de Usuarios</button>
-                            </div>
-                        </div>
-
-                        <!-- Box 6: Finalize All Leagues -->
-                        <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
-                            <div class="action-card-row">
-                                <div style="flex: 1; min-width: 0;">
-                                    <h4>Finalizar Todas las Ligas</h4>
-                                    <p class="text-muted">Cierra y finaliza todas las ligas de Fantasy que estén abiertas o en curso de forma simultánea, bloqueando los fichajes y las alineaciones.</p>
-                                </div>
-                                <button id="btn-owner-finalize-all-leagues" class="btn btn-sm btn-warning" style="flex-shrink: 0;"><i class="fa-solid fa-flag-checkered"></i> Finalizar Todas las Ligas</button>
-                            </div>
-                        </div>
-                    </div>
-                </section>
 
                 <!-- Admin: Pending League Requests -->
                 <section id="pending-league-requests-section" class="fantasy-card admin-only-block" style="display: none;">
@@ -511,6 +424,7 @@
                 </div>
             </div>
             <div class="user-profile" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                <button id="btn-open-owner-panel-dash" class="btn btn-warning btn-sm owner-only-block" style="display: none; background: #eab308; color: #000; border: none; font-weight: 700; gap: 6px;"><i class="fa-solid fa-crown"></i> Panel Propietario</button>
                 <button id="pwa-install-btn-dash" class="btn btn-primary btn-sm" style="display: none;"><i class="fa-solid fa-download"></i> Instalar App</button>
                 <button id="btn-change-league" class="btn btn-secondary btn-sm"><i class="fa-solid fa-house"></i> Cambiar de Liga</button>
                 <button id="btn-join-league-spectator" class="btn btn-success btn-sm" style="display: none;"><i class="fa-solid fa-plus"></i> Unirse a la Liga</button>
@@ -1342,6 +1256,101 @@
                 <h4>Jugadores en Plantilla:</h4>
                 <div id="admin-team-players-list-container" style="max-height: 250px; overflow-y: auto; margin-top: 10px; padding-right: 4px;">
                     <!-- Renders dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 11: Panel de Propietario Global -->
+    <div class="modal-overlay" id="owner-panel-modal">
+        <div class="modal-content" style="max-width: 600px; width: 95%;">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-crown text-yellow"></i> Panel de Propietario</h3>
+                <button class="modal-close" id="owner-panel-modal-close-btn">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height: 80vh; overflow-y: auto; display: flex; flex-direction: column; gap: 16px;">
+                <div class="admin-actions-col" style="display: flex; flex-direction: column; gap: 16px;">
+                    <!-- Box 1: Rebuild Stats -->
+                    <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
+                        <div class="action-card-row">
+                            <div style="flex: 1; min-width: 0;">
+                                <h4>Sincronizar Datos VPG</h4>
+                                <p class="text-muted">Sincroniza de forma inmediata los perfiles de jugadores, clubes y estadísticas de líderes desde la API oficial de VPG España para las ligas habilitadas. Tarda menos de 1 minuto.</p>
+                                <p id="owner-rebuild-progress" class="text-muted" style="font-size: 0.8rem; margin-top: 6px; display: none; color: #f59e0b;"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Box 2: Manage Active VPG Leagues -->
+                    <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
+                        <div>
+                            <h4>Ligas VPG Disponibles en Fantasy</h4>
+                            <p class="text-muted">Define qué ligas oficiales de VPG España están activas en el bot de Fantasy. Los usuarios podrán elegir de esta lista al crear/editar una liga de Fantasy.</p>
+                        </div>
+                        
+                        <!-- Add League UI -->
+                        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+                            <select id="owner-available-leagues-select" class="owner-input" style="width: 100%;">
+                                <option value="">-- Seleccionar liga VPG --</option>
+                            </select>
+                            <div style="display: flex; gap: 8px; width: 100%;">
+                                <input type="text" id="owner-custom-league-slug" placeholder="O slug manual..." class="owner-input" style="flex: 1; min-width: 0;">
+                                <button id="btn-owner-add-league" class="btn btn-sm btn-primary" style="padding: 8px 16px; white-space: nowrap;"><i class="fa-solid fa-plus"></i> Añadir</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Active Leagues Chips -->
+                        <div style="margin-top: 4px;">
+                            <label style="font-size: 0.8rem; font-weight: 600; color: #94a3b8;">Ligas Habilitadas:</label>
+                            <div id="owner-active-leagues-chips" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px;">
+                                <!-- Chips like: superliga-spain-a (x) -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Box 3: Reset All Zero Points -->
+                    <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
+                        <div class="action-card-row">
+                            <div style="flex: 1; min-width: 0;">
+                                <h4>Resetear Puntos Ligas ZERO</h4>
+                                <p class="text-muted">Reinicia los puntos acumulados de todos los jugadores a 0 estableciendo los puntos VPG actuales como base en todas las ligas activas en modo ZERO.</p>
+                            </div>
+                            <button id="btn-owner-reset-zero-points" class="btn btn-sm btn-danger" style="flex-shrink: 0;"><i class="fa-solid fa-rotate-left"></i> Resetear Ligas ZERO</button>
+                        </div>
+                    </div>
+
+                    <!-- Box 4: Run Market Automation -->
+                    <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
+                        <div class="action-card-row">
+                            <div style="flex: 1; min-width: 0;">
+                                <h4>Adjudicar Mercado Global</h4>
+                                <p class="text-muted">Ejecuta de forma manual la adjudicación de pujas del mercado y la renovación de agentes libres en todas las ligas de Fantasy.</p>
+                            </div>
+                            <button id="btn-owner-run-market" class="btn btn-sm btn-success" style="flex-shrink: 0; background-color: #22c55e; border-color: #22c55e;"><i class="fa-solid fa-gavel"></i> Adjudicar Mercado</button>
+                        </div>
+                    </div>
+
+                    <!-- Box 5: Delete User Leagues -->
+                    <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
+                        <div class="action-card-row">
+                            <div style="flex: 1; min-width: 0;">
+                                <h4>Eliminar Ligas de Usuarios</h4>
+                                <p class="text-muted">Elimina de forma permanente todas las ligas de Fantasy creadas por usuarios comunes junto con todos sus datos asociados de equipos, ofertas y transacciones.</p>
+                            </div>
+                            <button id="btn-owner-delete-user-leagues" class="btn btn-sm btn-danger" style="flex-shrink: 0;"><i class="fa-solid fa-trash"></i> Eliminar Ligas de Usuarios</button>
+                        </div>
+                    </div>
+
+                    <!-- Box 6: Finalize All Leagues -->
+                    <div class="action-card" style="display: flex; flex-direction: column; align-items: stretch; gap: 12px;">
+                        <div class="action-card-row">
+                            <div style="flex: 1; min-width: 0;">
+                                <h4>Finalizar Todas las Ligas</h4>
+                                <p class="text-muted">Cierra y finaliza todas las ligas de Fantasy que estén abiertas o en curso de forma simultánea, bloqueando los fichajes y las alineaciones.</p>
+                            </div>
+                            <button id="btn-owner-finalize-all-leagues" class="btn btn-sm btn-warning" style="flex-shrink: 0;"><i class="fa-solid fa-flag-checkered"></i> Finalizar Todas las Ligas</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

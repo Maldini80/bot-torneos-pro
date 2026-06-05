@@ -359,6 +359,10 @@ const btnOwnerResetZeroPoints = document.getElementById('btn-owner-reset-zero-po
 const btnOwnerRunMarket = document.getElementById('btn-owner-run-market');
 const btnOwnerDeleteUserLeagues = document.getElementById('btn-owner-delete-user-leagues');
 const btnOwnerFinalizeAllLeagues = document.getElementById('btn-owner-finalize-all-leagues');
+const ownerPanelModal = document.getElementById('owner-panel-modal');
+const ownerPanelModalCloseBtn = document.getElementById('owner-panel-modal-close-btn');
+const btnOpenOwnerPanel = document.getElementById('btn-open-owner-panel');
+const btnOpenOwnerPanelDash = document.getElementById('btn-open-owner-panel-dash');
 const ownerRebuildProgress = document.getElementById('owner-rebuild-progress');
 const adminParticipantsList = document.getElementById('admin-participants-list');
 const adminSearchPlayerInput = document.getElementById('admin-search-player-input');
@@ -1241,6 +1245,28 @@ function setupEventHandlers() {
             }
         });
     }
+
+    // Owner Panel Modal open/close handlers
+    if (btnOpenOwnerPanel) {
+        btnOpenOwnerPanel.addEventListener('click', () => {
+            if (ownerPanelModal) ownerPanelModal.classList.add('open');
+        });
+    }
+    if (btnOpenOwnerPanelDash) {
+        btnOpenOwnerPanelDash.addEventListener('click', () => {
+            if (ownerPanelModal) ownerPanelModal.classList.add('open');
+        });
+    }
+    if (ownerPanelModalCloseBtn) {
+        ownerPanelModalCloseBtn.addEventListener('click', () => {
+            if (ownerPanelModal) ownerPanelModal.classList.remove('open');
+        });
+    }
+    window.addEventListener('click', (e) => {
+        if (ownerPanelModal && e.target === ownerPanelModal) {
+            ownerPanelModal.classList.remove('open');
+        }
+    });
 
     // Toggle allow user league creation
     if (toggleAllowUserLeagues) {
