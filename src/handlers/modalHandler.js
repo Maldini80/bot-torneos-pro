@@ -1608,7 +1608,10 @@ export async function handleModal(interaction) {
                 notifyVisualizer(updatedDraft);
             }
         }
-        if (action === 'register_unverified_player_modal') {
+        return;
+    }
+
+    if (action === 'register_unverified_player_modal') {
         const [draftShortId, ticketChannelId] = params;
         const isFromTicket = ticketChannelId && ticketChannelId !== 'no-ticket';
 
