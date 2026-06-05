@@ -4248,8 +4248,8 @@ export async function startVisualizerServer(discordClient) {
 
     app.post('/api/admin/force-pick', isAdmin, async (req, res) => {
         try {
-            const { draftId, playerId } = req.body;
-            await forcePickFromWeb(client, draftId, playerId, req.user.username);
+            const { draftId, playerId, position } = req.body;
+            await forcePickFromWeb(client, draftId, playerId, position || null, req.user.username);
             res.json({ success: true });
         } catch (e) { res.status(400).json({ error: e.message }); }
     });

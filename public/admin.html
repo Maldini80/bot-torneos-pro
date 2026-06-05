@@ -8,19 +8,23 @@
     <style>
         :root {
             --primary: #6366f1;
-            --bg: #0f172a;
-            --card: #1e293b;
+            --bg: #060913;
+            --card: rgba(30, 41, 59, 0.7);
             --text: #f8fafc;
             --danger: #ef4444;
-            --success: #22c55e;
-            --warning: #eab308;
+            --success: #10b981;
+            --warning: #f59e0b;
         }
         body {
             font-family: 'Outfit', sans-serif;
             background: var(--bg);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(168, 85, 247, 0.1) 0px, transparent 50%);
             color: var(--text);
             margin: 0;
             padding: 20px;
+            min-height: 100vh;
         }
         .container {
             max-width: 1200px;
@@ -39,7 +43,28 @@
             border-radius: 12px;
             padding: 20px;
             margin-bottom: 20px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .free-agent-item {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .free-agent-item:hover {
+            transform: translateY(-3px);
+            border-color: rgba(99, 102, 241, 0.4) !important;
+            background: rgba(255, 255, 255, 0.04) !important;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.02); opacity: 1; text-shadow: 0 0 15px rgba(99, 102, 241, 0.6); }
+            100% { transform: scale(1); opacity: 0.9; }
+        }
+        .pulse-text {
+            animation: pulse 2s infinite ease-in-out;
+            display: inline-block;
         }
         h1, h2, h3 { margin-top: 0; }
         button {
@@ -54,6 +79,15 @@
         .btn-danger { background: var(--danger); color: white; }
         .btn-success { background: var(--success); color: white; }
         .btn-warning { background: var(--warning); color: black; }
+        .active-turn-team-card {
+            border: 2px solid var(--primary) !important;
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.35) !important;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(99, 102, 241, 0.08)) !important;
+        }
+        .active-filter {
+            background: var(--text) !important;
+            color: var(--bg) !important;
+        }
         
         .grid {
             display: grid;
@@ -168,9 +202,12 @@
                         <button class="btn-success" onclick="forceResume()">▶️ Reanudar</button>
                     </div>
                 </div>
-                <div id="current-turn-info" style="margin-top: 15px; padding: 10px; background: rgba(99, 102, 241, 0.1); border-radius: 6px;">
-                    Turno actual: <strong id="current-turn-team">...</strong>
-                    <button class="btn-primary" style="margin-left: 10px;" onclick="openForcePickModal()">⚡ Forzar Pick para este equipo</button>
+                <div id="current-turn-info" style="margin-top: 15px; padding: 15px; background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 1.1em; color: #94a3b8; font-weight: 500;">Turno de Elección:</span>
+                        <div id="current-turn-team" style="display: flex; align-items: center; gap: 8px; font-weight: 600;">...</div>
+                    </div>
+                    <button class="btn-primary" style="background: linear-gradient(135deg, #6366f1, #4f46e5); border: none; padding: 8px 16px; box-shadow: 0 4px 10px rgba(99, 102, 241, 0.25);" onclick="openForcePickModal()">⚡ Forzar Pick Manual</button>
                 </div>
             </div>
 
@@ -180,7 +217,10 @@
 
             <div class="card" id="free-agents-card" style="display:none; margin-top: 20px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; margin-bottom: 20px; border-bottom: 1px solid #334155; padding-bottom: 15px;">
-                    <h2 style="margin: 0;">Agentes Libres - Asignación Rápida</h2>
+                    <div style="display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;">
+                        <h2 style="margin: 0;">Agentes Libres</h2>
+                        <span id="free-agents-counter" style="font-size: 0.9em; color: #94a3b8; font-weight: normal;"></span>
+                    </div>
                     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
                         <input type="text" id="free-agent-search-input" placeholder="Filtrar por nombre..." onkeyup="filterFreeAgentsGrid()" style="margin: 0; padding: 6px 12px; width: 200px; font-size: 0.9em; height: 36px; box-sizing: border-box;">
                         <div id="free-agent-position-filters" style="display: flex; gap: 5px; flex-wrap: wrap;">
@@ -307,6 +347,9 @@
         const maxReconnectDelay = 30000;
         let reconnectTimeout = null;
         let selectedFreeAgentPosFilter = 'Todos';
+        let collapsedTeamsState = {};
+        let allTeamsCollapsed = true;
+        let freeAgentsLimit = 24;
 
         async function checkAuth() {
             const res = await fetch('/api/user');
@@ -352,35 +395,91 @@
             
             document.getElementById('draft-status').innerText = currentDraft.status;
             
-            // Current Turn
-            if (currentDraft.status === 'active') {
-                const turn = currentDraft.order[currentDraft.currentPickIndex];
-                const team = currentDraft.teams.find(t => t.id === turn.teamId);
-                document.getElementById('current-turn-team').innerText = team ? team.name : 'Desconocido';
+            // Resolve active turn
+            const isActive = currentDraft.status === 'seleccion' || currentDraft.status === 'draft';
+            const turnCaptainId = (isActive && currentDraft.selection && currentDraft.selection.order?.length > 0)
+                ? currentDraft.selection.order[currentDraft.selection.turn]
+                : null;
+            const turnCaptain = turnCaptainId ? currentDraft.captains.find(c => c.userId === turnCaptainId) : null;
+            const turnTeamName = turnCaptain ? turnCaptain.teamName : null;
+
+            if (isActive && turnTeamName) {
+                document.getElementById('current-turn-team').innerHTML = `
+                    <span class="pulse-text" style="color: #6366f1; font-weight: 700; font-size: 1.1em; border-bottom: 2px solid #6366f1; padding-bottom: 2px;">
+                        ${turnTeamName}
+                    </span> 
+                    <span style="font-size: 0.95em; color: #94a3b8; margin-left: 8px;">
+                        (Capitán: ${turnCaptain.userName} | Pick #${currentDraft.selection.currentPick})
+                    </span>
+                `;
             } else {
-                document.getElementById('current-turn-team').innerText = '-';
+                document.getElementById('current-turn-team').innerHTML = `<span style="color: #64748b; font-style: italic;">Sin turno activo (Draft en pausa o no iniciado)</span>`;
             }
 
             // Teams
             const container = document.getElementById('teams-container');
             container.innerHTML = '';
-            
+
+            if (currentDraft.teams.length > 1) {
+                const controlsRow = document.createElement('div');
+                controlsRow.style.cssText = 'grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; background: rgba(30, 41, 59, 0.4); padding: 10px 15px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.04);';
+                controlsRow.innerHTML = `
+                    <span style="font-weight: 600; font-size: 0.95em; color: #94a3b8;">Equipos Registrados (${currentDraft.teams.length})</span>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-primary" style="font-size: 0.8em; padding: 4px 8px; background: rgba(255,255,255,0.08); color: white;" onclick="setAllTeamsCollapse(false)">📂 Expandir Todos</button>
+                        <button class="btn-primary" style="font-size: 0.8em; padding: 4px 8px; background: rgba(255,255,255,0.08); color: white;" onclick="setAllTeamsCollapse(true)">📁 Colapsar Todos</button>
+                    </div>
+                `;
+                container.appendChild(controlsRow);
+            }
+
             currentDraft.teams.forEach(team => {
                 const card = document.createElement('div');
-                card.className = 'card team-card';
+                const isMyTurn = team.id === turnCaptainId;
+                
+                if (isMyTurn) {
+                    card.className = 'card team-card active-turn-team-card';
+                    if (collapsedTeamsState[team.id] === undefined) {
+                        collapsedTeamsState[team.id] = false; // Auto expand active turn team
+                    }
+                } else {
+                    card.className = 'card team-card';
+                    if (collapsedTeamsState[team.id] === undefined) {
+                        collapsedTeamsState[team.id] = currentDraft.teams.length > 6 ? allTeamsCollapsed : false;
+                    }
+                }
+
+                const isCollapsed = collapsedTeamsState[team.id];
+                const chevron = isCollapsed ? '▼' : '▲';
+                const listStyle = isCollapsed ? 'display: none;' : 'display: block;';
+
                 let playersHtml = team.players.map(p => `
                     <li class="player-item">
                         <span>${p.psnId} (${p.position})</span>
                     </li>
                 `).join('');
+
+                if (team.players.length === 0) {
+                    playersHtml = `
+                        <li class="player-item" style="color: #64748b; font-style: italic; justify-content: center; font-size: 0.9em;">
+                            Ningún jugador fichado
+                        </li>
+                    `;
+                }
                 
                 card.innerHTML = `
-                    <div style="display:flex; justify-content:space-between;">
-                        <h3>${team.name}</h3>
-                        <button class="btn-warning" style="font-size:0.8em;" onclick="openManageTeam('${team.id}')">⚙️</button>
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px; cursor: pointer; flex-grow: 1;" onclick="toggleTeamCollapse('${team.id}')">
+                            <span style="font-size: 0.85em; color: #6366f1; width: 12px; display: inline-block;">${chevron}</span>
+                            <h3 style="margin:0; font-size:1.1em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${team.name}">${team.name}</h3>
+                        </div>
+                        <div style="display:flex; gap:6px; align-items:center;">
+                            <span style="font-size:0.8em; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 12px; font-weight: 600;" title="Jugadores fichados">${team.players.length}</span>
+                            <button class="btn-warning" style="font-size:0.75em; padding: 4px 8px; background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: #fbbf24;" onclick="openManageTeam('${team.id}')">⚙️</button>
+                        </div>
                     </div>
-                    <p>Capitán: ${team.captainName}</p>
-                    <ul class="player-list">${playersHtml}</ul>
+                    <p style="margin: 4px 0; font-size: 0.85em; color: #94a3b8;">Capitán: <strong style="color: #cbd5e1;">${team.captainName}</strong></p>
+                    <ul class="player-list" style="${listStyle}">${playersHtml}</ul>
                 `;
                 container.appendChild(card);
             });
@@ -401,17 +500,36 @@
                 return nameA.localeCompare(nameB);
             });
 
-            // Free Agents - Quick Assignment Grid
+            // Free Agents - Filter & Slice dynamic Grid
             const freeAgentsCard = document.getElementById('free-agents-card');
             const freeAgentsGrid = document.getElementById('free-agents-grid');
-            if (availablePlayers.length > 0) {
+            
+            const query = (document.getElementById('free-agent-search-input')?.value || '').toLowerCase();
+            
+            const filteredFreeAgents = availablePlayers.filter(p => {
+                const pos = p.primaryPosition || 'N/A';
+                const name = (p.psnId || p.userName || '').toLowerCase();
+                const matchesSearch = name.includes(query);
+                const matchesPos = selectedFreeAgentPosFilter === 'Todos' || pos === selectedFreeAgentPosFilter;
+                return matchesSearch && matchesPos;
+            });
+
+            const counterEl = document.getElementById('free-agents-counter');
+            const renderedCount = Math.min(freeAgentsLimit, filteredFreeAgents.length);
+            if (counterEl) {
+                counterEl.innerText = `Mostrando ${renderedCount} de ${filteredFreeAgents.length} (Total libres: ${availablePlayers.length})`;
+            }
+
+            if (filteredFreeAgents.length > 0) {
                 freeAgentsCard.style.display = 'block';
                 freeAgentsGrid.innerHTML = '';
-                availablePlayers.forEach(p => {
+                
+                const playersToDisplay = filteredFreeAgents.slice(0, freeAgentsLimit);
+                
+                playersToDisplay.forEach(p => {
                     const card = document.createElement('div');
+                    card.className = 'free-agent-item';
                     const pos = p.primaryPosition || 'N/A';
-                    card.dataset.playerName = (p.psnId || p.userName || '').toLowerCase();
-                    card.dataset.playerPos = pos;
                     card.style.cssText = 'padding: 12px; border: 1px solid #334155; border-radius: 8px; background: rgba(255,255,255,0.02); display: flex; flex-direction: column; justify-content: space-between; gap: 8px;';
                     
                     const selectOptions = currentDraft.teams.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
@@ -421,6 +539,21 @@
                     else if (pos === 'CARR') badgeColor = '#0891b2'; // cyan-600
                     else if (pos === 'MC') badgeColor = '#059669'; // emerald-600
                     else if (pos === 'DC') badgeColor = '#dc2626'; // red-600
+
+                    let pickButtonHtml = '';
+                    if (isActive && turnCaptain) {
+                        pickButtonHtml = `
+                            <button class="btn-success" onclick="pickPlayerForCurrentTurn('${p.userId}', '${(p.psnId || p.userName).replace(/'/g, "\\'")}')" style="flex-grow: 1; padding: 6px 10px; font-size: 0.85em; background: ${badgeColor}; border: none; color: white; transition: all 0.2s ease; box-shadow: 0 2px 5px rgba(0,0,0,0.2);">
+                                ➕ Fichar para ${turnTeamName}
+                            </button>
+                        `;
+                    } else {
+                        pickButtonHtml = `
+                            <button class="btn-primary" disabled style="flex-grow: 1; padding: 6px 10px; font-size: 0.85em; background: #334155; border: none; color: #94a3b8; cursor: not-allowed;">
+                                Esperando Turno...
+                            </button>
+                        `;
+                    }
 
                     card.innerHTML = `
                         <div>
@@ -432,26 +565,51 @@
                                 ID: ${p.userId} ${p.secondaryPosition && p.secondaryPosition !== 'NONE' ? '| Sec: ' + p.secondaryPosition : ''}
                             </div>
                         </div>
-                        <select onchange="quickAssignPlayer('${p.userId}', this)" style="margin: 0; padding: 6px; font-size: 0.85em; width: 100%; background: #0f172a; color: white; border: 1px solid #334155; border-radius: 4px; cursor: pointer;">
-                            <option value="">-- Asignar --</option>
-                            ${selectOptions}
-                        </select>
+                        <div style="display: flex; gap: 6px; margin-top: 8px;">
+                            ${pickButtonHtml}
+                            <select onchange="quickAssignPlayer('${p.userId}', this)" style="margin: 0; padding: 6px; font-size: 0.85em; width: 45px; background: #0f172a; color: white; border: 1px solid #334155; border-radius: 4px; cursor: pointer; text-align: center; flex-shrink: 0;" title="Asignación manual a otro equipo">
+                                <option value="">⚙️</option>
+                                ${selectOptions}
+                            </select>
+                        </div>
                     `;
                     freeAgentsGrid.appendChild(card);
                 });
-                // Apply active search & position filter
-                filterFreeAgentsGrid();
+                
+                // Lazy-load button if needed
+                if (filteredFreeAgents.length > freeAgentsLimit) {
+                    const loadMoreContainer = document.createElement('div');
+                    loadMoreContainer.id = 'load-more-container';
+                    loadMoreContainer.style.cssText = 'grid-column: 1 / -1; text-align: center; margin-top: 15px;';
+                    loadMoreContainer.innerHTML = `
+                        <button class="btn-primary" style="background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.4); color: #c7d2fe; transition: all 0.2s;" onmouseover="this.style.background='rgba(99, 102, 241, 0.3)'" onmouseout="this.style.background='rgba(99, 102, 241, 0.15)'" onclick="loadMoreFreeAgents()">
+                            Mostrar más jugadores (+${filteredFreeAgents.length - freeAgentsLimit})
+                        </button>
+                    `;
+                    freeAgentsGrid.appendChild(loadMoreContainer);
+                }
             } else {
-                freeAgentsCard.style.display = 'none';
+                if (availablePlayers.length > 0) {
+                    freeAgentsCard.style.display = 'block';
+                    freeAgentsGrid.innerHTML = `
+                        <div style="grid-column: 1 / -1; text-align: center; padding: 30px; color: #64748b; font-style: italic;">
+                            Ningún jugador coincide con la búsqueda o filtro de posición.
+                        </div>
+                    `;
+                } else {
+                    freeAgentsCard.style.display = 'none';
+                }
             }
         }
 
         function openForcePickModal() {
-            if (!currentDraft || currentDraft.status !== 'active') return showStatus('El draft no está activo', 'error');
+            if (!currentDraft || (currentDraft.status !== 'seleccion' && currentDraft.status !== 'draft')) {
+                return showStatus('El draft no está activo', 'error');
+            }
             
-            const turn = currentDraft.order[currentDraft.currentPickIndex];
-            const team = currentDraft.teams.find(t => t.id === turn.teamId);
-            document.getElementById('modal-team-name').innerText = team.name;
+            const turnCaptainId = currentDraft.selection.order[currentDraft.selection.turn];
+            const turnCaptain = currentDraft.captains.find(c => c.userId === turnCaptainId);
+            document.getElementById('modal-team-name').innerText = turnCaptain ? turnCaptain.teamName : 'Desconocido';
             
             updatePlayerSelect(availablePlayers);
             document.getElementById('force-pick-modal').style.display = 'flex';
@@ -597,6 +755,37 @@
             } catch (e) { showStatus(e.message, 'error'); }
         }
 
+        async function pickPlayerForCurrentTurn(playerId, playerName) {
+            const isActive = currentDraft.status === 'seleccion' || currentDraft.status === 'draft';
+            const turnCaptainId = (isActive && currentDraft.selection && currentDraft.selection.order?.length > 0)
+                ? currentDraft.selection.order[currentDraft.selection.turn]
+                : null;
+            const turnCaptain = turnCaptainId ? currentDraft.captains.find(c => c.userId === turnCaptainId) : null;
+            if (!turnCaptain) {
+                return showStatus('No hay ningún turno de elección activo.', 'error');
+            }
+
+            if (!confirm(`¿Fichar a ${playerName} para ${turnCaptain.teamName}?`)) {
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/admin/force-pick', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ draftId: currentDraft.shortId, playerId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showStatus(`¡${playerName} fichado con éxito para ${turnCaptain.teamName}!`, 'success');
+                } else {
+                    showStatus(data.error, 'error');
+                }
+            } catch (e) {
+                showStatus(e.message, 'error');
+            }
+        }
+
         async function quickAssignPlayer(playerId, selectElement) {
             const teamId = selectElement.value;
             if (!teamId) return;
@@ -636,7 +825,7 @@
             const filtered = availablePlayers.filter(p => 
                 (p.psnId && p.psnId.toLowerCase().includes(val)) || 
                 (p.userName && p.userName.toLowerCase().includes(val))
-            );
+            ).slice(0, 12); // Limit to top 12 matches for performance
             
             filtered.forEach(p => {
                 const div = document.createElement('div');
@@ -669,7 +858,7 @@
             const filtered = availablePlayers.filter(p => 
                 (p.psnId && p.psnId.toLowerCase().includes(val)) || 
                 (p.userName && p.userName.toLowerCase().includes(val))
-            );
+            ).slice(0, 12); // Limit to top 12 matches
             
             filtered.forEach(p => {
                 const div = document.createElement('div');
@@ -842,6 +1031,7 @@
 
         function filterFreeAgentsGridByPos(pos) {
             selectedFreeAgentPosFilter = pos;
+            freeAgentsLimit = 24; // Reset paging limit on filter change
             
             // Update active styling on filter buttons
             const buttons = document.querySelectorAll('#free-agent-position-filters button');
@@ -855,29 +1045,32 @@
                 }
             });
             
-            filterFreeAgentsGrid();
+            renderDraft();
         }
 
         function filterFreeAgentsGrid() {
-            const query = (document.getElementById('free-agent-search-input')?.value || '').toLowerCase();
-            const grid = document.getElementById('free-agents-grid');
-            if (!grid) return;
-            const cards = grid.children;
-            
-            for (let i = 0; i < cards.length; i++) {
-                const card = cards[i];
-                const playerName = card.dataset.playerName || '';
-                const playerPos = card.dataset.playerPos || '';
-                
-                const matchesSearch = playerName.includes(query);
-                const matchesPos = selectedFreeAgentPosFilter === 'Todos' || playerPos === selectedFreeAgentPosFilter;
-                
-                if (matchesSearch && matchesPos) {
-                    card.style.display = 'flex';
-                } else {
-                    card.style.display = 'none';
-                }
+            freeAgentsLimit = 24; // Reset paging limit on search input
+            renderDraft();
+        }
+
+        function loadMoreFreeAgents() {
+            freeAgentsLimit += 24;
+            renderDraft();
+        }
+
+        function toggleTeamCollapse(teamId) {
+            collapsedTeamsState[teamId] = !collapsedTeamsState[teamId];
+            renderDraft();
+        }
+
+        function setAllTeamsCollapse(collapsed) {
+            allTeamsCollapsed = collapsed;
+            if (currentDraft && currentDraft.teams) {
+                currentDraft.teams.forEach(t => {
+                    collapsedTeamsState[t.id] = collapsed;
+                });
             }
+            renderDraft();
         }
 
         function openSeedTestModal() {
