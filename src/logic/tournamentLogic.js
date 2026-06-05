@@ -1045,16 +1045,9 @@ export async function startDraftSelection(client, guild, draftShortId) {
         const arbitroRole = await guild.roles.fetch(ARBITRO_ROLE_ID).catch(() => null);
 
         const voicePermissions = [
-            { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-            { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel] }
+            { id: guild.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect, PermissionsBitField.Flags.Speak] },
+            { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.Connect] }
         ];
-        if (casterRole) voicePermissions.push({ id: casterRole.id, allow: [PermissionsBitField.Flags.ViewChannel] });
-        if (arbitroRole) voicePermissions.push({ id: arbitroRole.id, allow: [PermissionsBitField.Flags.ViewChannel] });
-        draft.captains.forEach(c => {
-            if (/^\d+$/.test(c.userId)) {
-                voicePermissions.push({ id: c.userId, allow: [PermissionsBitField.Flags.ViewChannel] });
-            }
-        });
 
         const warRoomVoiceChannel = await guild.channels.create({
             name: `🎙️ War Room Draft: ${draft.name}`,
