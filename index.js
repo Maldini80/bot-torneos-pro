@@ -43,7 +43,8 @@ export const client = new Client({
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildMessageReactions
-    ]
+    ],
+    rest: { retries: 1 }
 });
 
 client.once(Events.ClientReady, async readyClient => {

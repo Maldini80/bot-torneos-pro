@@ -1260,6 +1260,31 @@ export async function createNewTournament(client, guild, name, shortId, config) 
         const globalStatusChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_STATUS);
         const statusMsg = await globalStatusChannel.send(createTournamentStatusEmbed(newTournament));
         createdResources.messages.push({ channelId: globalStatusChannel.id, messageId: statusMsg.id });
+
+        // --- DEDUP: Limpiar embeds duplicados por reintentos de REST durante cold starts de Render ---
+        try {
+            const embedTitle = statusMsg.embeds?.[0]?.title;
+            if (embedTitle) {
+                const recentMessages = await globalStatusChannel.messages.fetch({ limit: 10 });
+                const duplicates = recentMessages.filter(msg =>
+                    msg.id !== statusMsg.id &&
+                    msg.author.id === client.user.id &&
+                    msg.embeds.length > 0 &&
+                    msg.embeds[0].title === embedTitle &&
+                    (Date.now() - msg.createdTimestamp) < 30000
+                );
+                if (duplicates.size > 0) {
+                    console.log(`[DEDUP] Detectados ${duplicates.size} embed(s) duplicado(s) para "${shortId}". Limpiando...`);
+                    for (const [, dupMsg] of duplicates) {
+                        await dupMsg.delete().catch(() => {});
+                    }
+                    console.log(`[DEDUP] Limpieza completada.`);
+                }
+            }
+        } catch (dedupError) {
+            console.warn('[DEDUP] Error al limpiar duplicados (no crítico):', dedupError.message);
+        }
+        // --- FIN DEDUP ---
         const classificationMsg = await infoChannel.send(createClassificationEmbed(newTournament));
         const calendarMsg = await infoChannel.send(createCalendarEmbed(newTournament));
         newTournament.discordMessageIds = { ...newTournament.discordMessageIds, statusMessageId: statusMsg.id, classificationMessageId: classificationMsg.id, calendarMessageId: calendarMsg.id };
