@@ -874,20 +874,11 @@ module.exports = async (client, interaction) => {
         const parts = customId.split('_');
         const applicantId = parts[3];
         const selectedValue = values[0];
-        const vpgLeagueSlug = selectedValue; // Now it's a VPG league slug or 'NO_VPG'
-        let startingElo = 650;
-        let leagueName = 'BRONZE';
-
-        if (vpgLeagueSlug === 'NO_VPG') {
-            startingElo = 650;
-            leagueName = 'BRONZE';
-        } else if (vpgLeagueSlug === 'superliga-spain-a' || vpgLeagueSlug === 'superliga-spain-b') {
-            startingElo = 1300;
-            leagueName = 'GOLD';
-        } else {
-            startingElo = 1000;
-            leagueName = 'SILVER';
-        }
+        
+        // Parse the selected value format: 'ELO_LEAGUENAME' (e.g. '1300_GOLD', '700_BRONZE')
+        const [eloStr, ...leagueParts] = selectedValue.split('_');
+        const startingElo = parseInt(eloStr, 10);
+        const leagueName = leagueParts.join('_');
 
         const originalEmbed = interaction.message.embeds[0];
         if (!originalEmbed) return interaction.followUp({ content: 'Error: No se pudo encontrar el embed de la solicitud original.', flags: MessageFlags.Ephemeral });
@@ -919,7 +910,7 @@ module.exports = async (client, interaction) => {
             twitterHandle: teamTwitter === 'No especificado' ? null : teamTwitter,
             managerId: applicantId,
             elo: startingElo,
-            vpgLeagueSlug: vpgLeagueSlug === 'NO_VPG' ? null : vpgLeagueSlug
+            vpgLeagueSlug: null
         });
         await newTeam.save();
 
@@ -933,7 +924,7 @@ module.exports = async (client, interaction) => {
         // si hay un boton de rechazar y lo queremos deshabilitar tb, pero como le damos a replace, solo deshabilito el select menu
         
         const updatedEmbed = EmbedBuilder.from(originalEmbed);
-        updatedEmbed.addFields({ name: 'Liga VPG', value: `${vpgLeagueSlug === 'NO_VPG' ? 'Sin VPG' : vpgLeagueSlug} (${leagueName} - ELO: ${startingElo})` });
+        updatedEmbed.addFields({ name: 'Liga Asignada', value: `${leagueName} (ELO: ${startingElo})` });
         updatedEmbed.setColor('Green');
         
         await interaction.message.edit({ components: componentsToUpdate, embeds: [updatedEmbed] });

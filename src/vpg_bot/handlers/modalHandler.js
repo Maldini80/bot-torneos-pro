@@ -54,21 +54,12 @@ async function sendApprovalRequest(interaction, client, { vpgUsername, teamName,
     const selectRow = new ActionRowBuilder().addComponents(
         new StringSelectMenuBuilder()
             .setCustomId(`approve_team_select_${interaction.user.id}`)
-            .setPlaceholder('Elige la liga VPG del equipo')
+            .setPlaceholder('Elige la liga para APROBAR este equipo')
             .addOptions([
-                { label: '💎 Superliga España A', value: 'superliga-spain-a', description: 'Primera División - Grupo A' },
-                { label: '💎 Superliga España B', value: 'superliga-spain-b', description: 'Primera División - Grupo B' },
-                { label: '⚙️ Segunda División A', value: 'segunda-division-a-spain', description: 'Segunda División - Grupo A' },
-                { label: '⚙️ Segunda División B', value: 'segunda-division-b-spain', description: 'Segunda División - Grupo B' },
-                { label: '⚙️ Tercera División A', value: 'tercera-division-a-spain', description: 'Tercera División - Grupo A' },
-                { label: '⚙️ Tercera División B', value: 'tercera-division-b-spain', description: 'Tercera División - Grupo B' },
-                { label: '⚙️ Cuarta División A', value: 'cuarta-division-a-spain', description: 'Cuarta División - Grupo A' },
-                { label: '⚙️ Cuarta División B', value: 'cuarta-division-b-spain', description: 'Cuarta División - Grupo B' },
-                { label: '⚙️ Quinta División A', value: 'quinta-division-a-spain', description: 'Quinta División - Grupo A' },
-                { label: '⚙️ Quinta División B', value: 'quinta-division-b-spain', description: 'Quinta División - Grupo B' },
-                { label: '⚙️ Quinta División C', value: 'quinta-division-c', description: 'Quinta División - Grupo C' },
-                { label: '⚙️ Quinta División D', value: 'quinta-division-d', description: 'Quinta División - Grupo D' },
-                { label: '🥉 No pertenece a VPG', value: 'NO_VPG', description: 'Equipo sin liga VPG - BRONCE (650)' }
+                { label: '💎 Liga DIAMOND (1550+ ELO)', value: '1550_DIAMOND', description: 'Empieza con 1550 Puntos' },
+                { label: '👑 Liga GOLD (1300-1549 ELO)', value: '1300_GOLD', description: 'Empieza con 1300 Puntos' },
+                { label: '⚙️ Liga SILVER (1000-1299 ELO)', value: '1000_SILVER', description: 'Empieza con 1000 Puntos' },
+                { label: '🥉 Liga BRONZE (<1000 ELO)', value: '700_BRONZE', description: 'Empieza con 700 Puntos' }
             ])
     );
 
