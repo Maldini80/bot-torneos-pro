@@ -114,6 +114,55 @@
             gap: 12px;
         }
 
+        /* System Kill Switch Toggle */
+        .system-toggle {
+            display: none; /* Hidden by default, shown via JS for owner */
+            align-items: center;
+            gap: 8px;
+            padding: 5px 14px;
+            border-radius: 50px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.04);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: var(--font-body);
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            white-space: nowrap;
+        }
+        .system-toggle:hover {
+            border-color: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.08);
+        }
+        .system-toggle.active {
+            border-color: rgba(0, 220, 100, 0.3);
+            color: #00dc64;
+        }
+        .system-toggle.inactive {
+            border-color: rgba(255, 0, 85, 0.3);
+            color: #ff0055;
+        }
+        .system-toggle .sys-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .system-toggle.active .sys-dot {
+            background: #00dc64;
+            box-shadow: 0 0 8px rgba(0, 220, 100, 0.5);
+        }
+        .system-toggle.inactive .sys-dot {
+            background: #ff0055;
+            box-shadow: 0 0 8px rgba(255, 0, 85, 0.5);
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
         /* Language Toggle (Home-style pill) */
         .lang-toggle {
             display: flex;
@@ -752,6 +801,11 @@
                 <a href="/fantasy" id="nav-fantasy">⚽ Fantasy VPG</a>
             </div>
             <div class="nav-right">
+                <!-- System Kill Switch (only visible for owner/admin) -->
+                <button id="system-toggle-btn" class="system-toggle" title="Activar/Desactivar Sistema" style="display: none;">
+                    <span class="sys-dot"></span>
+                    <span class="sys-label">SISTEMA</span>
+                </button>
                 <div class="lang-toggle">
                     <button data-lang="es" class="lang-btn active">ES</button>
                     <button data-lang="en" class="lang-btn">EN</button>

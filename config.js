@@ -27,6 +27,14 @@ export const CHANNELS = {
     DRAFTS_STATUS: '1413906746258362398',     // <-- Canal para anuncios de DRAFTS
     CASTER_HUB_ID: '1394818921453981766', // Canal para los hilos de casters
     CASTER_DRAFT_CATEGORY_ID: '1394815147784146967',
+    // Canales que se ocultan cuando el sistema está desactivado (kill switch)
+    SYSTEM_CHANNELS: [
+        '1402099941685465168',  // #avisos
+        '1393507085286899744',  // #creacion-de-torneo
+        '1396818328600711323',  // #solicitudes-equipo
+        '1396816827530870784',  // #panel-admin-equipos
+        '1396998137859543240',  // #subida-imagen-escudos-problema
+    ],
 };
 
 // Configuración de Pagos

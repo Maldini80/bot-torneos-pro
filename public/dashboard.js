@@ -454,6 +454,9 @@ class DashboardApp {
                     if (btn) btn.style.display = 'inline-block';
                     const vpnBtn = document.getElementById('nav-vpn-sync');
                     if (vpnBtn) vpnBtn.style.display = 'inline-block';
+
+                    // KILL SWITCH: Inicializar el botón de sistema para el owner
+                    this.initSystemToggle();
                 }
             })
             .catch(err => console.error('Error checking VPG/VPN Sync permissions:', err));
@@ -474,6 +477,60 @@ class DashboardApp {
 
         this.setupVerificationForm();
         this.setupCreateTeamForm();
+    }
+
+    // --- KILL SWITCH: Toggle del sistema en el dashboard ---
+    async initSystemToggle() {
+        const toggleBtn = document.getElementById('system-toggle-btn');
+        if (!toggleBtn) return;
+
+        // Obtener estado actual
+        try {
+            const res = await fetch('/api/system-status');
+            const data = await res.json();
+            this.updateSystemToggleUI(toggleBtn, data.systemActive);
+            toggleBtn.style.display = 'flex';
+        } catch (e) {
+            console.error('[SYSTEM] Error al obtener estado del sistema:', e);
+            return;
+        }
+
+        // Click handler
+        toggleBtn.addEventListener('click', async () => {
+            const isActive = toggleBtn.classList.contains('active');
+            const action = isActive ? 'DESACTIVAR' : 'ACTIVAR';
+            const msg = isActive
+                ? '⛔ ¿Estás seguro de DESACTIVAR el sistema?\n\nLos canales administrativos se ocultarán y el Fantasy quedará bloqueado para todos excepto para ti.'
+                : '✅ ¿Estás seguro de ACTIVAR el sistema?\n\nTodos los canales y el Fantasy volverán a funcionar con normalidad.';
+
+            if (!confirm(msg)) return;
+
+            toggleBtn.style.opacity = '0.5';
+            toggleBtn.style.pointerEvents = 'none';
+
+            try {
+                const res = await fetch('/api/admin/toggle-system', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    this.updateSystemToggleUI(toggleBtn, data.systemActive);
+                } else {
+                    alert('Error: ' + (data.error || 'No se pudo cambiar el estado'));
+                }
+            } catch (e) {
+                alert('Error de conexión al cambiar el estado del sistema');
+            } finally {
+                toggleBtn.style.opacity = '1';
+                toggleBtn.style.pointerEvents = 'auto';
+            }
+        });
+    }
+
+    updateSystemToggleUI(btn, isActive) {
+        const label = btn.querySelector('.sys-label');
+        btn.classList.remove('active', 'inactive');
+        btn.classList.add(isActive ? 'active' : 'inactive');
+        label.textContent = isActive ? 'SISTEMA ON' : 'SISTEMA OFF';
+        btn.title = isActive ? 'Sistema activo — Click para desactivar' : 'Sistema desactivado — Click para activar';
     }
 
     setupVerificationForm() {

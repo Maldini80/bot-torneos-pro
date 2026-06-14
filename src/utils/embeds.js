@@ -44,6 +44,7 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
     const translationEnabled = settings.translationEnabled;
     const twitterEnabled = settings.twitterEnabled;
     const eaScannerEnabled = settings.eaScannerEnabled || false;
+    const systemActive = settings.systemActive !== false; // true por defecto
 
     const embed = new EmbedBuilder()
         .setColor(isBusy ? '#e74c3c' : '#2c3e50')
@@ -112,15 +113,22 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
             embed.setTitle('Panel de Creación y Gestión Global')
                 .setDescription(isBusy
                     ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
-                    : `✅ **ESTADO: LISTO**\nTraducción: **${translationEnabled ? 'ACTIVADA' : 'DESACTIVADA'}** | Twitter: **${twitterEnabled ? 'ACTIVADO' : 'DESACTIVADO'}**`
+                    : `${systemActive ? '✅' : '⛔'} **ESTADO: ${systemActive ? 'LISTO' : 'SISTEMA DESACTIVADO'}**\nTraducción: **${translationEnabled ? 'ACTIVADA' : 'DESACTIVADA'}** | Twitter: **${twitterEnabled ? 'ACTIVADO' : 'DESACTIVADO'}**`
                 );
+            const systemToggleRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('admin_toggle_system')
+                    .setLabel(systemActive ? '⛔ DESACTIVAR SISTEMA' : '✅ ACTIVAR SISTEMA')
+                    .setStyle(systemActive ? ButtonStyle.Danger : ButtonStyle.Success)
+                    .setDisabled(isBusy)
+            );
             const mainRow = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('admin_panel_tournaments').setLabel('Gestionar Torneos').setStyle(ButtonStyle.Success).setEmoji('🏆'),
                 new ButtonBuilder().setCustomId('admin_panel_drafts').setLabel('Gestionar Drafts').setStyle(ButtonStyle.Primary).setEmoji('📝'),
                 new ButtonBuilder().setCustomId('admin_panel_settings').setLabel('Ajustes Globales').setStyle(ButtonStyle.Secondary).setEmoji('⚙️'),
                 new ButtonBuilder().setCustomId('admin_panel_manual_results').setLabel('Gestionar Resultados Manuales').setStyle(ButtonStyle.Danger).setEmoji('🛠️')
             );
-            components.push(mainRow);
+            components.push(systemToggleRow, mainRow);
             break;
     }
 

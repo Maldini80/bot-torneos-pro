@@ -2759,6 +2759,95 @@ export async function handleButton(interaction) {
         return;
     }
 
+    // --- KILL SWITCH: Activar/Desactivar todo el sistema ---
+    if (action === 'admin_toggle_system') {
+        // Solo el owner puede usar este botón
+        if (interaction.user.id !== process.env.OWNER_DISCORD_ID) {
+            return interaction.reply({ content: '🔒 Solo el **creador del servidor** puede activar o desactivar el sistema.', flags: [MessageFlags.Ephemeral] });
+        }
+
+        await interaction.deferUpdate();
+        const currentSettings = await getBotSettings();
+        const newState = !(currentSettings.systemActive !== false); // toggle
+
+        try {
+            const { CHANNELS: CH } = await import('../../config.js');
+            const systemChannels = CH.SYSTEM_CHANNELS || [];
+
+            if (!newState) {
+                // --- DESACTIVAR: Guardar backup de permisos y ocultar canales ---
+                const backup = {};
+                for (const chId of systemChannels) {
+                    try {
+                        const channel = await guild.channels.fetch(chId);
+                        if (!channel) continue;
+                        // Guardar el estado actual de @everyone para este canal
+                        const everyoneOverwrite = channel.permissionOverwrites.cache.get(guild.id);
+                        backup[chId] = {
+                            allow: everyoneOverwrite ? everyoneOverwrite.allow.bitfield.toString() : '0',
+                            deny: everyoneOverwrite ? everyoneOverwrite.deny.bitfield.toString() : '0'
+                        };
+                        // Ocultar el canal para @everyone
+                        await channel.permissionOverwrites.edit(guild.id, { ViewChannel: false });
+                        // Permitir al owner verlo
+                        await channel.permissionOverwrites.edit(process.env.OWNER_DISCORD_ID, { ViewChannel: true });
+                    } catch (chErr) {
+                        console.error(`[SYSTEM] Error al ocultar canal ${chId}:`, chErr.message);
+                    }
+                }
+                // Guardar backup y estado
+                await updateBotSettings({ systemActive: false, systemChannelsBackup: backup });
+            } else {
+                // --- ACTIVAR: Restaurar permisos desde el backup ---
+                const backup = currentSettings.systemChannelsBackup || {};
+                for (const chId of systemChannels) {
+                    try {
+                        const channel = await guild.channels.fetch(chId);
+                        if (!channel) continue;
+                        // Restaurar permisos de @everyone
+                        const saved = backup[chId];
+                        if (saved) {
+                            const { PermissionsBitField: PBF } = await import('discord.js');
+                            const allowPerms = new PBF(BigInt(saved.allow)).toArray();
+                            const denyPerms = new PBF(BigInt(saved.deny)).toArray();
+                            const perms = {};
+                            for (const p of allowPerms) perms[p] = true;
+                            for (const p of denyPerms) perms[p] = false;
+                            // Solo resetear ViewChannel a heredar si NO estaba explícito en el backup
+                            if (!allowPerms.includes('ViewChannel') && !denyPerms.includes('ViewChannel')) {
+                                perms.ViewChannel = null;
+                            }
+                            await channel.permissionOverwrites.edit(guild.id, perms);
+                        } else {
+                            // Sin backup, simplemente quitar la restricción
+                            await channel.permissionOverwrites.edit(guild.id, { ViewChannel: null });
+                        }
+                        // Eliminar el override específico del owner
+                        const ownerOverwrite = channel.permissionOverwrites.cache.get(process.env.OWNER_DISCORD_ID);
+                        if (ownerOverwrite) {
+                            await ownerOverwrite.delete().catch(() => {});
+                        }
+                    } catch (chErr) {
+                        console.error(`[SYSTEM] Error al restaurar canal ${chId}:`, chErr.message);
+                    }
+                }
+                await updateBotSettings({ systemActive: true, systemChannelsBackup: null });
+            }
+
+            await updateAdminPanel(client);
+            await interaction.followUp({
+                content: newState
+                    ? '✅ **SISTEMA ACTIVADO** — Todos los canales y el Fantasy están operativos.'
+                    : '⛔ **SISTEMA DESACTIVADO** — Los canales administrativos están ocultos y el Fantasy está bloqueado para todos excepto para ti.',
+                flags: [MessageFlags.Ephemeral]
+            });
+        } catch (error) {
+            console.error('[SYSTEM] Error al cambiar el estado del sistema:', error);
+            await interaction.followUp({ content: '❌ Error al cambiar el estado del sistema. Revisa la consola.', flags: [MessageFlags.Ephemeral] });
+        }
+        return;
+    }
+
     if (action === 'rules_accept') {
         // --- INICIO DE LA SOLUCIÓN: Capturar el channelId y pasarlo correctamente ---
         const [currentStepStr, originalBaseAction, channelId, entityId] = params;

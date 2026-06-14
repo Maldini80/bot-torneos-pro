@@ -1,14 +1,13 @@
-// scratch/read_logs.js
 import fs from 'fs';
 import readline from 'readline';
 
 async function main() {
-    const logPath = 'C:\\Users\\Jose\\.gemini\\antigravity\\brain\\103a6787-8182-41f6-8801-64a4928e306b\\.system_generated\\logs\\transcript.jsonl';
-    
+    const logPath = 'C:\\Users\\Jose\\.gemini\\antigravity\\brain\\c75d8500-48bd-41a9-bd8c-8dac79b79b29\\.system_generated\\logs\\transcript.jsonl';
     console.log(`Reading logs from: ${logPath}`);
+    
     if (!fs.existsSync(logPath)) {
-        console.error('Log file does not exist!');
-        process.exit(1);
+        console.log("Log file does not exist.");
+        process.exit(0);
     }
     
     const fileStream = fs.createReadStream(logPath);
@@ -17,26 +16,23 @@ async function main() {
         crlfDelay: Infinity
     });
     
-    let lineNumber = 0;
+    let userMsgIndex = 0;
     for await (const line of rl) {
-        lineNumber++;
-        if (line.toLowerCase().includes('ciclo') || line.toLowerCase().includes('cicl')) {
-            console.log(`Line ${lineNumber}:`);
-            try {
-                const parsed = JSON.parse(line);
-                console.log(JSON.stringify(parsed, null, 2));
-            } catch (e) {
-                console.log(line);
+        try {
+            const data = JSON.parse(line);
+            if (data.type === 'USER_INPUT') {
+                userMsgIndex++;
+                if (userMsgIndex <= 15) { // Print first 15 messages
+                    console.log(`\n=== User Message #${userMsgIndex} ===`);
+                    console.log(data.content);
+                }
             }
-            console.log('\n----------------------------------------\n');
+        } catch (e) {
+            // ignore malformed lines
         }
     }
     
-    console.log('Search finished.');
     process.exit(0);
 }
 
-main().catch(err => {
-    console.error(err);
-    process.exit(1);
-});
+main();

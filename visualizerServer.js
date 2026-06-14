@@ -12,7 +12,7 @@ import passport from 'passport';
 import { Strategy as DiscordStrategy } from 'passport-discord';
 // IMPORTAMOS LAS NUEVAS FUNCIONES DE GESTIÓN
 import { advanceDraftTurn, handlePlayerSelectionFromWeb, requestStrikeFromWeb, requestKickFromWeb, handleRouletteSpinResult, undoLastPick, forcePickFromWeb, adminKickPlayerFromWeb, adminAddPlayerFromWeb, adminAddFreeAgentFromWeb, sendRegistrationRequest, sendPaymentApprovalRequest, adminReplacePickFromWeb, approveExternalDraftCaptain } from './src/logic/tournamentLogic.js';
-import { getDb } from './database.js';
+import { getDb, getBotSettings, updateBotSettings } from './database.js';
 import { fetchVpgSpainLeagues } from './src/utils/vpgCrawler.js';
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from 'discord.js';
 import { ObjectId } from 'mongodb'; // FIX: Global import for ObjectId
@@ -544,6 +544,89 @@ app.get('/api/user', (req, res) => {
         res.json(userWithAdmin);
     } else {
         res.json(null);
+    }
+});
+
+// --- KILL SWITCH API ---
+app.get('/api/system-status', async (req, res) => {
+    try {
+        const settings = await getBotSettings();
+        res.json({ systemActive: settings.systemActive !== false });
+    } catch (e) {
+        res.json({ systemActive: true }); // Por defecto activo si hay error
+    }
+});
+
+app.post('/api/admin/toggle-system', async (req, res) => {
+    if (!req.user || req.user.id !== process.env.OWNER_DISCORD_ID) {
+        return res.status(403).json({ error: 'Solo el owner puede cambiar el estado del sistema.' });
+    }
+    try {
+        const settings = await getBotSettings();
+        const currentState = settings.systemActive !== false;
+        const newState = !currentState;
+
+        const { CHANNELS: CH } = await import('./config.js');
+        const systemChannels = CH.SYSTEM_CHANNELS || [];
+
+        if (!newState) {
+            // DESACTIVAR: Guardar backup y ocultar canales
+            const backup = {};
+            const guild = await client.guilds.fetch(process.env.GUILD_ID);
+            for (const chId of systemChannels) {
+                try {
+                    const channel = await guild.channels.fetch(chId);
+                    if (!channel) continue;
+                    const everyoneOverwrite = channel.permissionOverwrites.cache.get(guild.id);
+                    backup[chId] = {
+                        allow: everyoneOverwrite ? everyoneOverwrite.allow.bitfield.toString() : '0',
+                        deny: everyoneOverwrite ? everyoneOverwrite.deny.bitfield.toString() : '0'
+                    };
+                    await channel.permissionOverwrites.edit(guild.id, { ViewChannel: false });
+                    await channel.permissionOverwrites.edit(process.env.OWNER_DISCORD_ID, { ViewChannel: true });
+                } catch (chErr) {
+                    console.error(`[SYSTEM-WEB] Error al ocultar canal ${chId}:`, chErr.message);
+                }
+            }
+            await updateBotSettings({ systemActive: false, systemChannelsBackup: backup });
+        } else {
+            // ACTIVAR: Restaurar permisos
+            const backup = settings.systemChannelsBackup || {};
+            const guild = await client.guilds.fetch(process.env.GUILD_ID);
+            const { PermissionsBitField } = await import('discord.js');
+            for (const chId of systemChannels) {
+                try {
+                    const channel = await guild.channels.fetch(chId);
+                    if (!channel) continue;
+                    const saved = backup[chId];
+                    if (saved) {
+                        const allowPerms = new PermissionsBitField(BigInt(saved.allow)).toArray();
+                        const denyPerms = new PermissionsBitField(BigInt(saved.deny)).toArray();
+                        const perms = {};
+                        for (const p of allowPerms) perms[p] = true;
+                        for (const p of denyPerms) perms[p] = false;
+                        // Solo resetear ViewChannel a heredar si NO estaba explícito en el backup
+                        if (!allowPerms.includes('ViewChannel') && !denyPerms.includes('ViewChannel')) {
+                            perms.ViewChannel = null;
+                        }
+                        await channel.permissionOverwrites.edit(guild.id, perms);
+                    } else {
+                        await channel.permissionOverwrites.edit(guild.id, { ViewChannel: null });
+                    }
+                    const ownerOverwrite = channel.permissionOverwrites.cache.get(process.env.OWNER_DISCORD_ID);
+                    if (ownerOverwrite) await ownerOverwrite.delete().catch(() => {});
+                } catch (chErr) {
+                    console.error(`[SYSTEM-WEB] Error al restaurar canal ${chId}:`, chErr.message);
+                }
+            }
+            await updateBotSettings({ systemActive: true, systemChannelsBackup: null });
+        }
+
+        console.log(`[SYSTEM] Estado del sistema cambiado a: ${newState ? 'ACTIVO' : 'DESACTIVADO'} (desde la web)`);
+        res.json({ success: true, systemActive: newState });
+    } catch (e) {
+        console.error('[SYSTEM-WEB] Error al cambiar estado del sistema:', e);
+        res.status(500).json({ error: 'Error interno al cambiar el estado del sistema.' });
     }
 });
 
@@ -5708,6 +5791,20 @@ export async function startVisualizerServer(discordClient) {
     // --- MIDDLEWARE: Fantasy enabled (granted to all authenticated users who are Discord members) ---
     async function isFantasyEnabled(req, res, next) {
         if (!req.user) return res.status(401).json({ error: 'Debes iniciar sesión con Discord.' });
+
+        // KILL SWITCH: Bloquear Fantasy si el sistema está desactivado (excepto para el owner)
+        const isOwner = req.user.id === process.env.OWNER_DISCORD_ID;
+        if (!isOwner) {
+            try {
+                const settings = await getBotSettings();
+                if (settings.systemActive === false) {
+                    return res.status(503).json({ error: '⛔ Sistema desactivado por el administrador.' });
+                }
+            } catch (e) {
+                console.error('[SYSTEM] Error al verificar estado del sistema en middleware Fantasy:', e.message);
+            }
+        }
+
         let isMember = req.user.isMember;
         let isMemberModified = false;
         if (isMember !== true) {
@@ -5955,6 +6052,96 @@ export async function startVisualizerServer(discordClient) {
         if (!isMember) {
             return res.redirect('/dashboard.html?notMember=true');
         }
+
+        // KILL SWITCH: Si el sistema está desactivado y no es el owner, mostrar página de desactivado
+        const isOwner = req.user.id === process.env.OWNER_DISCORD_ID;
+        if (!isOwner) {
+            try {
+                const settings = await getBotSettings();
+                if (settings.systemActive === false) {
+                    return res.send(`<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE BLITZ - Sistema Desactivado</title>
+    <link rel="icon" type="image/png" href="/logo-the-blitz.png">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Russo+One&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: #070a13;
+            background-image:
+                linear-gradient(rgba(255, 0, 85, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 0, 85, 0.03) 1px, transparent 1px),
+                radial-gradient(at 50% 50%, rgba(255, 0, 85, 0.08) 0px, transparent 60%);
+            background-size: 30px 30px, 30px 30px, 100% 100%;
+            color: #f8fafc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .container {
+            text-align: center;
+            max-width: 500px;
+            padding: 40px;
+            background: rgba(11, 19, 38, 0.85);
+            border-radius: 20px;
+            border: 1px solid rgba(255, 0, 85, 0.2);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5), 0 0 40px rgba(255, 0, 85, 0.1);
+            backdrop-filter: blur(12px);
+        }
+        .icon { font-size: 4rem; margin-bottom: 20px; }
+        h1 {
+            font-family: 'Russo One', sans-serif;
+            font-size: 1.6rem;
+            text-transform: uppercase;
+            color: #ff0055;
+            text-shadow: 0 0 20px rgba(255, 0, 85, 0.4);
+            margin-bottom: 12px;
+        }
+        p {
+            color: #8A8A9A;
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+        a {
+            display: inline-block;
+            padding: 12px 28px;
+            background: rgba(255, 0, 85, 0.15);
+            color: #ff0055;
+            border: 1px solid rgba(255, 0, 85, 0.3);
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        a:hover {
+            background: rgba(255, 0, 85, 0.25);
+            box-shadow: 0 0 20px rgba(255, 0, 85, 0.2);
+        }
+        @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .pulse { animation: pulse 2s ease-in-out infinite; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">⛔</div>
+        <h1>Sistema Desactivado</h1>
+        <p>El sistema ha sido <strong>desactivado temporalmente</strong> por el administrador.<br>Vuelve a intentarlo más tarde.</p>
+        <a href="/dashboard.html">← Volver al Dashboard</a>
+    </div>
+</body>
+</html>`);
+                }
+            } catch (e) {
+                console.error('[SYSTEM] Error al verificar estado del sistema para Fantasy:', e.message);
+            }
+        }
+
         res.sendFile('fantasy.html', { root: 'private_pages' });
     });
 
