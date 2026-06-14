@@ -78,6 +78,10 @@ const commands = [
         .setName('panel-estadisticas')
         .setDescription('Crea el Kiosko de Estadísticas Avanzadas de EA Sports.')
         .setDefaultMemberPermissions(0),
+    new SlashCommandBuilder()
+        .setName('sistema')
+        .setDescription('Activa o desactiva el sistema global del bot y la web (Kill Switch).')
+        .setDefaultMemberPermissions(0),
 ].map(command => command.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(token);
