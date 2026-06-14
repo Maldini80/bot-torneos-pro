@@ -2775,22 +2775,52 @@ export async function handleButton(interaction) {
             const systemChannels = CH.SYSTEM_CHANNELS || [];
 
             if (!newState) {
-                // --- DESACTIVAR: Guardar backup de permisos y ocultar canales ---
+                // --- DESACTIVAR: Guardar backup de TODOS los overwrites y ocultar canales ---
                 const backup = {};
+                const { PermissionsBitField } = await import('discord.js');
                 for (const chId of systemChannels) {
                     try {
                         const channel = await guild.channels.fetch(chId);
                         if (!channel) continue;
-                        // Guardar el estado actual de @everyone para este canal
-                        const everyoneOverwrite = channel.permissionOverwrites.cache.get(guild.id);
-                        backup[chId] = {
-                            allow: everyoneOverwrite ? everyoneOverwrite.allow.bitfield.toString() : '0',
-                            deny: everyoneOverwrite ? everyoneOverwrite.deny.bitfield.toString() : '0'
-                        };
-                        // Ocultar el canal para @everyone
-                        await channel.permissionOverwrites.edit(guild.id, { ViewChannel: false });
-                        // Permitir al owner verlo
-                        await channel.permissionOverwrites.edit(process.env.OWNER_DISCORD_ID, { ViewChannel: true });
+
+                        // Guardar todos los overwrites existentes de este canal
+                        const savedOverwrites = [];
+                        channel.permissionOverwrites.cache.forEach(ow => {
+                            savedOverwrites.push({
+                                id: ow.id,
+                                type: ow.type, // 0 = Role, 1 = Member
+                                allow: ow.allow.bitfield.toString(),
+                                deny: ow.deny.bitfield.toString()
+                            });
+                        });
+                        backup[chId] = savedOverwrites;
+
+                        // Crear los nuevos overwrites: everyone denegado, owner permitido
+                        const newOverwrites = [
+                            {
+                                id: guild.id,
+                                type: 0,
+                                deny: [ PermissionsBitField.Flags.ViewChannel ]
+                            },
+                            {
+                                id: process.env.OWNER_DISCORD_ID,
+                                type: 1,
+                                allow: [ PermissionsBitField.Flags.ViewChannel ]
+                            }
+                        ];
+
+                        // Preservar overwrite del bot si existía
+                        const botOverwrite = channel.permissionOverwrites.cache.get(guild.client.user.id);
+                        if (botOverwrite) {
+                            newOverwrites.push({
+                                id: guild.client.user.id,
+                                type: 1,
+                                allow: botOverwrite.allow.bitfield,
+                                deny: botOverwrite.deny.bitfield
+                            });
+                        }
+
+                        await channel.permissionOverwrites.set(newOverwrites);
                     } catch (chErr) {
                         console.error(`[SYSTEM] Error al ocultar canal ${chId}:`, chErr.message);
                     }
@@ -2800,32 +2830,45 @@ export async function handleButton(interaction) {
             } else {
                 // --- ACTIVAR: Restaurar permisos desde el backup ---
                 const backup = currentSettings.systemChannelsBackup || {};
+                const { PermissionsBitField } = await import('discord.js');
                 for (const chId of systemChannels) {
                     try {
                         const channel = await guild.channels.fetch(chId);
                         if (!channel) continue;
-                        // Restaurar permisos de @everyone
+
                         const saved = backup[chId];
                         if (saved) {
-                            const { PermissionsBitField: PBF } = await import('discord.js');
-                            const allowPerms = new PBF(BigInt(saved.allow)).toArray();
-                            const denyPerms = new PBF(BigInt(saved.deny)).toArray();
-                            const perms = {};
-                            for (const p of allowPerms) perms[p] = true;
-                            for (const p of denyPerms) perms[p] = false;
-                            // Solo resetear ViewChannel a heredar si NO estaba explícito en el backup
-                            if (!allowPerms.includes('ViewChannel') && !denyPerms.includes('ViewChannel')) {
-                                perms.ViewChannel = null;
+                            if (Array.isArray(saved)) {
+                                // Nuevo backup de múltiples overwrites
+                                const newOverwrites = saved.map(s => {
+                                    return {
+                                        id: s.id,
+                                        type: s.type,
+                                        allow: BigInt(s.allow),
+                                        deny: BigInt(s.deny)
+                                    };
+                                });
+                                await channel.permissionOverwrites.set(newOverwrites);
+                            } else {
+                                // Backward compatibility: Backup estilo antiguo (solo @everyone)
+                                const allowPerms = new PermissionsBitField(BigInt(saved.allow)).toArray();
+                                const denyPerms = new PermissionsBitField(BigInt(saved.deny)).toArray();
+                                const perms = {};
+                                for (const p of allowPerms) perms[p] = true;
+                                for (const p of denyPerms) perms[p] = false;
+                                if (!allowPerms.includes('ViewChannel') && !denyPerms.includes('ViewChannel')) {
+                                    perms.ViewChannel = null;
+                                }
+                                await channel.permissionOverwrites.edit(guild.id, perms);
+                                
+                                const ownerOverwrite = channel.permissionOverwrites.cache.get(process.env.OWNER_DISCORD_ID);
+                                if (ownerOverwrite) await ownerOverwrite.delete().catch(() => {});
                             }
-                            await channel.permissionOverwrites.edit(guild.id, perms);
                         } else {
-                            // Sin backup, simplemente quitar la restricción
+                            // Sin backup, simplemente quitar la restricción de everyone a heredado
                             await channel.permissionOverwrites.edit(guild.id, { ViewChannel: null });
-                        }
-                        // Eliminar el override específico del owner
-                        const ownerOverwrite = channel.permissionOverwrites.cache.get(process.env.OWNER_DISCORD_ID);
-                        if (ownerOverwrite) {
-                            await ownerOverwrite.delete().catch(() => {});
+                            const ownerOverwrite = channel.permissionOverwrites.cache.get(process.env.OWNER_DISCORD_ID);
+                            if (ownerOverwrite) await ownerOverwrite.delete().catch(() => {});
                         }
                     } catch (chErr) {
                         console.error(`[SYSTEM] Error al restaurar canal ${chId}:`, chErr.message);
