@@ -44,7 +44,7 @@ export const client = new Client({
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildMessageReactions
     ],
-    rest: { retries: 1 }
+    rest: { retries: 3, timeout: 30_000 }
 });
 
 client.once(Events.ClientReady, async readyClient => {
