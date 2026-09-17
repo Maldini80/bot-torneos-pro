@@ -946,7 +946,7 @@ module.exports = async (client, interaction) => {
             console.log(`AVISO: No se pudo enviar el MD de guía al nuevo mánager ${applicantMember.user.tag}.`);
         }
 
-        return interaction.followUp({ content: `✅ Equipo **${teamName}** creado. Liga VPG: **${vpgLeagueSlug === 'NO_VPG' ? 'Sin VPG' : vpgLeagueSlug}** (${leagueName} - ELO: ${startingElo}).`, flags: MessageFlags.Ephemeral });
+        return interaction.followUp({ content: `✅ Equipo **${teamName}** creado en **${leagueName}** (ELO: ${startingElo}).`, flags: MessageFlags.Ephemeral });
     }
 
     // --- Stats: Selector de franjas horarias → abrir modal ---
