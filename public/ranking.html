@@ -625,7 +625,7 @@
                     }
 
                     const currentElo = team.elo || 650;
-                    const teamLeague = team.league || 'BRONZE';
+                    const teamLeague = (currentElo >= 1550 ? 'DIAMOND' : (currentElo >= 1300 ? 'GOLD' : (currentElo >= 1000 ? 'SILVER' : 'BRONZE')));
                     let leagueBadge = '';
                     if (teamLeague === 'DIAMOND') {
                         leagueBadge = '<span style="background:linear-gradient(45deg, #00d2ff, #3a7bd5); color:#fff; padding:2px 6px; border-radius:4px; font-size:0.7rem; font-weight:bold; margin-left:8px; vertical-align:middle; text-shadow: 0 1px 2px rgba(0,0,0,0.4);">DIAMOND</span>';

@@ -7406,8 +7406,9 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         const teams = Object.values(pool.teams || {});
         const counts = { DIAMOND: 0, GOLD: 0, SILVER: 0, BRONZE: 0 };
         teams.forEach(t => {
-            if (counts.hasOwnProperty(t.league)) counts[t.league]++;
-            else counts['BRONZE']++;
+            const elo = t.elo || 650;
+            const l = (elo >= 1550) ? 'DIAMOND' : ((elo >= 1300) ? 'GOLD' : ((elo >= 1000) ? 'SILVER' : 'BRONZE'));
+            counts[l]++;
         });
         const total = teams.length;
         return `📊 Resumen: ${counts.DIAMOND} 💎 Diamond · ${counts.GOLD} 👑 Gold · ${counts.SILVER} ⚙️ Silver · ${counts.BRONZE} 🥉 Bronze = **${total} total**`;
@@ -7621,7 +7622,9 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         // Agrupar por liga
         const grouped = { DIAMOND: [], GOLD: [], SILVER: [], BRONZE: [] };
         teams.forEach(t => {
-            const league = grouped[t.league] ? t.league : 'BRONZE';
+            const elo = t.elo || 650;
+            const fallbackLeague = (elo >= 1550) ? 'DIAMOND' : ((elo >= 1300) ? 'GOLD' : ((elo >= 1000) ? 'SILVER' : 'BRONZE'));
+            const league = grouped[t.league] ? t.league : fallbackLeague;
             grouped[league].push(t);
         });
 
