@@ -1236,8 +1236,8 @@ export function createPoolEmbed(pool) {
     const teams = Object.values(pool.teams || {});
     const counts = { DIAMOND: 0, GOLD: 0, SILVER: 0, BRONZE: 0 };
     teams.forEach(t => {
-        if (counts.hasOwnProperty(t.league)) counts[t.league]++;
-        else counts['BRONZE']++;
+        const l = (t.elo >= 1550) ? 'DIAMOND' : ((t.elo >= 1300) ? 'GOLD' : ((t.elo >= 1000) ? 'SILVER' : 'BRONZE'));
+        counts[l]++;
     });
     const total = teams.length;
 

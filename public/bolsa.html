@@ -339,10 +339,21 @@
             document.getElementById(stateId).classList.remove('hidden');
         }
 
+        function getLeague(t) {
+            const elo = t.elo || 650;
+            if (elo >= 1550) return 'DIAMOND';
+            if (elo >= 1300) return 'GOLD';
+            if (elo >= 1000) return 'SILVER';
+            return 'BRONZE';
+        }
+
         function updateCounter(pool) {
             const teams = Object.values(pool.teams || {});
             const counts = { DIAMOND: 0, GOLD: 0, SILVER: 0, BRONZE: 0 };
-            teams.forEach(t => { counts[t.league] = (counts[t.league] || 0) + 1; });
+            teams.forEach(t => { 
+                const l = getLeague(t);
+                counts[l] = (counts[l] || 0) + 1; 
+            });
             const total = teams.length;
 
             document.getElementById('counter-total').textContent = total;
@@ -358,9 +369,9 @@
             document.getElementById('participants-section').classList.remove('hidden');
 
             const grouped = { DIAMOND: [], GOLD: [], SILVER: [], BRONZE: [] };
-            teams.sort((a, b) => b.elo - a.elo);
+            teams.sort((a, b) => (b.elo || 650) - (a.elo || 650));
             teams.forEach(t => {
-                const league = grouped[t.league] ? t.league : 'BRONZE';
+                const league = getLeague(t);
                 grouped[league].push(t);
             });
 

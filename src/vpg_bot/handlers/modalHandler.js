@@ -551,15 +551,16 @@ if (customId.startsWith('manager_request_modal_')) {
 
         // En Mongoose o driver nativo 'test', usamos updateOne directo para mantener el esquema mixto
         const testDb = mongoose.connection.client.db('test');
+        const newLeague = newElo >= 1550 ? 'DIAMOND' : (newElo >= 1300 ? 'GOLD' : (newElo >= 1000 ? 'SILVER' : 'BRONZE'));
         await testDb.collection('teams').updateOne(
             { _id: team._id },
             { 
-                $set: { elo: newElo },
+                $set: { elo: newElo, league: newLeague },
                 $push: { eloHistory: { $each: [historyEntry], $slice: -100 } }
             }
         );
 
-        return interaction.editReply({ content: `✅ ELO del equipo **${team.name}** actualizado exitosamente: \`${oldElo} ➡️  ${newElo}\`.` });
+        return interaction.editReply({ content: `✅ ELO del equipo **${team.name}** actualizado exitosamente: \`${oldElo} ➡️  ${newElo}\` (${newLeague}).` });
     }
 
     if (customId.startsWith('edit_data_modal_')) {

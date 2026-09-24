@@ -784,14 +784,33 @@ app.post('/api/elo/update', async (req, res) => {
             return res.status(400).json({ error: 'Datos inválidos' });
         }
         const testDb = getDb('test');
+        const { getLeagueByElo } = await import('./src/logic/eloLogic.js');
+        const newLeague = getLeagueByElo(newElo);
         await testDb.collection('teams').updateOne(
             { _id: new ObjectId(teamId) },
             { 
-                $set: { elo: newElo },
+                $set: { elo: newElo, league: newLeague },
                 $push: { eloHistory: { $each: [{ date: new Date(), oldElo: 0, newElo, delta: 0, reason: 'web_admin_edit' }], $slice: -100 } }
             }
         );
-        res.json({ success: true, newElo });
+        // Sincronizar también en bolsas de equipos abiertas
+        try {
+            const db = getDb();
+            const pools = await db.collection('team_pools').find({ status: 'open' }).toArray();
+            for (const pool of pools) {
+                const entry = Object.entries(pool.teams || {}).find(([k, v]) => v.teamDbId === teamId);
+                if (entry) {
+                    const [key] = entry;
+                    await db.collection('team_pools').updateOne(
+                        { _id: pool._id },
+                        { $set: { [`teams.${key}.elo`]: newElo, [`teams.${key}.league`]: newLeague } }
+                    );
+                }
+            }
+        } catch (poolSyncErr) {
+            console.warn('[ELO Update] Error sincronizando en bolsas:', poolSyncErr.message);
+        }
+        res.json({ success: true, newElo, newLeague });
     } catch (e) {
         console.error('Error actualizando ELO:', e);
         res.status(500).json({ error: 'Error del servidor' });
