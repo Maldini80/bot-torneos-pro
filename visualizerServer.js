@@ -701,7 +701,7 @@ app.get('/api/elo/ranking', async (req, res) => {
         const testDb = getDb('test');
         const teams = await testDb.collection('teams')
             .find({}, { projection: {
-                name: 1, abbreviation: 1, logoUrl: 1, elo: 1, managerId: 1,
+                name: 1, abbreviation: 1, logoUrl: 1, elo: 1, league: 1, managerId: 1,
                 'historicalStats.totalMatchesPlayed': 1,
                 'historicalStats.totalWins': 1,
                 'historicalStats.totalDraws': 1,

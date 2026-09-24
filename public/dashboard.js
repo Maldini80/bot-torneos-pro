@@ -1616,7 +1616,7 @@ class DashboardApp {
                 if (stats.currentWinStreak > 0) streakHtml = `<span class="streak-fire">🔥 W${stats.currentWinStreak}</span>`;
                 else if (stats.currentLossStreak > 0) streakHtml = `<span class="streak-ice">❄️ L${stats.currentLossStreak}</span>`;
                 const currentElo = team.elo || 650;
-                const teamLeague = team.league || 'BRONZE';
+                const teamLeague = team.league || (currentElo >= 1550 ? 'DIAMOND' : (currentElo >= 1300 ? 'GOLD' : (currentElo >= 1000 ? 'SILVER' : 'BRONZE')));
                 let leagueBadge = '';
                 if (teamLeague === 'DIAMOND') leagueBadge = '<span style="background:linear-gradient(45deg,#00d2ff,#3a7bd5);color:#fff;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-left:8px;">DIAMOND</span>';
                 else if (teamLeague === 'GOLD') leagueBadge = '<span style="background:#FFD700;color:#000;padding:2px 6px;border-radius:4px;font-size:0.7rem;font-weight:bold;margin-left:8px;">GOLD</span>';
