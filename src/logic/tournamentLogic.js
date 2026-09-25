@@ -1638,8 +1638,31 @@ export async function approveTeam(client, tournament, teamData) {
                 const chatChannel = await client.channels.fetch(latestTournament.discordChannelIds.chatChannelId);
                 const matchesChannel = await client.channels.fetch(latestTournament.discordChannelIds.matchesChannelId);
 
-                await chatChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: true });
-                await matchesChannel.permissionOverwrites.edit(teamData.capitanId, { ViewChannel: true, SendMessages: false });
+                const guild = await client.guilds.fetch(latestTournament.guildId).catch(() => null);
+
+                // Permisos para el capitán principal
+                try {
+                    const capMember = guild ? await guild.members.fetch(teamData.capitanId).catch(() => null) : null;
+                    const capTarget = capMember || (await client.users.fetch(teamData.capitanId).catch(() => null)) || teamData.capitanId;
+                    await chatChannel.permissionOverwrites.edit(capTarget, { ViewChannel: true, SendMessages: true });
+                    await matchesChannel.permissionOverwrites.edit(capTarget, { ViewChannel: true, SendMessages: false });
+                } catch (permErr) {
+                    console.warn(`[PERMS] Error dando permisos al capitán ${teamData.capitanId}:`, permErr.message);
+                }
+
+                // Permisos para el co-capitán (resolviendo miembro/usuario para evitar InvalidType)
+                if (teamData.coCaptainId) {
+                    try {
+                        const coCapMember = guild ? await guild.members.fetch(teamData.coCaptainId).catch(() => null) : null;
+                        const coCapTarget = coCapMember || (await client.users.fetch(teamData.coCaptainId).catch(() => null));
+                        if (coCapTarget) {
+                            await chatChannel.permissionOverwrites.edit(coCapTarget, { ViewChannel: true, SendMessages: true });
+                            await matchesChannel.permissionOverwrites.edit(coCapTarget, { ViewChannel: true });
+                        }
+                    } catch (coCapErr) {
+                        console.warn(`[PERMS] Error dando permisos al co-capitán ${teamData.coCaptainId}:`, coCapErr.message);
+                    }
+                }
 
                 const inviteButtonRow = new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
@@ -1649,27 +1672,37 @@ export async function approveTeam(client, tournament, teamData) {
                         .setEmoji('🤝')
                 );
 
-                let welcomeContent = `👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre}).`;
-                
-                if (teamData.coCaptainId) {
-                    await chatChannel.permissionOverwrites.edit(teamData.coCaptainId, { ViewChannel: true, SendMessages: true });
-                    await matchesChannel.permissionOverwrites.edit(teamData.coCaptainId, { ViewChannel: true });
-                    welcomeContent = `👋 ¡Bienvenidos, <@${teamData.capitanId}> y <@${teamData.coCaptainId}>! (${teamData.nombre}).`;
-                } else if (teamData.extraCaptains && teamData.extraCaptains.length > 0) {
-                    const extraPings = teamData.extraCaptains.map(id => `<@${id}>`).join(', ');
-                    welcomeContent = `👋 ¡Bienvenidos, <@${teamData.capitanId}> y ${extraPings}! (${teamData.nombre}).`;
+                // Construir menciones para todos los responsables (capitán, co-capitán y extras)
+                const allCaptainIds = new Set();
+                if (teamData.capitanId) allCaptainIds.add(teamData.capitanId);
+                if (teamData.coCaptainId) allCaptainIds.add(teamData.coCaptainId);
+                if (Array.isArray(teamData.extraCaptains)) {
+                    teamData.extraCaptains.forEach(id => { if (id) allCaptainIds.add(id); });
                 }
 
-                const componentsToSend = teamData.coCaptainId ? [] : [inviteButtonRow];
-                const msgSuffix = teamData.coCaptainId ? '' : `\n*Puedes usar el botón de abajo para invitar a tu co-capitán.*`;
+                let welcomeContent;
+                if (allCaptainIds.size > 1) {
+                    const pings = Array.from(allCaptainIds).map(id => `<@${id}>`).join(' y ');
+                    welcomeContent = `👋 ¡Bienvenidos, ${pings}! (${teamData.nombre}).`;
+                } else {
+                    welcomeContent = `👋 ¡Bienvenido, <@${teamData.capitanId}>! (${teamData.nombre}).`;
+                }
 
-                await chatChannel.send({
-                    content: `${welcomeContent}${msgSuffix}`,
-                    components: componentsToSend
-                });
+                const hasCoCapOrExtras = (teamData.coCaptainId || (teamData.extraCaptains && teamData.extraCaptains.length > 0));
+                const componentsToSend = hasCoCapOrExtras ? [] : [inviteButtonRow];
+                const msgSuffix = hasCoCapOrExtras ? '' : `\n*Puedes usar el botón de abajo para invitar a tu co-capitán.*`;
+
+                try {
+                    await chatChannel.send({
+                        content: `${welcomeContent}${msgSuffix}`,
+                        components: componentsToSend
+                    });
+                } catch (sendErr) {
+                    console.error(`Error enviando mensaje de bienvenida para ${teamData.nombre}:`, sendErr.message);
+                }
 
             } catch (e) {
-                console.error(`Error al notificar al capitán ${teamData.capitanId} sobre la aprobación o al dar permisos:`, e);
+                console.error(`Error general al notificar o dar permisos a ${teamData.capitanId}:`, e);
             }
         }
         await notifyCastersOfNewTeam(client, latestTournament, teamData);

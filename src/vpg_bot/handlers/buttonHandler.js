@@ -776,6 +776,24 @@ const handler = async (client, interaction) => {
             );
             console.log(`[VPG KICK] $pull ejecutado para ${targetId} en equipo ${team.name} (_id: ${team._id}). matchedCount: ${pullResult.matchedCount}, modifiedCount: ${pullResult.modifiedCount}`);
 
+            // Sincronizar en bolsas de equipos abiertas
+            try {
+                const tourneyDb = mongoose.connection.client.db(process.env.DB_NAME || 'tournamentBotDb');
+                const pools = await tourneyDb.collection('team_pools').find({ status: 'open' }).toArray();
+                for (const pool of pools) {
+                    const entry = Object.entries(pool.teams || {}).find(([k, v]) => v.teamDbId === team._id.toString());
+                    if (entry) {
+                        const [key] = entry;
+                        await tourneyDb.collection('team_pools').updateOne(
+                            { _id: pool._id },
+                            { $pull: { [`teams.${key}.captains`]: targetId } }
+                        );
+                    }
+                }
+            } catch (poolErr) {
+                console.warn('[VPG KICK] Error limpiando de bolsas:', poolErr.message);
+            }
+
             await targetMember.roles.remove([process.env.PLAYER_ROLE_ID, process.env.CAPTAIN_ROLE_ID, process.env.MUTED_ROLE_ID]).catch(() => { });
             if (targetMember.id !== interaction.guild.ownerId) await targetMember.setNickname(targetMember.user.username).catch(() => { });
 

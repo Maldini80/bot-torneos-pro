@@ -8216,6 +8216,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
             let eafcName = poolTeam.teamName; // Fallback al nombre del equipo
             let eaClubId = null;
             let eaPlatform = null;
+            let liveCaptains = poolTeam.captains || [];
             try {
                 const testDb = getDb('test');
                 const dbTeam = await testDb.collection('teams').findOne({ _id: new ObjectId(poolTeam.teamDbId) });
@@ -8223,11 +8224,17 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
                     if (dbTeam.eaClubName) eafcName = dbTeam.eaClubName;
                     if (dbTeam.eaClubId) eaClubId = dbTeam.eaClubId;
                     if (dbTeam.eaPlatform) eaPlatform = dbTeam.eaPlatform;
+                    if (Array.isArray(dbTeam.captains)) {
+                        liveCaptains = dbTeam.captains;
+                    }
                 }
             } catch (lookupErr) {
-                console.warn(`[Pool→Tournament] No se pudo buscar datos EA para ${poolTeam.teamName}:`, lookupErr.message);
+                console.warn(`[Pool→Tournament] No se pudo buscar datos del equipo para ${poolTeam.teamName}:`, lookupErr.message);
             }
             // --- FIN FIX ---
+
+            const coCaptain = liveCaptains.find(c => c !== captainId) || null;
+            const extraCaps = liveCaptains.filter(c => c !== captainId);
 
             const teamData = {
                 id: captainId,
@@ -8237,14 +8244,14 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
                 eaPlatform: eaPlatform,
                 capitanId: captainId,
                 capitanTag: 'Bolsa_Inscripcion',
-                coCaptainId: poolTeam.captains?.[0] || null,
+                coCaptainId: coCaptain,
                 coCaptainTag: null,
                 bandera: '🏳️',
                 paypal: null,
                 streamChannel: null,
                 twitter: null,
                 inscritoEn: new Date(),
-                extraCaptains: (poolTeam.captains || []).filter(c => c !== captainId)
+                extraCaptains: extraCaps
             };
 
             await db.collection('tournaments').updateOne(
