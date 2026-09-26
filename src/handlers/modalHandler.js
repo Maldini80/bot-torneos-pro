@@ -438,10 +438,12 @@ export async function handleModal(interaction) {
             userId: interaction.user.id,
             discordId: interaction.user.id,
             discordUsername: interaction.user.tag,
+            discordTag: interaction.user.tag,
             gameId: gameId,
             whatsapp: whatsappNumber,
             position: position,
-            timestamp: new Date()
+            timestamp: new Date(),
+            createdAt: new Date()
         };
 
         const existingReg = await db.collection('external_draft_registrations').findOne({
@@ -551,11 +553,14 @@ export async function handleModal(interaction) {
         const data = {
             tournamentId: tournamentShortId,
             userId: targetUserId,
+            discordId: targetUserId,
+            discordUsername: targetUserTag,
             discordTag: targetUserTag,
             gameId: gameId,
             whatsapp: whatsappNumber,
             position: position,
             registeredAt: new Date(),
+            createdAt: new Date(),
             manuallyAdded: true
         };
 

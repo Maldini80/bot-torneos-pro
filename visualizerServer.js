@@ -4080,6 +4080,7 @@ export async function startVisualizerServer(discordClient) {
                 discordId: req.user.id,
                 userId: req.user.id,
                 discordUsername: req.user.global_name || req.user.username,
+                discordTag: req.user.global_name || req.user.username,
                 gameId: sanitizeInput(gameId, 50),
                 whatsapp: normalizedWA,
                 position,
@@ -4223,10 +4224,13 @@ export async function startVisualizerServer(discordClient) {
                 return res.status(400).json({ error: 'Campos obligatorios.' });
             }
 
+            const manualId = 'manual_' + Date.now();
             const registration = {
                 tournamentId,
-                discordId: 'manual_' + Date.now(),
+                discordId: manualId,
+                userId: manualId,
                 discordUsername: discordUsername || 'Manual',
+                discordTag: discordUsername || 'Manual',
                 gameId: sanitizeInput(gameId, 50),
                 whatsapp: normalizeWhatsApp(whatsapp),
                 position,

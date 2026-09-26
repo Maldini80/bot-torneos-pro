@@ -687,11 +687,11 @@ export async function handleSelectMenu(interaction) {
         const pagePlayers = players.slice(startIdx, startIdx + pageSize);
 
         const options = pagePlayers
-            .filter(p => p.userId) // Filtrar jugadores sin userId válido
+            .filter(p => p.userId || p.discordId)
             .map(p => ({
                 label: p.gameId || 'Desconocido',
-                description: `Discord: ${p.discordTag || 'Sin Tag'}`,
-                value: String(p.userId),
+                description: `Discord: ${p.discordUsername || p.discordTag || 'Sin Tag'}`.slice(0, 100),
+                value: String(p.userId || p.discordId),
                 emoji: '👤'
             }));
 
@@ -729,7 +729,10 @@ export async function handleSelectMenu(interaction) {
 
         await interaction.deferUpdate();
 
-        const player = await db.collection('external_draft_registrations').findOne({ tournamentId: tournamentShortId, userId: userId });
+        const player = await db.collection('external_draft_registrations').findOne({
+            tournamentId: tournamentShortId,
+            $or: [{ userId: userId }, { discordId: userId }]
+        });
         if (!player) return interaction.editReply({ content: 'Jugador no encontrado.', components: [] });
 
         const confButtons = new ActionRowBuilder().addComponents(

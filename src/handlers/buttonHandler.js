@@ -291,7 +291,7 @@ export async function handleButton(interaction) {
             if (tournament.registrationsClosed === false) {
                 const playerReg = await db.collection('external_draft_registrations').findOne({
                     tournamentId: tournamentShortId,
-                    userId: interaction.user.id
+                    $or: [{ userId: interaction.user.id }, { discordId: interaction.user.id }]
                 });
 
                 if (playerReg) {
@@ -2089,7 +2089,7 @@ export async function handleButton(interaction) {
         if (action === 'admin_approve_reg_upd') {
             // Apply changes to registration
             await db.collection('external_draft_registrations').updateOne(
-                { tournamentId: tournamentShortId, userId: targetUserId },
+                { tournamentId: tournamentShortId, $or: [{ userId: targetUserId }, { discordId: targetUserId }] },
                 {
                     $set: {
                         gameId: request.gameId,
@@ -7023,11 +7023,11 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
 
         const existing = await db.collection('external_draft_registrations').findOne({
             tournamentId: tournamentShortId,
-            userId: userId
+            $or: [{ userId: userId }, { discordId: userId }]
         });
 
         if (existing) {
-            await db.collection('external_draft_registrations').deleteOne({ tournamentId: tournamentShortId, userId: userId });
+            await db.collection('external_draft_registrations').deleteOne({ _id: existing._id });
 
             const trn = await db.collection('tournaments').findOne({ shortId: tournamentShortId });
             if (trn && trn.registrationLogThreadId) {
