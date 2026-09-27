@@ -1,8 +1,29 @@
-// src/logic/eloLogic.js
-// Módulo de cálculo y gestión de ELO basado en clasificación VPG.
-
+import { ObjectId } from 'mongodb';
 import { getBotSettings, getDb } from '../../database.js';
 import { fetchVpgSpainLeagues } from '../utils/vpgCrawler.js';
+
+const ELO_MIN = 0;
+
+// Recompensas por defecto para Playoffs (calibradas según settings)
+const DEFAULT_PLAYOFF_VALS = {
+    champion: 45,
+    runner_up: 24,
+    semifinalist: 12,
+    quarterfinalist: 5,
+    round_of_16: -6,
+    groups_top_half: -9,
+    groups_bottom_half: -15
+};
+
+// Recompensas por defecto para Liga (calibradas según settings)
+const DEFAULT_LEAGUE_VALS = {
+    first: 36,
+    second: 23,
+    third: 12,
+    top_half: 5,
+    bottom_half: -11,
+    last: -18
+};
 
 const SUPERLIGA_SLUGS = ['superliga-spain-a', 'superliga-spain-b'];
 const DIAMOND_CUTOFF = 6; // Top 6 posiciones son DIAMOND
@@ -333,4 +354,368 @@ function sortTeamsForRanking(a, b, tournamentState) {
         return (!a.nombre ? 1 : -1);
     }
     return a.nombre.localeCompare(b.nombre);
+}
+
+function isValidObjectId(id) {
+    if (!id || typeof id !== 'string') return false;
+    try {
+        return ObjectId.isValid(id) && String(new ObjectId(id)) === id;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Función principal que se llama cuando un torneo finaliza para distribuir ELO
+ */
+export async function distributeTournamentElo(client, tournamentState) {
+    if (!tournamentState) return { success: false, message: 'Torneo no proporcionado' };
+
+    if (tournamentState.config?.requireElo === false) {
+        console.log(`[ELO] Torneo ${tournamentState.shortId} tiene ELO desactivado (requireElo: false). Omitiendo distribución.`);
+        return { success: true, message: 'Torneo con ELO desactivado' };
+    }
+    if (tournamentState.config?.isPaid) {
+        console.log(`[ELO] Torneo de pago ${tournamentState.shortId} omitido para ELO.`);
+        return { success: true, message: 'Torneo de pago omitido' };
+    }
+    if (tournamentState.shortId?.startsWith('draft-')) {
+        console.log(`[ELO] Torneo Draft ${tournamentState.shortId} omitido para ELO.`);
+        return { success: true, message: 'Torneo draft omitido' };
+    }
+    if (tournamentState.eloDistributed) {
+        console.log(`[ELO] ELO ya fue distribuido previamente para ${tournamentState.shortId}`);
+        return { success: true, message: 'ELO ya distribuido' };
+    }
+
+    const testDb = getDb('test');
+    console.log(`[ELO] Calculando recompensas de final de torneo: ${tournamentState.shortId}...`);
+
+    const settings = await getBotSettings();
+    const configPlayoff = settings?.eloConfig?.playoff || DEFAULT_PLAYOFF_VALS;
+    const configLeague = settings?.eloConfig?.league || DEFAULT_LEAGUE_VALS;
+
+    const KNOCKOUT_ROUNDS = ['dieciseisavos', 'octavos', 'cuartos', 'semifinales', 'final'];
+    const hasPlayoffs = KNOCKOUT_ROUNDS.some(r => {
+        const stage = tournamentState.structure?.eliminatorias?.[r];
+        if (!stage) return false;
+        if (Array.isArray(stage)) return stage.length > 0;
+        return typeof stage === 'object';
+    });
+
+    let eloUpdates = {};
+    let teamMetaMap = {};
+
+    if (hasPlayoffs) {
+        ({ eloUpdates, teamMetaMap } = calculatePlayoffElo(tournamentState, configPlayoff));
+    } else {
+        ({ eloUpdates, teamMetaMap } = calculateLeagueElo(tournamentState, configLeague));
+    }
+
+    if (Object.keys(eloUpdates).length === 0) {
+        console.log(`[ELO] Sin equipos válidos para actualizar en ${tournamentState.shortId}.`);
+        return { success: false, message: 'Sin equipos válidos' };
+    }
+
+    let modified = 0;
+    const eloSummary = [];
+
+    for (const [teamIdentifier, eloDelta] of Object.entries(eloUpdates)) {
+        if (!teamIdentifier || String(teamIdentifier).startsWith('ghost')) continue;
+
+        const meta = teamMetaMap[teamIdentifier] || {};
+        const teamName = meta.nombre;
+        const eaClubId = meta.eaClubId;
+        const managerId = meta.managerId || teamIdentifier;
+
+        let team = null;
+        if (managerId) {
+            team = await testDb.collection('teams').findOne({ managerId: String(managerId) });
+        }
+        if (!team && eaClubId) {
+            team = await testDb.collection('teams').findOne({ eaClubId: String(eaClubId) });
+        }
+        if (!team && teamName) {
+            team = await testDb.collection('teams').findOne({
+                name: { $regex: new RegExp(`^${teamName.trim()}$`, 'i') }
+            });
+        }
+        if (!team && isValidObjectId(teamIdentifier)) {
+            team = await testDb.collection('teams').findOne({ _id: new ObjectId(teamIdentifier) });
+        }
+
+        if (!team) {
+            console.warn(`[ELO] No se encontró el equipo en test.teams para ID: ${teamIdentifier} (${teamName})`);
+            continue;
+        }
+
+        const oldElo = team.elo || 1000;
+        const newEloRaw = oldElo + eloDelta;
+        const finalElo = Math.max(ELO_MIN, newEloRaw);
+        const newLeague = getLeagueByElo(finalElo);
+
+        await testDb.collection('teams').updateOne(
+            { _id: team._id },
+            { 
+                $set: { elo: finalElo, league: newLeague },
+                $push: { 
+                    eloHistory: { 
+                        $each: [{
+                            date: new Date(),
+                            oldElo,
+                            newElo: finalElo,
+                            delta: eloDelta,
+                            reason: 'tournament_end',
+                            tournamentShortId: tournamentState.shortId
+                        }], 
+                        $slice: -100 
+                    } 
+                }
+            }
+        );
+
+        eloSummary.push({ 
+            name: team.name || team.nombre || teamName || `Team ${teamIdentifier.substring(0, 4)}`, 
+            delta: eloDelta, 
+            newElo: finalElo, 
+            newLeague 
+        });
+        modified++;
+    }
+
+    // Marcar el torneo en la base de datos principal para no repetir la distribución
+    const tournamentDb = getDb();
+    await tournamentDb.collection('tournaments').updateOne(
+        { _id: tournamentState._id },
+        { $set: { eloDistributed: true } }
+    );
+
+    // Enviar notificación a Discord con la tabla de cambios
+    if (modified > 0 && client) {
+        try {
+            const { EmbedBuilder } = await import('discord.js');
+            const { CHANNELS } = await import('../../config.js');
+
+            eloSummary.sort((a, b) => b.delta - a.delta);
+
+            const embed = new EmbedBuilder()
+                .setTitle(`📊 Reparto ELO: ${tournamentState.nombre || 'Torneo'}`)
+                .setColor('#00f6ff')
+                .setFooter({ text: 'El ELO global ha sido actualizado.' })
+                .setTimestamp();
+
+            let tableString = '```\nEQUIPO                | PUNTOS  | NUEVA LIGA\n';
+            tableString += '----------------------|---------|-----------\n';
+
+            for (const t of eloSummary) {
+                const deltaStr = t.delta > 0 ? `+${t.delta}` : `${t.delta}`;
+                const namePad = (t.name || 'Equipo').padEnd(21).substring(0, 21);
+                const deltaPad = deltaStr.padStart(7);
+                const emoji = LEAGUE_EMOJIS[t.newLeague] || '';
+                tableString += `${namePad} | ${deltaPad} | ${emoji} ${t.newLeague}\n`;
+            }
+            tableString += '```';
+
+            embed.setDescription(`Al finalizar este evento, el sistema ha repartido los puntos de ELO según el resultado de cada equipo:\n\n${tableString}`);
+
+            if (tournamentState.discordChannelIds?.infoChannelId) {
+                const infoChannel = await client.channels.fetch(tournamentState.discordChannelIds.infoChannelId).catch(() => null);
+                if (infoChannel) {
+                    await infoChannel.send({ embeds: [embed] });
+                }
+            }
+
+            if (CHANNELS?.TOURNAMENTS_STATUS) {
+                const statusChannel = await client.channels.fetch(CHANNELS.TOURNAMENTS_STATUS).catch(() => null);
+                if (statusChannel && statusChannel.id !== tournamentState.discordChannelIds?.infoChannelId) {
+                    await statusChannel.send({ embeds: [embed] });
+                }
+            }
+        } catch (e) {
+            console.error('[ELO] Error al enviar notificación pública de ELO:', e.message);
+        }
+    }
+
+    console.log(`[ELO] Se actualizó el ELO de ${modified} equipos para el torneo ${tournamentState.shortId}.`);
+    return { success: true, teamsUpdated: modified };
+}
+
+/**
+ * Calcula puntos ELO según la ronda máxima alcanzada en Playoffs.
+ */
+function calculatePlayoffElo(tournamentState, playoffVals) {
+    let teamsRounds = {};
+    let teamMetaMap = {};
+
+    const rondas = ['dieciseisavos', 'octavos', 'cuartos', 'semifinales', 'final'];
+
+    // 1. Recolectar todos los equipos de la fase de grupos (si existe)
+    if (tournamentState.structure?.grupos) {
+        for (const gName in tournamentState.structure.grupos) {
+            const equipos = tournamentState.structure.grupos[gName].equipos || [];
+            for (const eq of equipos) {
+                if (eq.id && !String(eq.id).startsWith('ghost')) {
+                    teamsRounds[eq.id] = 'grupos';
+                    teamMetaMap[eq.id] = {
+                        nombre: eq.nombre || eq.name,
+                        eaClubId: eq.eaClubId,
+                        managerId: eq.managerId || eq.capitanId || eq.id
+                    };
+                }
+            }
+        }
+    }
+
+    // 2. Escanear las eliminatorias para ver hasta dónde llegó cada uno
+    const elims = tournamentState.structure?.eliminatorias || {};
+
+    let highestRound = null;
+    for (const r of [...rondas].reverse()) {
+        const stage = elims[r];
+        if (stage && (Array.isArray(stage) ? stage.length > 0 : typeof stage === 'object')) {
+            highestRound = r;
+            break;
+        }
+    }
+
+    for (const ronda of rondas) {
+        if (!elims[ronda]) continue;
+        const matches = Array.isArray(elims[ronda]) ? elims[ronda] : [elims[ronda]];
+        for (const m of matches) {
+            if (!m || !m.equipoA || !m.equipoB) continue;
+
+            const idA = m.equipoA.id || m.equipoA._id || m.equipoA.capitanId;
+            const idB = m.equipoB.id || m.equipoB._id || m.equipoB.capitanId;
+
+            if (idA && !String(idA).startsWith('ghost')) {
+                teamsRounds[idA] = ronda;
+                if (!teamMetaMap[idA]) {
+                    teamMetaMap[idA] = {
+                        nombre: m.equipoA.nombre || m.equipoA.name,
+                        eaClubId: m.equipoA.eaClubId,
+                        managerId: m.equipoA.managerId || m.equipoA.capitanId || idA
+                    };
+                }
+            }
+            if (idB && !String(idB).startsWith('ghost')) {
+                teamsRounds[idB] = ronda;
+                if (!teamMetaMap[idB]) {
+                    teamMetaMap[idB] = {
+                        nombre: m.equipoB.nombre || m.equipoB.name,
+                        eaClubId: m.equipoB.eaClubId,
+                        managerId: m.equipoB.managerId || m.equipoB.capitanId || idB
+                    };
+                }
+            }
+
+            if (m.resultado) {
+                const [gA, gB] = m.resultado.split('-').map(Number);
+                if (!isNaN(gA) && !isNaN(gB)) {
+                    if (ronda === 'final') {
+                        if (gA > gB && idA) teamsRounds[idA] = 'campeon';
+                        else if (gB > gA && idB) teamsRounds[idB] = 'campeon';
+                    } else if (ronda === highestRound) {
+                        if (gA > gB && idA) teamsRounds[idA] = `winner_${ronda}`;
+                        else if (gB > gA && idB) teamsRounds[idB] = `winner_${ronda}`;
+                    }
+                }
+            }
+        }
+    }
+
+    // Obtener y clasificar a los equipos eliminados en fase de grupos
+    let gruposRanking = [];
+    if (tournamentState.structure?.grupos) {
+        for (const gName in tournamentState.structure.grupos) {
+            gruposRanking = gruposRanking.concat(tournamentState.structure.grupos[gName].equipos || []);
+        }
+        gruposRanking = gruposRanking.filter(t => t.id && !String(t.id).startsWith('ghost'));
+        gruposRanking.sort((a, b) => sortTeamsForRanking(a, b, tournamentState));
+    }
+
+    const totalEliminados = gruposRanking.filter(t => teamsRounds[t.id] === 'grupos');
+    const mitadEliminados = Math.ceil(totalEliminados.length / 2);
+
+    // 3. Traducir rondas a puntos ELO
+    let eloUpdates = {};
+    for (const [id, maxRonda] of Object.entries(teamsRounds)) {
+        let delta = 0;
+        switch (maxRonda) {
+            case 'campeon': delta = playoffVals.champion; break;
+            case 'winner_semifinales':
+            case 'final': delta = playoffVals.runner_up; break;
+            case 'winner_cuartos':
+            case 'semifinales': delta = playoffVals.semifinalist; break;
+            case 'winner_octavos':
+            case 'cuartos': delta = playoffVals.quarterfinalist; break;
+            case 'octavos': delta = playoffVals.round_of_16; break;
+            case 'dieciseisavos': 
+            case 'grupos':
+            default: {
+                const objTeam = totalEliminados.find(t => t.id === id);
+                if (objTeam) {
+                    const idx = totalEliminados.indexOf(objTeam);
+                    delta = (idx < mitadEliminados) ? playoffVals.groups_top_half : playoffVals.groups_bottom_half;
+                } else {
+                    delta = playoffVals.groups_bottom_half;
+                }
+                break;
+            }
+        }
+        eloUpdates[id] = delta;
+    }
+
+    return { eloUpdates, teamMetaMap };
+}
+
+/**
+ * Calcula puntos ELO según la posición final en Liga Pura o Formato Suizo.
+ */
+function calculateLeagueElo(tournamentState, leagueVals) {
+    let eloUpdates = {};
+    let teamMetaMap = {};
+
+    let allTeams = [];
+    if (tournamentState.structure?.grupos) {
+        for (const gName in tournamentState.structure.grupos) {
+            allTeams = allTeams.concat(tournamentState.structure.grupos[gName].equipos || []);
+        }
+    }
+
+    allTeams = allTeams.filter(t => t.id && !String(t.id).startsWith('ghost'));
+    if (allTeams.length === 0) return { eloUpdates, teamMetaMap };
+
+    // Ordenar por puntos (desc), dif goles (desc), goles favor (desc) con desempate directo
+    allTeams.sort((a, b) => sortTeamsForRanking(a, b, tournamentState));
+
+    const total = allTeams.length;
+    allTeams.forEach((team, index) => {
+        const id = team.id || team.capitanId || team.managerId;
+        teamMetaMap[id] = {
+            nombre: team.nombre || team.name,
+            eaClubId: team.eaClubId,
+            managerId: team.managerId || team.capitanId || id
+        };
+
+        const rank = index + 1;
+        let delta = 0;
+
+        if (rank === 1) {
+            delta = leagueVals.first;
+        } else if (rank === 2) {
+            delta = leagueVals.second;
+        } else if (rank === 3) {
+            delta = leagueVals.third;
+        } else if (rank === total && total > 3) {
+            delta = leagueVals.last;
+        } else if (rank <= Math.ceil(total / 2)) {
+            delta = leagueVals.top_half;
+        } else {
+            delta = leagueVals.bottom_half;
+        }
+
+        eloUpdates[id] = delta;
+    });
+
+    return { eloUpdates, teamMetaMap };
 }

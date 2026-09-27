@@ -163,7 +163,7 @@ async function runVpgCrawler(manual = false, onProgress = null) {
             console.error(`[CRAWLER] Error procesando equipo ${team.name}:`, error);
         }
         if (onProgress) {
-            await onProgress(i, totalTeams, team.name).catch(() => {});
+            await Promise.resolve(onProgress(i, totalTeams, team.name)).catch(() => {});
         }
     }
     console.log('[CRAWLER] Recolección de estadísticas finalizada.');

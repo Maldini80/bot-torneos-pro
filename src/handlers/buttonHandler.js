@@ -4978,7 +4978,7 @@ Mitad Inferior: **${configLeague.bottom_half > 0 ? '+'+configLeague.bottom_half 
         const { embeds, components } = createTournamentCategoryPanel(tournament, 'configuracion');
         await interaction.editReply({ embeds, components });
 
-        await interaction.followUp({ content: `✅ Validación de ELO **${newRequireElo ? 'ACTIVADA' : 'DESACTIVADA'}** para este torneo.`, flags: [MessageFlags.Ephemeral] });
+        await interaction.followUp({ content: `✅ ELO del torneo **${newRequireElo ? 'ACTIVADO (computa y reparte ELO al finalizar)' : 'DESACTIVADO (ignorado, no reparte ELO)'}**.`, flags: [MessageFlags.Ephemeral] });
         return;
     }
 

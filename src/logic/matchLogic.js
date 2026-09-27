@@ -40,6 +40,12 @@ export async function processMatchResult(client, guild, tournament, matchId, res
     const { partido, fase } = findMatch(currentTournament, matchId);
     if (!partido) throw new Error(`Partido ${matchId} no encontrado en torneo ${currentTournament.shortId}`);
 
+    // Si el partido ya está finalizado con el MISMO resultado, omitir para evitar estadísticas duplicadas
+    if (partido.status === 'finalizado' && partido.resultado === resultString) {
+        console.log(`[MATCH] Partido ${matchId} ya está finalizado con el resultado ${resultString}. Omitiendo para evitar duplicación.`);
+        return partido;
+    }
+
     // Capturar resultado anterior ANTES de sobreescribir (necesario para reversión atómica)
     const oldResultado = partido.resultado || null;
 
