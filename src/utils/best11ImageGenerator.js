@@ -1,5 +1,4 @@
-// src/utils/best11ImageGenerator.js
-import { createCanvas, loadImage } from 'canvas';
+const { createCanvas, loadImage } = await import('canvas').catch(async () => await import('@napi-rs/canvas'));
 import { AttachmentBuilder } from 'discord.js';
 
 /**

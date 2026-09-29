@@ -1,4 +1,4 @@
-import { registerFont, createCanvas, loadImage } from 'canvas';
+const { registerFont = () => {}, createCanvas, loadImage } = await import('canvas').catch(async () => await import('@napi-rs/canvas'));
 import path from 'path';
 import { EmbedBuilder } from 'discord.js';
 

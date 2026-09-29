@@ -1,5 +1,4 @@
-// src/utils/vpgBest11ImageGenerator.js
-import { createCanvas, loadImage } from 'canvas';
+const { createCanvas, loadImage } = await import('canvas').catch(async () => await import('@napi-rs/canvas'));
 
 /**
  * Genera una imagen premium del Mejor 11 VPG en formación 3-5-2.

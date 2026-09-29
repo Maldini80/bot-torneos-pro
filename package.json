@@ -10,6 +10,7 @@
     "build": "npm run deploy:commands"
   },
   "dependencies": {
+    "@napi-rs/canvas": "^1.0.9",
     "@vitalets/google-translate-api": "^9.2.0",
     "axios": "^1.3.4",
     "canvas": "^2.11.2",
