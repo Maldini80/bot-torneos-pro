@@ -190,8 +190,19 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
                         realGoalsB = playersB.reduce((sum, p) => sum + parseInt(p.goals || 0), 0);
                     }
                     
-                    goalsA = realGoalsA;
-                    goalsB = realGoalsB;
+                    const anyPlayerSecs = Math.max(
+                        0,
+                        ...Object.values(match.players?.[String(clubIdA)] || {}).map(p => parseInt(p.secondsPlayed || p.secondsplayed || 0)),
+                        ...Object.values(match.players?.[String(clubIdB)] || {}).map(p => parseInt(p.secondsPlayed || p.secondsplayed || 0))
+                    );
+
+                    if (realGoalsA > 0 || realGoalsB > 0) {
+                        goalsA = realGoalsA;
+                        goalsB = realGoalsB;
+                    } else if (anyPlayerSecs < 1200) {
+                        goalsA = 0;
+                        goalsB = 0;
+                    }
                 }
                 // ----------------------------------------------
                 
