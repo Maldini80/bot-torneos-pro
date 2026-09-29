@@ -1525,7 +1525,12 @@ const handler = async (client, interaction) => {
             const { runVpgCrawler } = await import('../../utils/eaStatsCrawler.js');
             
             let lastUpdate = Date.now();
-            const onProgress = async (current, total, teamName) => {
+            let totalFoundSoFar = 0;
+            let totalSavedSoFar = 0;
+
+            const onProgress = async (current, total, teamName, matchesCount = 0, newMatchesCount = 0) => {
+                totalFoundSoFar += (matchesCount || 0);
+                totalSavedSoFar += (newMatchesCount || 0);
                 const now = Date.now();
                 // Actualizar cada 2.5 segundos o si es el último equipo, para no rate-limitear a Discord
                 if (now - lastUpdate > 2500 || current === total) {
@@ -1534,14 +1539,32 @@ const handler = async (client, interaction) => {
                     const filled = Math.floor(percentage / 10);
                     const bar = '🟩'.repeat(filled) + '⬜'.repeat(10 - filled);
                     
+                    const teamStatus = (matchesCount > 0)
+                        ? `Procesados **${matchesCount}** partidos (${newMatchesCount} nuevos)`
+                        : `Procesados **0** partidos`;
+
                     await interaction.editReply({ 
-                        content: `🚀 **Escaneo Manual en Progreso**\n\n**Progreso:** ${current} / ${total} equipos completados (${percentage}%)\n${bar}\n\nAnalizando: \`${teamName}\`` 
+                        content: `🚀 **Escaneo Manual en Progreso**\n\n` +
+                                 `**Progreso:** ${current} / ${total} equipos completados (${percentage}%)\n${bar}\n\n` +
+                                 `Último: \`${teamName}\` ➔ ${teamStatus}\n` +
+                                 `*Total acumulado: ${totalFoundSoFar} partidos en EA (${totalSavedSoFar} nuevos guardados)*`
                     }).catch(() => {});
                 }
             };
 
-            const totalTeams = await runVpgCrawler(true, onProgress);
-            return interaction.editReply({ content: `✅ ¡Escaneo manual de EA Sports completado con éxito!\nSe procesaron **${totalTeams} equipos** y sus estadísticas locales han sido actualizadas.` });
+            const result = await runVpgCrawler(true, onProgress);
+            const totalTeams = (typeof result === 'object' && result?.totalTeams !== undefined) ? result.totalTeams : result;
+            const discovered = (typeof result === 'object' && result?.totalMatchesDiscovered !== undefined) ? result.totalMatchesDiscovered : totalFoundSoFar;
+            const saved = (typeof result === 'object' && result?.totalNewMatchesSaved !== undefined) ? result.totalNewMatchesSaved : totalSavedSoFar;
+
+            return interaction.editReply({ 
+                content: `✅ ¡Escaneo manual de EA Sports completado con éxito!\n\n` +
+                         `📊 **Resumen:**\n` +
+                         `• Equipos analizados: **${totalTeams}**\n` +
+                         `• Partidos procesados en EA: **${discovered}**\n` +
+                         `• Partidos nuevos guardados: **${saved}**\n\n` +
+                         `Las estadísticas de jugadores y clubes ya están actualizadas.` 
+            });
         } catch (error) {
             if (error.message === 'CRAWLER_ALREADY_RUNNING') {
                 return interaction.editReply({ content: '⏳ Ya hay un escaneo de EA Sports ejecutándose en este momento (probablemente otro admin lo acaba de pulsar o es la hora automática). Por favor, espera a que termine.' });

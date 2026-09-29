@@ -61,12 +61,15 @@ async function runVpgCrawler(manual = false, onProgress = null) {
 
     let i = 0;
     const totalTeams = teams.length;
+    let totalMatchesDiscovered = 0;
+    let totalNewMatchesSaved = 0;
 
     for (const team of teams) {
         i++;
         const platform = team.eaPlatform || 'common-gen5';
         const clubId = team.eaClubId;
-        console.log(`[CRAWLER] Procesando equipo: ${team.name} (ClubID: ${clubId})`);
+        let matchesCount = 0;
+        let newMatchesCount = 0;
 
         if (i > 1) {
             await new Promise(resolve => setTimeout(resolve, 250));
@@ -79,7 +82,10 @@ async function runVpgCrawler(manual = false, onProgress = null) {
             if (proxyDispatcher) fetchOptions.dispatcher = proxyDispatcher;
             const res = await fetch(url, fetchOptions);
             if (!res.ok) {
-                console.warn(`[CRAWLER] ❌ Error EA API HTTP ${res.status} ${res.statusText} para ${team.name} (ClubID: ${clubId})`);
+                console.warn(`[CRAWLER] [${i}/${totalTeams}] ${team.name}: ❌ Error EA API HTTP ${res.status} ${res.statusText} (ClubID: ${clubId})`);
+                if (onProgress) {
+                    await Promise.resolve(onProgress(i, totalTeams, team.name, 0, 0, `HTTP ${res.status}`)).catch(() => {});
+                }
                 continue;
             }
 
@@ -88,7 +94,8 @@ async function runVpgCrawler(manual = false, onProgress = null) {
                 matches = Object.values(matches || {});
             }
 
-            console.log(`[CRAWLER] API devolvió ${matches.length} partidos para ${team.name}`);
+            matchesCount = matches.length;
+            totalMatchesDiscovered += matchesCount;
 
             // === FASE 1: Filtrar partidos nuevos por franja horaria y duplicados ===
             const newMatches = [];
@@ -114,7 +121,6 @@ async function runVpgCrawler(manual = false, onProgress = null) {
                         inRange = matchMinutes >= startMin || matchMinutes <= endMin;
                     }
                     if (!inRange) {
-                        console.log(`[CRAWLER] ⏰ Partido ${matchId} ignorado (${madridTimeStr}h Madrid, fuera de ${settings.crawlerTimeRange.start}-${settings.crawlerTimeRange.end})`);
                         continue;
                     }
                 }
@@ -125,67 +131,82 @@ async function runVpgCrawler(manual = false, onProgress = null) {
                 newMatches.push(match);
             }
 
-            if (newMatches.length === 0) continue;
+            newMatchesCount = newMatches.length;
+            totalNewMatchesSaved += newMatchesCount;
 
-            // === FASE 2: Agrupar por rival dentro de ventana de 3h ===
-            const groups = groupMatchesByOpponent(newMatches, clubId);
+            if (newMatchesCount > 0) {
+                console.log(`[CRAWLER] [${i}/${totalTeams}] ${team.name}: Procesados ${matchesCount} partidos de este equipo (${newMatchesCount} nuevos guardados)`);
+            } else if (matchesCount > 0) {
+                console.log(`[CRAWLER] [${i}/${totalTeams}] ${team.name}: Procesados ${matchesCount} partidos de este equipo (0 nuevos, ya registrados)`);
+            } else {
+                console.log(`[CRAWLER] [${i}/${totalTeams}] ${team.name}: Procesados 0 partidos de este equipo (sin partidos en EA)`);
+            }
 
-            // === FASE 3: Procesar cada grupo (agregando sesiones si hay desconexiones) ===
-            for (const group of groups) {
-                // Insertar TODAS las sesiones en scanned_matches (datos crudos)
-                for (const match of group) {
-                    await matchColl.insertOne(match);
-                }
+            if (newMatchesCount > 0) {
+                // === FASE 2: Agrupar por rival dentro de ventana de 3h ===
+                const groups = groupMatchesByOpponent(newMatches, clubId);
 
-                // Agregamos las estadísticas de todas las sesiones del grupo (DNF inteligente)
-                const aggregated = aggregateGroupStats(group, clubId);
-                const isShortMatch = aggregated.maxSecs > 0 && aggregated.maxSecs < 5200;
-
-                if (group.length > 1) {
-                    console.log(`[CRAWLER] 🔗 ${group.length} sesiones fusionadas vs mismo rival para ${team.name}. Goles: ${aggregated.goals} - ${aggregated.goalsAgainst} (${Math.floor(aggregated.maxSecs/60)} min totales).`);
-                }
-
-                const isWin = aggregated.goals > aggregated.goalsAgainst ? 1 : 0;
-                const isTie = aggregated.goals === aggregated.goalsAgainst ? 1 : 0;
-
-                // Process players (con los datos agregados)
-                for (const playerName in aggregated.players) {
-                    const player = aggregated.players[playerName];
-                    
-                    const pm = player.passesMade || 0;
-                    const sh = player.shots || 0;
-                    const tk = player.tacklesMade || 0;
-                    const hasRealStats = (pm + sh + tk) > 0;
-
-                    const isVpgClub = !!(team.vpgLeagueSlug || (team.get && team.get('vpgLeagueSlug')));
-                    if (isShortMatch && !hasRealStats) {
-                        console.log(`[CRAWLER] 🔌 DNF sin datos para ${playerName} (${team.name}) en grupo de ${group.length} sesiones. Solo rating.`);
-                        await updatePlayerProfileRatingOnly(playerColl, playerName, player, team.name, isVpgClub);
-                    } else {
-                        await updatePlayerProfile(playerColl, playerName, player, team.name, aggregated.goalsAgainst, isWin, isTie, isVpgClub);
+                // === FASE 3: Procesar cada grupo (agregando sesiones si hay desconexiones) ===
+                for (const group of groups) {
+                    // Insertar TODAS las sesiones en scanned_matches (datos crudos)
+                    for (const match of group) {
+                        await matchColl.insertOne(match);
                     }
-                }
 
-                // Process club stats (usando la mejor sesión como base pero con los goles y goles en contra correctos de la fusión)
-                const bestMatch = findBestSession(group, clubId);
-                if (bestMatch.clubs && bestMatch.clubs[clubId]) {
-                    const clubStats = {
-                        ...bestMatch.clubs[clubId],
-                        goals: String(aggregated.goals),
-                        goalsAgainst: String(aggregated.goalsAgainst)
-                    };
-                    await updateClubProfile(clubColl, clubId, team.name, clubStats, bestMatch);
+                    // Agregamos las estadísticas de todas las sesiones del grupo (DNF inteligente)
+                    const aggregated = aggregateGroupStats(group, clubId);
+                    const isShortMatch = aggregated.maxSecs > 0 && aggregated.maxSecs < 5200;
+
+                    if (group.length > 1) {
+                        console.log(`[CRAWLER] 🔗 ${group.length} sesiones fusionadas vs mismo rival para ${team.name}. Goles: ${aggregated.goals} - ${aggregated.goalsAgainst} (${Math.floor(aggregated.maxSecs/60)} min totales).`);
+                    }
+
+                    const isWin = aggregated.goals > aggregated.goalsAgainst ? 1 : 0;
+                    const isTie = aggregated.goals === aggregated.goalsAgainst ? 1 : 0;
+
+                    // Process players (con los datos agregados)
+                    for (const playerName in aggregated.players) {
+                        const player = aggregated.players[playerName];
+                        
+                        const pm = player.passesMade || 0;
+                        const sh = player.shots || 0;
+                        const tk = player.tacklesMade || 0;
+                        const hasRealStats = (pm + sh + tk) > 0;
+
+                        const isVpgClub = !!(team.vpgLeagueSlug || (team.get && team.get('vpgLeagueSlug')));
+                        if (isShortMatch && !hasRealStats) {
+                            console.log(`[CRAWLER] 🔌 DNF sin datos para ${playerName} (${team.name}) en grupo de ${group.length} sesiones. Solo rating.`);
+                            await updatePlayerProfileRatingOnly(playerColl, playerName, player, team.name, isVpgClub);
+                        } else {
+                            await updatePlayerProfile(playerColl, playerName, player, team.name, aggregated.goalsAgainst, isWin, isTie, isVpgClub);
+                        }
+                    }
+
+                    // Process club stats (usando la mejor sesión como base pero con los goles y goles en contra correctos de la fusión)
+                    const bestMatch = findBestSession(group, clubId);
+                    if (bestMatch.clubs && bestMatch.clubs[clubId]) {
+                        const clubStats = {
+                            ...bestMatch.clubs[clubId],
+                            goals: String(aggregated.goals),
+                            goalsAgainst: String(aggregated.goalsAgainst)
+                        };
+                        await updateClubProfile(clubColl, clubId, team.name, clubStats, bestMatch);
+                    }
                 }
             }
         } catch (error) {
-            console.error(`[CRAWLER] Error procesando equipo ${team.name}:`, error);
+            console.error(`[CRAWLER] [${i}/${totalTeams}] Error procesando equipo ${team.name}:`, error);
         }
         if (onProgress) {
-            await Promise.resolve(onProgress(i, totalTeams, team.name)).catch(() => {});
+            await Promise.resolve(onProgress(i, totalTeams, team.name, matchesCount, newMatchesCount)).catch(() => {});
         }
     }
-    console.log('[CRAWLER] Recolección de estadísticas finalizada.');
-    return totalTeams;
+    console.log(`[CRAWLER] Recolección de estadísticas finalizada: ${totalTeams} equipos analizados, ${totalMatchesDiscovered} partidos en EA, ${totalNewMatchesSaved} nuevos guardados.`);
+    return {
+        totalTeams,
+        totalMatchesDiscovered,
+        totalNewMatchesSaved
+    };
     } finally {
         isCrawlerRunning = false;
     }
