@@ -1,5 +1,17 @@
 // src/utils/eaStatsFetcher.js
-import fetch from 'node-fetch';
+import { ProxyAgent } from 'undici';
+
+const proxyUrl = process.env.EA_PROXY_URL || process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+const proxyDispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
+if (proxyDispatcher) {
+    console.log('[EA FETCHER] 🌐 Proxy configurado para consultas en vivo a EA Sports.');
+}
+
+function getEaFetchOptions() {
+    const opts = { headers: EA_HEADERS };
+    if (proxyDispatcher) opts.dispatcher = proxyDispatcher;
+    return opts;
+}
 
 /**
  * Recolector de estadísticas de EA FC.
@@ -22,7 +34,7 @@ const EA_HEADERS = {
 export async function searchClub(clubName, platform = 'common-gen5') {
     try {
         const url = `https://proclubs.ea.com/api/fc/allTimeLeaderboard/search?clubName=${encodeURIComponent(clubName)}&platform=${platform}`;
-        const response = await fetch(url, { headers: EA_HEADERS });
+        const response = await fetch(url, getEaFetchOptions());
         if (!response.ok) throw new Error(`EA API responded with status ${response.status}`);
         return await response.json();
     } catch (error) {
@@ -48,7 +60,7 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
         const urlFriendly = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${clubIdA}&platform=${platform}&matchType=friendlyMatch`;
         
         const [resFriendly] = await Promise.all([
-            fetch(urlFriendly, { headers: EA_HEADERS }).catch(() => null)
+            fetch(urlFriendly, getEaFetchOptions()).catch(() => null)
         ]);
 
         let dataFriendly = [];
@@ -311,7 +323,7 @@ export async function fetchClubRosterHeights(clubId, platform = 'common-gen5') {
 
         for (const url of endpoints) {
             console.log(`[EA Heights] Trying: ${url}`);
-            const res = await fetch(url, { headers: EA_HEADERS }).catch(() => null);
+            const res = await fetch(url, getEaFetchOptions()).catch(() => null);
             if (res && res.ok) {
                 const data = await res.json().catch(() => null);
                 if (!data) continue;
@@ -369,7 +381,7 @@ export async function fetchClubRosterHeights(clubId, platform = 'common-gen5') {
         // Strategy 2: Fallback to match data - get last match players
         console.log('[EA Heights] Stats endpoints failed, falling back to match data...');
         const urlMatches = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${clubId}&platform=${platform}&matchType=friendlyMatch`;
-        const resMatches = await fetch(urlMatches, { headers: EA_HEADERS }).catch(() => null);
+        const resMatches = await fetch(urlMatches, getEaFetchOptions()).catch(() => null);
 
         if (resMatches && resMatches.ok) {
             let matchData = await resMatches.json().catch(() => []);
