@@ -46,6 +46,10 @@ async function runVpgCrawler(manual = false, onProgress = null) {
 
     console.log('[CRAWLER] ▶️ Iniciando recolección de estadísticas...');
 
+    if (mongoose.connection.readyState === 0) {
+        await mongoose.connect(process.env.DATABASE_URL);
+    }
+
     const db = getDb();
     if (!db) {
         console.error('[CRAWLER] No hay conexión a DB.');
