@@ -68,6 +68,10 @@ async function runVpgCrawler(manual = false, onProgress = null) {
         const clubId = team.eaClubId;
         console.log(`[CRAWLER] Procesando equipo: ${team.name} (ClubID: ${clubId})`);
 
+        if (i > 1) {
+            await new Promise(resolve => setTimeout(resolve, 250));
+        }
+
         try {
             // Normally competitive matches are friendlies or clubMatch
             const url = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${clubId}&platform=${platform}&matchType=friendlyMatch`;
