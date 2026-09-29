@@ -1,13 +1,22 @@
 import mongoose from 'mongoose';
+import { ProxyAgent } from 'undici';
 import { getBotSettings, getDb } from '../../database.js';
 import Team from '../vpg_bot/models/team.js';
 import { extractMatchInfo } from './matchUtils.js';
 
 const EA_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     "Accept": "application/json",
-    "Referer": "https://www.ea.com/"
+    "Origin": "https://www.ea.com",
+    "Referer": "https://www.ea.com/",
+    "Accept-Language": "es-ES,es;q=0.9,en;q=0.8"
 };
+
+const proxyUrl = process.env.EA_PROXY_URL || process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+const proxyDispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
+if (proxyDispatcher) {
+    console.log('[CRAWLER] 🌐 Proxy configurado para peticiones EA Sports.');
+}
 
 let isCrawlerRunning = false;
 
@@ -62,8 +71,13 @@ async function runVpgCrawler(manual = false, onProgress = null) {
         try {
             // Normally competitive matches are friendlies or clubMatch
             const url = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${clubId}&platform=${platform}&matchType=friendlyMatch`;
-            const res = await fetch(url, { headers: EA_HEADERS });
-            if (!res.ok) continue;
+            const fetchOptions = { headers: EA_HEADERS };
+            if (proxyDispatcher) fetchOptions.dispatcher = proxyDispatcher;
+            const res = await fetch(url, fetchOptions);
+            if (!res.ok) {
+                console.warn(`[CRAWLER] ❌ Error EA API HTTP ${res.status} ${res.statusText} para ${team.name} (ClubID: ${clubId})`);
+                continue;
+            }
 
             let matches = await res.json();
             if (!Array.isArray(matches)) {
