@@ -1,10 +1,21 @@
 // src/utils/eaStatsFetcher.js
 import { ProxyAgent } from 'undici';
 
-const proxyUrl = process.env.EA_PROXY_URL || process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
-const proxyDispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
-if (proxyDispatcher) {
-    console.log('[EA FETCHER] 🌐 Proxy configurado para consultas en vivo a EA Sports.');
+const rawProxyUrl = process.env.EA_PROXY_URL || process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+let proxyDispatcher = undefined;
+if (rawProxyUrl) {
+    let cleanUrl = String(rawProxyUrl).trim();
+    if (cleanUrl.startsWith('EA_PROXY_URL=')) {
+        cleanUrl = cleanUrl.replace(/^EA_PROXY_URL=/, '').trim();
+    }
+    cleanUrl = cleanUrl.replace(/^["']|["']$/g, '');
+    try {
+        new URL(cleanUrl);
+        proxyDispatcher = new ProxyAgent(cleanUrl);
+        console.log('[EA FETCHER] 🌐 Proxy configurado para consultas en vivo a EA Sports.');
+    } catch (err) {
+        console.error(`[EA FETCHER] ⚠️ Error al configurar proxy con URL "${cleanUrl}":`, err.message);
+    }
 }
 
 function getEaFetchOptions() {

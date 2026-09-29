@@ -12,10 +12,21 @@ const EA_HEADERS = {
     "Accept-Language": "es-ES,es;q=0.9,en;q=0.8"
 };
 
-const proxyUrl = process.env.EA_PROXY_URL || process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
-const proxyDispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : undefined;
-if (proxyDispatcher) {
-    console.log('[CRAWLER] 🌐 Proxy configurado para peticiones EA Sports.');
+const rawProxyUrl = process.env.EA_PROXY_URL || process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+let proxyDispatcher = undefined;
+if (rawProxyUrl) {
+    let cleanUrl = String(rawProxyUrl).trim();
+    if (cleanUrl.startsWith('EA_PROXY_URL=')) {
+        cleanUrl = cleanUrl.replace(/^EA_PROXY_URL=/, '').trim();
+    }
+    cleanUrl = cleanUrl.replace(/^["']|["']$/g, '');
+    try {
+        new URL(cleanUrl);
+        proxyDispatcher = new ProxyAgent(cleanUrl);
+        console.log('[CRAWLER] 🌐 Proxy configurado para peticiones EA Sports.');
+    } catch (err) {
+        console.error(`[CRAWLER] ⚠️ Error al inicializar proxy con URL "${cleanUrl}":`, err.message);
+    }
 }
 
 let isCrawlerRunning = false;
