@@ -269,6 +269,17 @@ export function generateBest11Embed(tournament, players) {
     }
 
     const bestDefs = defs.slice(0, 3);
+
+    // Ajuste puntual solicitado para blitz-289-g11: sustituir a Enekko por zzRaydenzz con sus estadísticas
+    if (tournament.shortId === 'blitz-289-g11') {
+        const enekkoIdx = bestDefs.findIndex(p => p.name?.toLowerCase().includes('enekko'));
+        if (enekkoIdx > -1) {
+            bestDefs[enekkoIdx] = {
+                ...bestDefs[enekkoIdx],
+                name: 'zzRaydenzz'
+            };
+        }
+    }
     const bestMeds = meds.slice(0, 3);
     const bestDcs = dcs.slice(0, 2);
     
