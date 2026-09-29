@@ -23,41 +23,29 @@ function drawCardShape(ctx, x, y, w, h, r = 12) {
 // ==========================================
 // === FONDO DE ESTADIO CON FOCOS Y CÉSPED ===
 // ==========================================
+// === FONDO DE ESTADIO CON CÉSPED VERDE Y FOCOS ===
+// ==========================================
 function drawStadiumPitch(ctx, w, h) {
-    // 1. Cielo nocturno con atmósfera
-    const sky = ctx.createLinearGradient(0, 0, 0, h);
-    sky.addColorStop(0, '#04070d');
-    sky.addColorStop(0.2, '#06111a');
-    sky.addColorStop(0.5, '#071a14');
-    sky.addColorStop(0.85, '#05110d');
-    sky.addColorStop(1, '#020508');
-    ctx.fillStyle = sky;
+    // 1. Marco exterior oscuro del estadio
+    ctx.fillStyle = '#080c14';
     ctx.fillRect(0, 0, w, h);
 
-    // 2. Focos de estadio en esquinas superiores (Glow)
-    const flareLeft = ctx.createRadialGradient(0, 0, 0, 0, 0, 550);
-    flareLeft.addColorStop(0, 'rgba(0, 220, 255, 0.16)');
-    flareLeft.addColorStop(0.5, 'rgba(0, 150, 255, 0.04)');
+    // 2. Focos de estadio en esquinas (Iluminación real)
+    const flareLeft = ctx.createRadialGradient(0, 0, 10, 0, 0, 600);
+    flareLeft.addColorStop(0, 'rgba(160, 230, 255, 0.35)');
+    flareLeft.addColorStop(0.3, 'rgba(80, 200, 240, 0.12)');
     flareLeft.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = flareLeft;
-    ctx.fillRect(0, 0, 600, 600);
+    ctx.fillRect(0, 0, 650, 650);
 
-    const flareRight = ctx.createRadialGradient(w, 0, 0, w, 0, 550);
-    flareRight.addColorStop(0, 'rgba(255, 215, 0, 0.14)');
-    flareRight.addColorStop(0.5, 'rgba(255, 180, 0, 0.03)');
+    const flareRight = ctx.createRadialGradient(w, 0, 10, w, 0, 600);
+    flareRight.addColorStop(0, 'rgba(255, 230, 150, 0.30)');
+    flareRight.addColorStop(0.3, 'rgba(255, 200, 100, 0.10)');
     flareRight.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = flareRight;
-    ctx.fillRect(w - 600, 0, 600, 600);
+    ctx.fillRect(w - 650, 0, 650, 650);
 
-    // Foco central suave (Spotlight)
-    const spot = ctx.createRadialGradient(w / 2, h * 0.45, 120, w / 2, h * 0.45, 680);
-    spot.addColorStop(0, 'rgba(20, 95, 58, 0.45)');
-    spot.addColorStop(0.5, 'rgba(10, 48, 30, 0.25)');
-    spot.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = spot;
-    ctx.fillRect(0, 0, w, h);
-
-    // 3. Campo de fútbol recortado y estilizado
+    // 3. Césped verde visible, vibrante y natural
     const pitchTop = 150;
     const pitchBottom = h - 110;
     const pitchLeft = 40;
@@ -66,29 +54,49 @@ function drawStadiumPitch(ctx, w, h) {
     const pitchH = pitchBottom - pitchTop;
     const midY = pitchTop + pitchH / 2;
 
-    // Base del campo con franjas de corte de césped
+    // Fondo base del césped (verde auténtico, no negro)
+    const grassGrad = ctx.createLinearGradient(0, pitchTop, 0, pitchBottom);
+    grassGrad.addColorStop(0, '#1c5e2d');
+    grassGrad.addColorStop(0.5, '#267d3c');
+    grassGrad.addColorStop(1, '#1b5629');
+    ctx.fillStyle = grassGrad;
+    ctx.fillRect(pitchLeft, pitchTop, pitchW, pitchH);
+
+    // Franjas de corte de césped con verde alterno claro/oscuro
     const stripesCount = 10;
     const stripeW = pitchW / stripesCount;
     for (let s = 0; s < stripesCount; s++) {
-        ctx.fillStyle = (s % 2 === 0) ? 'rgba(14, 56, 32, 0.45)' : 'rgba(11, 46, 26, 0.45)';
+        if (s % 2 === 0) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.07)';
+        } else {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.08)';
+        }
         ctx.fillRect(pitchLeft + s * stripeW, pitchTop, stripeW, pitchH);
     }
 
-    // Viñeta interior del campo
-    const pitchVignette = ctx.createLinearGradient(0, pitchTop, 0, pitchBottom);
-    pitchVignette.addColorStop(0, 'rgba(0, 0, 0, 0.4)');
-    pitchVignette.addColorStop(0.2, 'rgba(0, 0, 0, 0)');
-    pitchVignette.addColorStop(0.8, 'rgba(0, 0, 0, 0)');
-    pitchVignette.addColorStop(1, 'rgba(0, 0, 0, 0.5)');
-    ctx.fillStyle = pitchVignette;
+    // Foco de luz sobre el centro del campo
+    const centerSpotlight = ctx.createRadialGradient(w / 2, midY, 80, w / 2, midY, 500);
+    centerSpotlight.addColorStop(0, 'rgba(255, 255, 255, 0.14)');
+    centerSpotlight.addColorStop(0.7, 'rgba(255, 255, 255, 0.02)');
+    centerSpotlight.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
+    ctx.fillStyle = centerSpotlight;
     ctx.fillRect(pitchLeft, pitchTop, pitchW, pitchH);
 
-    // Líneas del campo con brillo
+    // Sombra perimetral suave del campo
+    const edgeShadow = ctx.createLinearGradient(0, pitchTop, 0, pitchBottom);
+    edgeShadow.addColorStop(0, 'rgba(0, 0, 0, 0.35)');
+    edgeShadow.addColorStop(0.08, 'rgba(0, 0, 0, 0)');
+    edgeShadow.addColorStop(0.92, 'rgba(0, 0, 0, 0)');
+    edgeShadow.addColorStop(1, 'rgba(0, 0, 0, 0.45)');
+    ctx.fillStyle = edgeShadow;
+    ctx.fillRect(pitchLeft, pitchTop, pitchW, pitchH);
+
+    // 4. Líneas de campo nítidas, blancas y brillantes
     ctx.save();
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.22)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
     ctx.lineWidth = 2.5;
-    ctx.shadowColor = 'rgba(255, 255, 255, 0.4)';
-    ctx.shadowBlur = 6;
+    ctx.shadowColor = 'rgba(255, 255, 255, 0.5)';
+    ctx.shadowBlur = 5;
 
     // Borde exterior
     ctx.strokeRect(pitchLeft, pitchTop, pitchW, pitchH);
@@ -105,7 +113,7 @@ function drawStadiumPitch(ctx, w, h) {
     ctx.stroke();
 
     // Punto central
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.fillStyle = '#ffffff';
     ctx.beginPath();
     ctx.arc(w / 2, midY, 5, 0, Math.PI * 2);
     ctx.fill();

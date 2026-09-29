@@ -191,11 +191,11 @@ export function generateBest11Embed(tournament, players) {
     }
 
     // Fórmulas de puntuación diferenciadas por línea
-    const getGkScore = (p) => (p.avgRating * 3) + (p.cleanSheets * 3) - (p.goalsConceded * 0.5) + (p.saves * 0.2);
-    const getDefScore = (p) => (p.avgRating * 3) + (p.cleanSheets * 2) + (p.goals * 0.5) + (p.assists * 0.5);
-    const getMedScore = (p) => (p.avgRating * 2) + (p.assists * 1.5) + (p.goals * 1) + (p.mom * 1);
-    const getCarrScore = (p) => (p.avgRating * 2) + (p.assists * 1.5) + (p.goals * 1) + (p.mom * 1);
-    const getDcScore = (p) => (p.avgRating * 2) + (p.goals * 2) + (p.assists * 1) + (p.mom * 1);
+    const getGkScore = (p) => (p.avgRating * 3) + (p.cleanSheets * 4) - (p.goalsConceded * 0.5) + (p.saves * 0.2);
+    const getDefScore = (p) => (p.avgRating * 3) + (p.cleanSheets * 3) + (p.goals * 1) + (p.assists * 1);
+    const getMedScore = (p) => (p.avgRating * 2) + (p.assists * 2) + (p.goals * 1.5) + (p.mom * 1);
+    const getCarrScore = (p) => (p.avgRating * 2) + (p.cleanSheets * 2) + (p.assists * 2) + (p.goals * 1.5) + (p.mom * 1);
+    const getDcScore = (p) => (p.avgRating * 2) + (p.goals * 3) + (p.assists * 1.5) + (p.mom * 1);
 
     gks.sort((a, b) => getGkScore(b) - getGkScore(a));
     defs.sort((a, b) => getDefScore(b) - getDefScore(a));
@@ -203,29 +203,8 @@ export function generateBest11Embed(tournament, players) {
     carrs.sort((a, b) => getCarrScore(b) - getCarrScore(a));
     dcs.sort((a, b) => getDcScore(b) - getDcScore(a));
 
-    // Formación 3-5-2 (1 GK, 3 DEF, 3 MED, 2 CARR, 2 DC)
-    const bestGk = gks.slice(0, 1);
-    const bestDefs = defs.slice(0, 3);
-    const bestMeds = meds.slice(0, 3);
-    const bestDcs = dcs.slice(0, 2);
-    
-    let bestCarrs = carrs.slice(0, 2);
-    
-    // Fallback: Si no hay carrileros suficientes (por limitaciones de EA API), rellenar con los siguientes mejores DC o MED
-    let remainingDcs = dcs.slice(2);
-    let remainingMeds = meds.slice(3);
-    while (bestCarrs.length < 2) {
-        if (remainingDcs.length > 0) {
-            bestCarrs.push(remainingDcs.shift());
-        } else if (remainingMeds.length > 0) {
-            bestCarrs.push(remainingMeds.shift());
-        } else {
-            break;
-        }
-    }
-
-    // Calcular Premios Individuales
-    const validPlayers = players.filter(p => p.gamesPlayed >= 1); // Mínimo de partidos
+    // Calcular Premios Individuales primero para coherencia total
+    const validPlayers = players.filter(p => p.gamesPlayed >= 1);
     const sortedByGoals = [...validPlayers].sort((a, b) => b.goals - a.goals || b.avgRating - a.avgRating);
     const topScorer = sortedByGoals[0];
 
@@ -238,11 +217,75 @@ export function generateBest11Embed(tournament, players) {
     // Portero menos goleado (Zamora) -> mínimo 1 partido, más clean sheets, menos goalsConceded
     const validGks = gks.filter(p => p.gamesPlayed >= 1);
     const sortedGks = [...validGks].sort((a, b) => {
-        // Orden: Clean sheets DESC, Goals Conceded ASC
         if (b.cleanSheets !== a.cleanSheets) return b.cleanSheets - a.cleanSheets;
         return a.goalsConceded - b.goalsConceded;
     });
     const zamora = sortedGks[0];
+
+    // Formación 3-5-2 (1 GK, 3 DEF, 3 MED, 2 CARR, 2 DC)
+    // El Zamora siempre es el portero del Mejor 11 si existe
+    const bestGk = [zamora || gks[0]].filter(Boolean);
+
+    // Asegurar que el Pichichi (Bota de Oro) esté en el Mejor 11
+    if (topScorer && topScorer.goals > 0) {
+        const topScorerCat = categorizePosition(topScorer.pos);
+        if (topScorerCat === 'DC') {
+            const idx = dcs.findIndex(p => p.name === topScorer.name);
+            if (idx > -1) {
+                dcs.splice(idx, 1);
+                dcs.unshift(topScorer);
+            }
+        }
+    }
+
+    // Asegurar que el MVP esté en el Mejor 11 en su categoría
+    if (mvp) {
+        const mvpCat = categorizePosition(mvp.pos);
+        if (mvpCat === 'MED') {
+            const idx = meds.findIndex(p => p.name === mvp.name);
+            if (idx > -1) {
+                meds.splice(idx, 1);
+                meds.unshift(mvp);
+            }
+        } else if (mvpCat === 'DC') {
+            const idx = dcs.findIndex(p => p.name === mvp.name);
+            if (idx > -1) {
+                dcs.splice(idx, 1);
+                dcs.unshift(mvp);
+            }
+        }
+    }
+
+    // Asegurar que el Máximo Asistente esté en el Mejor 11 si es MED
+    if (topAssister && topAssister.assists > 0) {
+        const astCat = categorizePosition(topAssister.pos);
+        if (astCat === 'MED') {
+            const idx = meds.findIndex(p => p.name === topAssister.name);
+            if (idx > 2) {
+                meds.splice(idx, 1);
+                meds.splice(1, 0, topAssister);
+            }
+        }
+    }
+
+    const bestDefs = defs.slice(0, 3);
+    const bestMeds = meds.slice(0, 3);
+    const bestDcs = dcs.slice(0, 2);
+    
+    let bestCarrs = carrs.slice(0, 2);
+    
+    // Fallback: Si no hay carrileros suficientes, rellenar con los siguientes mejores DC o MED
+    let remainingDcs = dcs.slice(2);
+    let remainingMeds = meds.slice(3);
+    while (bestCarrs.length < 2) {
+        if (remainingDcs.length > 0) {
+            bestCarrs.push(remainingDcs.shift());
+        } else if (remainingMeds.length > 0) {
+            bestCarrs.push(remainingMeds.shift());
+        } else {
+            break;
+        }
+    }
 
     const formatPlayer = (p) => `**${p.name}** (⭐ ${p.avgRating.toFixed(1)})`;
 

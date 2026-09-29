@@ -228,9 +228,12 @@ export async function fetchAndAggregateStats(clubIdA, clubIdB, platform = 'commo
                 // Asignar el rating de la sesión más larga
                 p.ratingSum = p._bestRating || 0;
                 
-                // Para porteros, calcular cleanSheets y goalsConceded basados en el partido completo
+                // Para porteros y defensas/carrileros, calcular cleanSheets y goalsConceded basados en el partido completo
                 const posLower = p.pos.toLowerCase();
-                if (posLower.includes('goalkeeper') || posLower.includes('gk') || posLower === 'portero' || posLower === 'por') {
+                const isGk = posLower.includes('goalkeeper') || posLower.includes('gk') || posLower === 'portero' || posLower === 'por';
+                const isDef = posLower.includes('def') || posLower.includes('dfc') || posLower === 'ld' || posLower === 'li' || posLower === 'cad' || posLower === 'cai' || posLower === 'carr';
+
+                if (isGk || isDef) {
                     p.goalsConceded = teamGoalsAgainst;
                     p.cleanSheets = teamGoalsAgainst === 0 ? 1 : 0;
                 } else {
