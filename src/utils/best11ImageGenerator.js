@@ -20,6 +20,12 @@ function drawCardShape(ctx, x, y, w, h, r = 12) {
     ctx.closePath();
 }
 
+function isValidLogoUrl(url) {
+    if (!url || typeof url !== 'string') return false;
+    if (url.includes('2M7540p.png') || url.includes('V4J2Fcf.png') || url.includes('default_logo')) return false;
+    return true;
+}
+
 // ==========================================
 // === FONDO DE ESTADIO CON FOCOS Y CÉSPED ===
 // ==========================================
@@ -242,8 +248,7 @@ async function drawFutCard(ctx, cx, cy, player, posLabel) {
     ctx.beginPath();
     ctx.arc(logoX + logoSize/2, logoY + logoSize/2, 28, 0, Math.PI * 2);
     ctx.fill();
-
-    if (player.teamLogo && !player.teamLogo.includes('2M7540p.png') && !player.teamLogo.includes('default_logo')) {
+    if (isValidLogoUrl(player.teamLogo)) {
         try {
             const img = await loadImage(player.teamLogo);
             ctx.drawImage(img, logoX, logoY, logoSize, logoSize);
@@ -630,7 +635,7 @@ export async function generateAwardsImage(tournamentName, awards) {
         const logoX = cardX + 125;
         const logoY = cardY + (cardH - logoSize) / 2;
 
-        if (item.player && item.player.teamLogo && !item.player.teamLogo.includes('2M7540p.png') && !item.player.teamLogo.includes('default_logo')) {
+        if (item.player && isValidLogoUrl(item.player.teamLogo)) {
             try {
                 const img = await loadImage(item.player.teamLogo);
                 ctx.drawImage(img, logoX, logoY, logoSize, logoSize);

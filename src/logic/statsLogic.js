@@ -17,7 +17,7 @@ export async function getTournamentPlayersStats(tournament) {
             let finalLogo = teamLogo;
             
             // Prioridad de logo: 1) Logo puesto por el manager en Discord, 2) Escudo EA Sports como fallback
-            if (!finalLogo || finalLogo.includes('2M7540p.png') || finalLogo.includes('default_logo')) {
+            if (!finalLogo || finalLogo.includes('2M7540p.png') || finalLogo.includes('V4J2Fcf.png') || finalLogo.includes('default_logo')) {
                 // Sin logo propio: intentar con el cache de la BD
                 if (teamMetadataCache[eaClubId] && teamMetadataCache[eaClubId].logoUrl) {
                     finalLogo = teamMetadataCache[eaClubId].logoUrl;
