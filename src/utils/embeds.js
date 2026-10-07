@@ -63,15 +63,21 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
                 new ButtonBuilder().setCustomId('create_flexible_league_start').setLabel('Crear Liguilla Flexible').setStyle(ButtonStyle.Primary).setEmoji('🔗').setDisabled(isBusy),
                 new ButtonBuilder().setCustomId('admin_distribute_whatsapp_start').setLabel('Distribuir WA').setStyle(ButtonStyle.Secondary).setEmoji('📋').setDisabled(isBusy)
             );
+            const tournamentToolsRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('admin_regenerate_panel_start').setLabel('Regenerar Panel').setStyle(ButtonStyle.Danger).setEmoji('🔄').setDisabled(isBusy)
+            );
+            components.push(tournamentActionsRow, tournamentToolsRow, backButtonRow);
+            break;
+
+        case 'pools':
+        case 'bolsas':
+            embed.setTitle('Gestión de Bolsas de Inscripción');
             const poolActionsRow = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('admin_create_pool_start').setLabel('Crear Bolsa').setStyle(ButtonStyle.Primary).setEmoji('📦').setDisabled(isBusy),
                 new ButtonBuilder().setCustomId('admin_list_pools').setLabel('Gestionar Bolsas').setStyle(ButtonStyle.Secondary).setEmoji('🗂️').setDisabled(isBusy),
                 new ButtonBuilder().setCustomId('admin_pool_to_tournament').setLabel('Usar Bolsa en Torneo').setStyle(ButtonStyle.Success).setEmoji('🎯').setDisabled(isBusy)
             );
-            const tournamentToolsRow = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('admin_regenerate_panel_start').setLabel('Regenerar Panel').setStyle(ButtonStyle.Danger).setEmoji('🔄').setDisabled(isBusy)
-            );
-            components.push(tournamentActionsRow, poolActionsRow, tournamentToolsRow, backButtonRow);
+            components.push(poolActionsRow, backButtonRow);
             break;
 
         case 'drafts':
@@ -115,13 +121,16 @@ export async function createGlobalAdminPanel(view = 'main', isBusy = false) {
                     ? '🔴 **ESTADO: OCUPADO**\nEl bot está realizando una tarea crítica. Por favor, espera.'
                     : `${systemActive ? '✅' : '⛔'} **ESTADO: ${systemActive ? 'LISTO' : 'SISTEMA DESACTIVADO'}**\nTraducción: **${translationEnabled ? 'ACTIVADA' : 'DESACTIVADA'}** | Twitter: **${twitterEnabled ? 'ACTIVADO' : 'DESACTIVADO'}**`
                 );
-            const mainRow = new ActionRowBuilder().addComponents(
+            const mainRow1 = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('admin_panel_tournaments').setLabel('Gestionar Torneos').setStyle(ButtonStyle.Success).setEmoji('🏆'),
                 new ButtonBuilder().setCustomId('admin_panel_drafts').setLabel('Gestionar Drafts').setStyle(ButtonStyle.Primary).setEmoji('📝'),
+                new ButtonBuilder().setCustomId('admin_panel_pools').setLabel('Gestionar Bolsas').setStyle(ButtonStyle.Primary).setEmoji('📦')
+            );
+            const mainRow2 = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('admin_panel_settings').setLabel('Ajustes Globales').setStyle(ButtonStyle.Secondary).setEmoji('⚙️'),
                 new ButtonBuilder().setCustomId('admin_panel_manual_results').setLabel('Gestionar Resultados Manuales').setStyle(ButtonStyle.Danger).setEmoji('🛠️')
             );
-            components.push(mainRow);
+            components.push(mainRow1, mainRow2);
             break;
     }
 
