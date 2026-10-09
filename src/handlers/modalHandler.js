@@ -17,6 +17,7 @@ import { parseExternalDraftWhatsappList } from '../utils/textParser.js';
 import { parseWhatsAppList, matchTeamsToDatabase, distributeByElo } from '../logic/whatsappDistributor.js';
 import { generateExcelImage } from '../utils/twitter.js';
 import { scheduleRegistrationListUpdate } from '../utils/registrationListManager.js';
+import { getEaFetchOptions } from '../utils/eaStatsFetcher.js';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
@@ -3983,14 +3984,7 @@ Mitad Inferior: **${newLeague.bottom_half > 0 ? '+'+newLeague.bottom_half : newL
         }
 
         try {
-            const eaRes = await fetch(`https://proclubs.ea.com/api/fc/allTimeLeaderboard/search?clubName=${encodeURIComponent(eaClubName)}&platform=${eaPlatform}`, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                    'Accept': 'application/json',
-                    'Origin': 'https://www.ea.com',
-                    'Referer': 'https://www.ea.com/'
-                }
-            });
+            const eaRes = await fetch(`https://proclubs.ea.com/api/fc/allTimeLeaderboard/search?clubName=${encodeURIComponent(eaClubName)}&platform=${eaPlatform}`, getEaFetchOptions());
 
             if (eaRes.status === 404) {
                 return interaction.editReply({ content: '❌ EA Sports no encontró ningún club con ese nombre en esta plataforma (Error 404). Asegúrate de escribir el nombre **exacto**.' });

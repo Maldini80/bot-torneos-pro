@@ -25,6 +25,7 @@ import ExcelJS from 'exceljs';
 import { setBotBusy } from '../../index.js';
 import { updateMatchThreadName, inviteUserToMatchThread } from '../utils/tournamentUtils.js';
 import { createRegistrationListChannel, deleteRegistrationListChannel, scheduleRegistrationListUpdate, forceRefreshRegistrationList } from '../utils/registrationListManager.js';
+import { getEaFetchOptions } from '../utils/eaStatsFetcher.js';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
@@ -3002,7 +3003,7 @@ export async function handleButton(interaction) {
         const fetchTeamScout = async (clubId, platform) => {
             // 1. Fetch matches para saber quién jugó el último partido (así filtramos a los suplentes/gente offline)
             const urlMatches = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${clubId}&platform=${platform}&matchType=friendlyMatch`;
-            const resMatches = await fetch(urlMatches, { headers }).catch(() => null);
+            const resMatches = await fetch(urlMatches, getEaFetchOptions()).catch(() => null);
             let playedNames = [];
             if (resMatches && resMatches.ok) {
                 const dataM = await resMatches.json().catch(() => []);
@@ -3018,7 +3019,7 @@ export async function handleButton(interaction) {
 
             // 2. Fetch stats para sacar las alturas
             const urlStats = `https://proclubs.ea.com/api/fc/members/stats?clubIds=${clubId}&platform=${platform}`;
-            const resStats = await fetch(urlStats, { headers }).catch(() => null);
+            const resStats = await fetch(urlStats, getEaFetchOptions()).catch(() => null);
             let members = [];
             if (resStats && resStats.ok) {
                 const dataS = await resStats.json().catch(() => ({}));

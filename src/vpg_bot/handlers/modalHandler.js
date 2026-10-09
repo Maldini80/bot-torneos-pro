@@ -667,14 +667,8 @@ if (customId.startsWith('manager_request_modal_')) {
         }
 
         try {
-            const eaRes = await fetch(`https://proclubs.ea.com/api/fc/allTimeLeaderboard/search?clubName=${encodeURIComponent(eaClubName)}&platform=${eaPlatform}`, {
-                headers: {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': 'application/json',
-                    'Origin': 'https://www.ea.com',
-                    'Referer': 'https://www.ea.com/'
-                }
-            });
+            const { getEaFetchOptions } = await import('../../utils/eaStatsFetcher.js');
+            const eaRes = await fetch(`https://proclubs.ea.com/api/fc/allTimeLeaderboard/search?clubName=${encodeURIComponent(eaClubName)}&platform=${eaPlatform}`, getEaFetchOptions());
 
             if (eaRes.status === 404) {
                 return interaction.editReply({ content: '❌ EA Sports no encontró ningún club con ese nombre en esta plataforma (Error 404). Por favor, asegúrate de escribir el nombre **exacto**.' });

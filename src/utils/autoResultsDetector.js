@@ -2,6 +2,7 @@
 import { getDb } from '../../database.js';
 import { extractMatchInfo, mergeSessions } from './matchUtils.js';
 import { processMatchResult, finalizeMatchThread } from '../logic/matchLogic.js';
+import { getEaFetchOptions } from './eaStatsFetcher.js';
 
 const EA_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
@@ -225,7 +226,7 @@ async function fetchMatchData(client, tournament, partido, eaCache) {
     } else {
         const url = `https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${clubIdA}&platform=${platform}&matchType=friendlyMatch`;
         try {
-            const res = await fetch(url, { headers: EA_HEADERS });
+            const res = await fetch(url, getEaFetchOptions());
             if (!res.ok) return null;
             matches = await res.json();
             if (!Array.isArray(matches)) {

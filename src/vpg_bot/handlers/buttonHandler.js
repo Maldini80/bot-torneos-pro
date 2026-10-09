@@ -1656,9 +1656,11 @@ const handler = async (client, interaction) => {
             const currentSchema = {};
             const errors = [];
 
+            const { getEaFetchOptions } = await import('../../utils/eaStatsFetcher.js');
+
             // 1. Partidos
             try {
-                const res = await fetch(`https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${clubId}&platform=${platform}&matchType=friendlyMatch`, { headers: EA_HEADERS });
+                const res = await fetch(`https://proclubs.ea.com/api/fc/clubs/matches?clubIds=${clubId}&platform=${platform}&matchType=friendlyMatch`, getEaFetchOptions());
                 if (res.ok) {
                     let data = await res.json();
                     if (!Array.isArray(data)) data = Object.values(data || {});
@@ -1691,7 +1693,7 @@ const handler = async (client, interaction) => {
 
             // 3. Info del Club
             try {
-                const res = await fetch(`https://proclubs.ea.com/api/fc/clubs/info?clubIds=${clubId}&platform=${platform}`, { headers: EA_HEADERS });
+                const res = await fetch(`https://proclubs.ea.com/api/fc/clubs/info?clubIds=${clubId}&platform=${platform}`, getEaFetchOptions());
                 if (res.ok) {
                     const data = await res.json();
                     const info = data[String(clubId)] || Object.values(data)[0];
@@ -1701,7 +1703,7 @@ const handler = async (client, interaction) => {
 
             // 4. Leaderboard / Búsqueda
             try {
-                const res = await fetch(`https://proclubs.ea.com/api/fc/allTimeLeaderboard/search?clubName=${encodeURIComponent(refTeam.eaClubName || refTeam.name)}&platform=${platform}`, { headers: EA_HEADERS });
+                const res = await fetch(`https://proclubs.ea.com/api/fc/allTimeLeaderboard/search?clubName=${encodeURIComponent(refTeam.eaClubName || refTeam.name)}&platform=${platform}`, getEaFetchOptions());
                 if (res.ok) {
                     let data = await res.json();
                     if (!Array.isArray(data)) data = Object.values(data || {});

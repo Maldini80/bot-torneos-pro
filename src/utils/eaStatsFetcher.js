@@ -18,24 +18,20 @@ if (rawProxyUrl) {
     }
 }
 
-function getEaFetchOptions() {
-    const opts = { headers: EA_HEADERS };
-    if (proxyDispatcher) opts.dispatcher = proxyDispatcher;
-    return opts;
-}
-
-/**
- * Recolector de estadísticas de EA FC.
- * Se encarga de conectarse a la API pública de Pro Clubs para descargar
- * el historial de partidos y agregar estadísticas de múltiples sesiones si hubo desconexiones.
- */
-
-const EA_HEADERS = {
+export const EA_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
     'Accept': 'application/json',
     'Origin': 'https://www.ea.com',
     'Referer': 'https://www.ea.com/'
 };
+
+export { proxyDispatcher };
+
+export function getEaFetchOptions() {
+    const opts = { headers: EA_HEADERS };
+    if (proxyDispatcher) opts.dispatcher = proxyDispatcher;
+    return opts;
+}
 
 /**
  * Busca clubes en EA FC.

@@ -20,6 +20,7 @@ import { processMatchResult, finalizeMatchThread, findMatch } from './src/logic/
 import { getLeagueByElo, LEAGUE_EMOJIS } from './src/logic/eloLogic.js';
 import { createPoolEmbed } from './src/utils/embeds.js';
 import { scheduleRegistrationListUpdate } from './src/utils/registrationListManager.js';
+import { getEaFetchOptions } from './src/utils/eaStatsFetcher.js';
 import { rebuildStatus, syncFantasyWithVpg, generateRandomSquadForTeam, generateMarketFreeAgentsPool, mergePlayerProfiles, runMarketAutomation } from './src/utils/fantasyVpgSync.js';
 import { getMadridTime } from './src/utils/timeHelper.js';
 
@@ -1770,14 +1771,7 @@ app.get('/api/ea/search', async (req, res) => {
     else if (rawPlatform === 'antigua') platform = 'common-gen4';
 
     try {
-        const eaRes = await fetch(`https://proclubs.ea.com/api/fc/allTimeLeaderboard/search?clubName=${encodeURIComponent(query)}&platform=${platform}`, {
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Accept': 'application/json',
-                'Origin': 'https://www.ea.com',
-                'Referer': 'https://www.ea.com/'
-            }
-        });
+        const eaRes = await fetch(`https://proclubs.ea.com/api/fc/allTimeLeaderboard/search?clubName=${encodeURIComponent(query)}&platform=${platform}`, getEaFetchOptions());
         
         if (eaRes.status === 404) return res.json({ clubs: [] });
         if (!eaRes.ok) throw new Error(`EA API responded with status: ${eaRes.status}`);
